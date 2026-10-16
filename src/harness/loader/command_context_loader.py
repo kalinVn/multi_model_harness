@@ -12,15 +12,16 @@ def get_command_message_obj(
     command_loader: CommandLoader,
 ) -> Message:
 
-    # Find the command file path by name. For input "test_write_file", the
-    # result is the path to "test_write_file.md". Raise an error if no match exists.
+    # Намира пътя до файла на командата по нейното име. Пример: вход "test_write_file",
+    #Пример резултат — път до файла "test_write_file.md".
+    # Ако не намери съвпадение, вдига грешка
     command_path = command_resolver.resolve(command_name)
 
     args = {
         "path": str(command_path),
     }
 
-    # Read the command Markdown file, for example test_write_file.md.
+    # Прочита съдържанието на Markdown файла (.md) на командата, например test_write_file.md.
     read_file_content = tool_registry.execute("read_file", args)
 
     command_obj = command_loader.get_command_object(read_file_content)

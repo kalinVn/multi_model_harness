@@ -11,25 +11,28 @@ class ParsedCommand:
 
 
 def parse_command(text: str) -> ParsedCommand | None:
-    """Parse input text into a command name and its arguments.
+    """Парсва входния текст и връща ParsedCommand с името
+    на командата и нейните аргументи.
 
-    Example input: "execute command read_file test.txt"
-    Result: ParsedCommand(name="read_file", arguments=["test.txt"])
+    Пример:
+    Вход:  "execute command read_file test.txt"
+    Изход: ParsedCommand(name="read_file", arguments=["test.txt"])
     """
 
-    # Normalize input by removing leading and trailing whitespace.
+    #  # Нормализира входния текст, като премахва празните символи в началото и края. Пример: Вход: "execute command read_file text.txt"
+    # резултат: "execute command read_file text.txt", без начални и крайни интервали.
 
     normalized_command_text = text.strip()
 
 
-    # Continue only when normalized input starts with COMMAND_PREFIX.
-    # For example, accept "execute command read_file text.txt" but return None
-    # for "read_file text.txt".
+    # проверява дали нормализираният текст започва с COMMAND_PREFIX — например, "execute command".
+    # Пример: ако входът е "execute command read_file text.txt", продължаваме напред.
+    # Ако входът е "read_file text.txt", връщаме None.
     if not normalized_command_text.lower().startswith(COMMAND_PREFIX):
         return None
 
-    # Remove COMMAND_PREFIX and trim the remaining text. For example,
-    # "execute command read_file test.txt" becomes "read_file test.txt".
+     # премахва COMMAND_PREFIX от началото на текста... и изчиства празните символи.
+    # " Пример: "execute command read_file test.txt", става "read_file test.txt
     command_name = normalized_command_text[len(COMMAND_PREFIX):].strip()
 
     if not command_name:
@@ -37,11 +40,13 @@ def parse_command(text: str) -> ParsedCommand | None:
 
     parts = command_name.split()
 
-    # Create a ParsedCommand containing the command name and all arguments.
-    # ParsedCommand only stores this data; it does not execute the command.
+    # Създава обект ParsedCommand, който съдържа име на командата и списък с аргументи.
+    # Ако има повече аргументи, те всички влизат в списъка arguments.
+    # Важно: ParsedCommand само съхранява тези данни, не изпълнява командата.
 
-    # Example input: "execute command write_file test1.txt test2.txt test3.txt"
-    # Result: name="write_file" and arguments=["test1.txt", "test2.txt", "test3.txt"].
+    # Пример: вход "execute command write_file test1.txt test2 test3.txt", след сплит получаваш
+    # write_file test1 test2 test3.
+    # ParsedCommand ще създаде обект с name="write_file" и arguments=[ "test1.txt", "test2.txt", "test3.txt"]
                                                                     
     return ParsedCommand(
         name=parts[0],

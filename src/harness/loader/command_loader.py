@@ -21,7 +21,7 @@ class CommandLoader:
                 "Command must contain a '# Description' section."
             )
 
-        # Extract all sections except "Name" and "Description".
+        #"Извличаме всички секции без 'Name' и 'Description'.
         extra_sections = {
             key: value
             for key, value in file_command_sections.items()
@@ -54,26 +54,29 @@ class CommandLoader:
         sections: dict[str, list[str]] = {}
         current_section: str | None = None
 
-        # Split the text content into individual lines.
-        # Example: content = "apple\nbanana"
-        # content.splitlines() -> ["apple", "banana"]
+        # Разделяме съдържанието на текста на отделни редове чрез splitlines().
+        # Пример:
+        # content = "ябълка\nбанан"
+        # content.splitlines() -> ["ябълка", "банан"]
         file_lines = content.splitlines()
 
-        # Remove empty or whitespace-only strings from the list.
-        # Example: ["apple", "", "banana", "  "] becomes
-        # ["apple", "banana"].
+        # Split-ваме масива и махаме празните стрингове от тип "", "  "
+        # Пример ако content.splitlines() =  ["ябълка","","банан", "  "]
+        # със file_lines = [line for line in file_lines if line.strip()]
+        # става на ["ябълка", "банан"]
         file_lines = [line for line in file_lines if line.strip()]
 
         for line in file_lines:
-            # A line starting with "# ", such as "# name", begins a new
-            # section named "name".
+            #"Ако редът започва с '# ', например '# name', това означава,
+            # че започва нова секция с име 'name'."
             if line.startswith("# "):
                 current_section = line[2:].strip()
                 sections[current_section] = []
                 continue
 
-            # A line that does not start with "# " belongs to the current section.
-            # For example, if current_section = "name":
+            #"Ако редът не започва с '# ', например 'test-write-file', това означава,
+            # че новата секция с key current_section добавя линията към нея"
+            # пример ако current_section = name
             # sections['name'].append('test-write-file')
             if current_section is not None:
                 sections[current_section].append(line)

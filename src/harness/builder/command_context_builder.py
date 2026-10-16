@@ -1,14 +1,14 @@
 from harness.domain.command import Command
 
-# Takes a Command object with name, description, and sections fields.
-# Builds the text context passed to the LLM from those fields.
+# Взима създадения Command обект с полетата name, description и sections.
+# Изгражда от тях текстов контекст, който се подава към LLM модела.
 #
-# Example input Command object:
+# Пример за входен Command обект:
 # name = "write_file"
 # description = "Creates a new file"
 # sections = {"Usage": "write_file path content"}
 #
-# The result is a single formatted string:
+# Резултатът е един форматиран текст:
 # Name: write_file
 # Description: Creates a new file
 # Usage: write_file path content

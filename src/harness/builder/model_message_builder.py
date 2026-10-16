@@ -22,10 +22,22 @@ class ModelMessageBuilder:
         command_service: CommandService,
         include_tools: bool = True,
     ) -> list[Message]:
-        """Build the complete message list for the next model request."""
+        """Добавя системно съобщение само за текущия ход, което указва на модела как да форматира
+        финалния отговор при команда. Това съобщение не се записва в историята на сесията и важи
+        само за конкретното извикване.
+        Може да добавим – например, при команда за създаване на файл, инструктираме модела
+        финалният отговор да е JSON с полета answer и command_summary. Това важи само за този ход
+        и не променя историята.
+        """
         response_format_instruction: list[Message] = []
         command_message = None
 
+        # Добавяме системно съобщение само за текущия ход, което указва на модела как да форматира
+        # финалния отговор при команда. Това съобщение не се записва в историята на сесията и важи
+        # само за конкретното извикване.
+        # Може да добавим – например, при команда за създаване на файл, инструктираме модела
+        # финалният отговор да е JSON с полета answer и command_summary. Това важи само за този ход
+        # и не променя историята.
         if parsed_command is not None:
             response_format_instruction.append(
                 build_command_response_format_context()
@@ -54,11 +66,13 @@ class ModelMessageBuilder:
         return model_messages
 
     def compose_model_messages(self, messages: list[Message]) -> list[Message]:
-        """Prepare model context from all session messages.
+        """Обхожда всички съобщения и подготвя контекста за модела.
 
-        For messages with tool results, use summaries when available and full
-        output otherwise. Collect result IDs without summaries and add model
-        instructions for summarizing them. Session messages remain unchanged.
+        За съобщенията с tool_results използва summary, ако съществува,
+        или пълния output, ако липсва.
+        Събира ID-тата на tool results без summary и добавя
+        инструкции към модела за тяхното обобщаване.
+        Не променя оригиналните съобщения от сесията.
         """
         model_messages: list[Message] = []
 
@@ -79,9 +93,9 @@ class ModelMessageBuilder:
         model_messages: list[Message],
         tool_result_output_requests: list[str],
     ) -> list[Message]:
-        """Expose only explicitly requested full tool outputs.
+        """Обновява само контекстите с изрично поискани пълни tool outputs.
 
-        The original session messages remain unchanged.
+        Оригиналните съобщения от сесията остават непроменени.
         """
         if not tool_result_output_requests:
             return model_messages
@@ -116,12 +130,15 @@ class ModelMessageBuilder:
         messages: list[Message],
         model_messages: list[Message],
     ) -> list[str]:
-        """Add processed messages and collect IDs that need summaries.
+        """Обхожда всички съобщения и проверява дали съдържат tool_results.
 
-        For each tool result, use its valid summary when present. Otherwise,
-        use the full output and collect its ID for later summarization.
-        Messages without tool results are added unchanged. Original session
-        messages are not modified.
+        Ако има tool_results, обхожда всеки ToolResult.
+        Ако ToolResult има валидно summary, използва него вместо пълния output.
+        Ако няма summary, използва пълния output и добавя result.id
+        в tool_result_ids_to_summarize за последващо обобщаване.
+        Добавя обработеното съобщение в model_messages.
+        Ако съобщението няма tool_results, го добавя без промяна.
+        Не променя оригиналните съобщения от сесията.
         """
         tool_result_ids_to_summarize: list[str] = []
 
@@ -150,10 +167,13 @@ class ModelMessageBuilder:
         model_messages: list[Message],
         tool_result_ids_to_summarize: list[str],
     ) -> None:
-        """Add summary instructions for the collected tool-result IDs.
+        """Проверява дали има ToolResult ID-та, които трябва да бъдат обобщени.
 
-        This uses the already collected IDs without scanning messages again
-        or processing tool output. Original session messages remain unchanged.
+        Използва вече събраните ID-та в tool_result_ids_to_summarize.
+        Ако има такива ID-та, добавя към model_messages инструкция,
+        която указва на модела за кои ToolResult-и трябва да генерира summary.
+        Не обхожда повторно всички съобщения и не обработва tool output.
+        Не променя оригиналните съобщения в сесията.
         """
         if not tool_result_ids_to_summarize:
             return
