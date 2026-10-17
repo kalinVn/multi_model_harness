@@ -36,11 +36,7 @@ Answer the latest user request; use tools only when that request requires them.
 
 
 def _tool_definitions(content: str) -> list[dict]:
-    """Decode build_tools_schema output without changing the shared Tool contract.
-
-    Current tools describe required string arguments as name -> description.
-    Only the dedicated system tool catalog is interpreted as definitions.
-    """
+    """Decode the shared tool catalog into native Groq definitions."""
     catalog, separator, _ = content.removeprefix("Available tools:\n\n").partition(
         "\n\nUse a tool only when"
     )
@@ -56,12 +52,33 @@ def _tool_definitions(content: str) -> list[dict]:
             raise ValueError("Invalid harness tool definition for Groq")
         name, description, arguments = match.groups()
         properties = {}
+        required = []
         if arguments != " none":
             for line in arguments.strip().splitlines():
                 argument = re.fullmatch(r"- ([\w-]+): (.+)", line)
                 if not argument or argument[1] in properties:
                     raise ValueError("Invalid harness tool arguments for Groq")
-                properties[argument[1]] = {"type": "string", "description": argument[2]}
+                argument_name, argument_description = argument.groups()
+                try:
+                    property_schema = json.loads(argument_description)
+                except json.JSONDecodeError:
+                    property_schema = {
+                        "type": "string",
+                        "description": argument_description,
+                    }
+
+                if not isinstance(property_schema, dict) or not isinstance(
+                    property_schema.get("type"),
+                    str,
+                ):
+                    raise ValueError("Invalid harness tool argument schema for Groq")
+
+                is_required = property_schema.pop("x-required", True)
+                if not isinstance(is_required, bool):
+                    raise ValueError("Invalid required marker in tool argument schema")
+                properties[argument_name] = property_schema
+                if is_required:
+                    required.append(argument_name)
         tools.append({
             "type": "function",
             "function": {
@@ -70,7 +87,7 @@ def _tool_definitions(content: str) -> list[dict]:
                 "parameters": {
                     "type": "object",
                     "properties": properties,
-                    "required": list(properties),
+                    "required": required,
                     "additionalProperties": False,
                 },
             },

@@ -1,4 +1,6 @@
+import json
 import os
+import re
 
 from openai import APIConnectionError, APIStatusError, OpenAI, RateLimitError
 
@@ -57,9 +59,16 @@ class GroqClient:
                     "Groq could not be reached. Check the connection."
                 ) from error
             except APIStatusError as error:
+                details = self._format_api_error_details(error)
+                size_guidance = ""
+                if error.status_code == 413:
+                    size_guidance = (
+                        " Reduce HARNESS_MAX_HISTORY_MESSAGES and "
+                        "HARNESS_MAX_TOOL_RESULT_CHARS."
+                    )
                 raise ModelConnectionError(
-                    f"Groq request failed ({error.status_code}). "
-                    "Check GROQ_API_KEY, GROQ_MODEL, and the model's tool support."
+                    f"Groq request failed ({error.status_code}): {details}."
+                    f"{size_guidance}"
                 ) from error
 
             if not response.choices:
@@ -134,3 +143,43 @@ class GroqClient:
                     **options,
                     "temperature": 0,
                 }
+
+    @staticmethod
+    def _format_api_error_details(error: APIStatusError) -> str:
+        body = getattr(error, "body", None)
+        if body is not None:
+            details = json.dumps(
+                GroqClient._redact_error_value(body),
+                ensure_ascii=False,
+                separators=(",", ":"),
+                default=str,
+            )
+        else:
+            details = getattr(error, "message", None) or str(error)
+
+        details = re.sub(
+            r"(?i)(bearer\s+)[A-Za-z0-9._~+/=-]+",
+            r"\1<redacted>",
+            str(details),
+        )
+        if len(details) > 2_000:
+            details = details[:2_000] + "... [Groq error details truncated]"
+        return details
+
+    @staticmethod
+    def _redact_error_value(value):
+        if isinstance(value, dict):
+            redacted = {}
+            for key, nested_value in value.items():
+                normalized_key = str(key).lower().replace("-", "_")
+                if normalized_key in {"key", "api_key", "apikey"} or any(
+                    marker in normalized_key
+                    for marker in ("authorization", "password", "secret", "token")
+                ):
+                    redacted[key] = "<redacted>"
+                else:
+                    redacted[key] = GroqClient._redact_error_value(nested_value)
+            return redacted
+        if isinstance(value, list):
+            return [GroqClient._redact_error_value(item) for item in value]
+        return value

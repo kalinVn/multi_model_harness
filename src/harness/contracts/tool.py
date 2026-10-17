@@ -11,7 +11,7 @@ class Tool(Protocol):
         ...
 
     @property
-    def arguments_schema(self) -> dict[str, str]:
+    def arguments_schema(self) -> dict[str, str | dict[str, Any]]:
         ...
 
     def execute(

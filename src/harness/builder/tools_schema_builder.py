@@ -1,3 +1,5 @@
+import json
+
 from harness.contracts.tool import Tool
 
 
@@ -27,7 +29,13 @@ def build_tools_schema(
                 argument_name,
                 argument_description,
             ) in tool.arguments_schema.items():
-                parts.append(f"- {argument_name}: " f"{argument_description}")
+                if isinstance(argument_description, dict):
+                    argument_description = json.dumps(
+                        argument_description,
+                        separators=(",", ":"),
+                        sort_keys=True,
+                    )
+                parts.append(f"- {argument_name}: {argument_description}")
         else:
             parts.append("Arguments: none")
 

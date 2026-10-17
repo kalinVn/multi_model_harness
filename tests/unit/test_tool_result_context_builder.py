@@ -103,6 +103,15 @@ class ToolResultContextBuilderTest(unittest.TestCase):
         self.assertIn(result.output, context)
         self.assertNotIn(result.summary, context)
 
+    def test_tool_result_output_is_truncated_with_an_explicit_marker(self):
+        result = ToolResult("git", "x" * 100, id="large-result")
+
+        context = build_tool_results_context([result], max_output_chars=20)
+
+        self.assertIn("Output:\n" + "x" * 20, context)
+        self.assertIn("[tool result truncated: 80 characters omitted]", context)
+        self.assertNotIn("x" * 21, context)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,3 +1,4 @@
+import os
 from dataclasses import replace
 
 from harness.builder.command_response_format_context_builder import (
@@ -14,6 +15,24 @@ from harness.service.command_service import CommandService
 
 
 class ModelMessageBuilder:
+    DEFAULT_MAX_HISTORY_MESSAGES = 40
+    DEFAULT_MAX_TOOL_RESULT_CHARS = 12_000
+
+    def __init__(
+        self,
+        max_history_messages: int | None = None,
+        max_tool_result_chars: int | None = None,
+    ) -> None:
+        self._max_history_messages = self._read_positive_limit(
+            "HARNESS_MAX_HISTORY_MESSAGES",
+            max_history_messages,
+            self.DEFAULT_MAX_HISTORY_MESSAGES,
+        )
+        self._max_tool_result_chars = self._read_positive_limit(
+            "HARNESS_MAX_TOOL_RESULT_CHARS",
+            max_tool_result_chars,
+            self.DEFAULT_MAX_TOOL_RESULT_CHARS,
+        )
 
     def create_model_messages(
         self,
@@ -53,7 +72,10 @@ class ModelMessageBuilder:
                 )
             ]
 
-        model_messages = self.compose_model_messages(messages_for_model + response_format_instruction)
+        messages_for_model = self._limit_history(messages_for_model)
+        model_messages = self.compose_model_messages(
+            messages_for_model + response_format_instruction
+        )
         
         if command_message is not None:
             model_messages.append(command_message)
@@ -104,7 +126,11 @@ class ModelMessageBuilder:
                 updated_model_messages.append(message)
                 continue
 
-            updated_content = build_tool_results_context(list(message.tool_results), tool_result_output_requests)
+            updated_content = build_tool_results_context(
+                list(message.tool_results),
+                tool_result_output_requests,
+                max_output_chars=self._max_tool_result_chars,
+            )
 
             if updated_content == message.content:
                 updated_model_messages.append(message)
@@ -144,7 +170,10 @@ class ModelMessageBuilder:
                 model_messages.append(
                     Message(
                         role=message.role,
-                        content=build_tool_results_context(list(message.tool_results)),
+                        content=build_tool_results_context(
+                            list(message.tool_results),
+                            max_output_chars=self._max_tool_result_chars,
+                        ),
                         tool_results=message.tool_results,
                     )
                 )
@@ -178,3 +207,50 @@ class ModelMessageBuilder:
         )
 
         model_messages.append(Message(role="system", content=instruction))
+
+    def _limit_history(self, messages: list[Message]) -> list[Message]:
+        initial_system_count = 0
+        for message in messages:
+            if message.role != "system":
+                break
+            initial_system_count += 1
+
+        initial_system_messages = messages[:initial_system_count]
+        conversation = messages[initial_system_count:]
+        if len(conversation) <= self._max_history_messages:
+            return list(messages)
+
+        recent_messages = conversation[-self._max_history_messages:]
+        latest_user_request = next(
+            (
+                message
+                for message in reversed(conversation)
+                if message.role == "user" and not message.has_tool_results()
+            ),
+            None,
+        )
+        if self._max_history_messages > 1 and latest_user_request is not None and all(
+            message is not latest_user_request for message in recent_messages
+        ):
+            recent_messages = [latest_user_request] + recent_messages[1:]
+
+        return initial_system_messages + recent_messages
+
+    @staticmethod
+    def _read_positive_limit(
+        environment_name: str,
+        configured_value: int | None,
+        default: int,
+    ) -> int:
+        raw_value: int | str = (
+            configured_value
+            if configured_value is not None
+            else os.getenv(environment_name, str(default))
+        )
+        try:
+            value = int(raw_value)
+        except (TypeError, ValueError) as error:
+            raise ValueError(f"{environment_name} must be a positive integer.") from error
+        if value < 1:
+            raise ValueError(f"{environment_name} must be a positive integer.")
+        return value

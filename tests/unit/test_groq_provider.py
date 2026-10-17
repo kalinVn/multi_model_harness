@@ -79,13 +79,42 @@ class GroqProviderTest(unittest.TestCase):
         self.assertNotIn('Tool call format:', mapped[0]['content'])
         self.assertEqual(len(definitions), len(self.tools))
         for tool, definition in zip(self.tools, definitions):
+            properties = {}
+            required = []
+            for name, schema in tool.arguments_schema.items():
+                if isinstance(schema, str):
+                    properties[name] = {"type": "string", "description": schema}
+                    required.append(name)
+                    continue
+
+                property_schema = deepcopy(schema)
+                if property_schema.pop("x-required", True):
+                    required.append(name)
+                properties[name] = property_schema
             self.assertEqual(definition, {'type': 'function', 'function': {
                 'name': tool.name, 'description': tool.description, 'parameters': {
-                    'type': 'object', 'properties': {
-                        k: {'type': 'string', 'description': v} for k, v in tool.arguments_schema.items()
-                    }, 'required': list(tool.arguments_schema), 'additionalProperties': False,
+                    'type': 'object', 'properties': properties,
+                    'required': required, 'additionalProperties': False,
                 },
             }})
+
+    def test_git_schema_exposes_typed_add_and_commit_arguments(self):
+        _, definitions = map_messages(self.messages)
+        git_definition = next(
+            definition
+            for definition in definitions
+            if definition["function"]["name"] == "git"
+        )
+        parameters = git_definition["function"]["parameters"]
+
+        self.assertEqual(parameters["required"], ["operation"])
+        self.assertIn("add", parameters["properties"]["operation"]["enum"])
+        self.assertIn("commit", parameters["properties"]["operation"]["enum"])
+        args = parameters["properties"]["args"]
+        self.assertEqual(args["type"], "object")
+        self.assertEqual(args["properties"]["paths"]["type"], "array")
+        self.assertEqual(args["properties"]["paths"]["items"], {"type": "string"})
+        self.assertEqual(args["properties"]["message"]["type"], "string")
 
     def test_no_argument_tool_and_user_text_do_not_create_extra_tools(self):
         no_arguments = Mock(name='tool')
@@ -228,6 +257,33 @@ class GroqProviderTest(unittest.TestCase):
             self.create.side_effect = error
             with self.subTest(error=error), self.assertRaises(expected):
                 self.client.generate(self.messages)
+
+    def test_api_error_exposes_safe_details_and_413_guidance(self):
+        request = httpx.Request(
+            'POST',
+            'https://api.groq.com/openai/v1/chat/completions',
+        )
+        self.create.side_effect = APIStatusError(
+            'request failed',
+            response=httpx.Response(413, request=request),
+            body={
+                'error': {
+                    'message': 'Request body is too large',
+                    'type': 'invalid_request_error',
+                    'api_key': 'must-not-leak',
+                }
+            },
+        )
+
+        with self.assertRaises(ModelConnectionError) as raised:
+            self.client.generate(self.messages)
+
+        message = str(raised.exception)
+        self.assertIn('Request body is too large', message)
+        self.assertIn('HARNESS_MAX_HISTORY_MESSAGES', message)
+        self.assertIn('HARNESS_MAX_TOOL_RESULT_CHARS', message)
+        self.assertNotIn('must-not-leak', message)
+        self.assertIn('<redacted>', message)
 
     def test_factory_preserves_existing_routes_and_adds_groq(self):
         for name, target in (('groq', 'GroqClient'), ('gemini', 'GeminiClient'),

@@ -21,6 +21,61 @@ from harness.session_manager import SessionManager
 
 
 class ModelMessageBuilderTest(unittest.TestCase):
+    def test_create_model_messages_limits_history_and_preserves_initial_system_messages(self):
+        messages = [
+            Message(role="system", content="Instructions"),
+            Message(role="system", content=f"{TOOLS_CONTEXT_HEADER}\nTools"),
+            Message(role="user", content="old request"),
+            Message(role="assistant", content="old response"),
+            Message(role="user", content="current request"),
+        ]
+
+        model_messages = ModelMessageBuilder(
+            max_history_messages=2,
+        ).create_model_messages(messages, None, Mock())
+
+        self.assertEqual(model_messages, messages[:2] + messages[-2:])
+
+    def test_history_limit_keeps_request_during_long_tool_call_sequence(self):
+        request = Message(role="user", content="add and commit changes")
+        messages = [Message(role="system", content="Instructions"), request]
+        for index in range(3):
+            messages.extend([
+                Message(role="assistant", content=f"tool call {index}"),
+                Message(
+                    role="user",
+                    content=f"tool result {index}",
+                    tool_results=(ToolResult("git", f"output {index}"),),
+                ),
+            ])
+
+        model_messages = ModelMessageBuilder(
+            max_history_messages=3,
+        ).create_model_messages(messages, None, Mock())
+
+        self.assertIs(model_messages[1], request)
+        self.assertEqual(len(model_messages), 5)
+        self.assertTrue(any("output 2" in message.content for message in model_messages))
+
+    def test_compose_limits_tool_result_content_including_errors(self):
+        result = ToolResult(
+            "git",
+            "failure-" + "x" * 100,
+            success=False,
+            id="failed-result",
+        )
+
+        model_messages = ModelMessageBuilder(
+            max_tool_result_chars=16,
+        ).compose_model_messages([
+            Message(role="user", content="raw", tool_results=(result,)),
+        ])
+
+        self.assertIn("Success: False", model_messages[0].content)
+        self.assertIn("failure-xxxxxxxx", model_messages[0].content)
+        self.assertIn("tool result truncated", model_messages[0].content)
+        self.assertNotIn(result.output, model_messages[0].content)
+
     def test_create_model_messages_adds_command_instructions_in_order(self):
         messages = [
             Message(role="system", content="Instructions"),

@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from harness.tools.read_file_tool import (
@@ -9,6 +10,7 @@ from harness.tools.write_file_tool import (
 from harness.tools.bash_tool import (
     BashTool,
 )
+from harness.tools.git_tool import GitTool
 from harness.tools.tool_registry import (
     ToolRegistry,
 )
@@ -23,3 +25,19 @@ def register_tools(
     registry.register(WriteFileTool())
 
     registry.register(BashTool(working_directory=working_directory))
+
+    allow_git_write_operations = (
+        os.getenv("HARNESS_ENABLE_GIT_WRITE_OPERATIONS", "").strip().lower()
+        == "true"
+    )
+    allow_git_remote_operations = (
+        os.getenv("HARNESS_ENABLE_GIT_REMOTE_OPERATIONS", "").strip().lower()
+        == "true"
+    )
+    registry.register(
+        GitTool(
+            working_directory=working_directory,
+            allow_write_operations=allow_git_write_operations,
+            allow_remote_operations=allow_git_remote_operations,
+        )
+    )
