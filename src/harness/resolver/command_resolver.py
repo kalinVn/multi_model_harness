@@ -17,8 +17,6 @@ class CommandResolver:
         )
 
         if not command_path.is_file():
-            raise ValueError(
-                f"Unknown command: {command_name}"
-            )
+            raise ValueError(f"Unknown command: {command_name}")
         
         return command_path

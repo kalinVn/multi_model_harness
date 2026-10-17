@@ -91,10 +91,7 @@ def map_messages(messages: list[Message]) -> tuple[list[dict[str, str]], list[di
     names = [tool["function"]["name"] for tool in tools]
     if len(names) != len(set(names)):
         raise ValueError("Duplicate harness tool definitions for Groq")
-    mapped.append({
-        "role": "system",
-        "content": GROQ_RESPONSE_INSTRUCTION,
-    })
+    mapped.append({"role": "system", "content": GROQ_RESPONSE_INSTRUCTION})
     return mapped, tools
 
 

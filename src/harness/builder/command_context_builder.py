@@ -28,9 +28,6 @@ def create_context_from_command_obj(command_obj: Command) -> str:
     ]
 
     for section_name, section_content in command_obj.sections.items():
-        parts.append(
-            f"{section_name}:\n"
-            f"{section_content}"
-        )
+        parts.append(f"{section_name}:\n" f"{section_content}")
 
     return "\n\n".join(parts)

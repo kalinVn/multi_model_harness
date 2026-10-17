@@ -37,10 +37,7 @@ class ToolService:
                     tool_call.name,
                     tool_call.arguments,
                 )
-                tool_result = ToolResult(
-                    name=tool_call.name,
-                    output=output,
-                )
+                tool_result = ToolResult(name=tool_call.name, output=output)
             except Exception as error:
                 tool_result = ToolResult(
                     name=tool_call.name,
@@ -102,10 +99,7 @@ class ToolService:
         tool_calls: list[ToolCall],
     ) -> Message:
         """Build the assistant message that describes tool calls."""
-        return Message(
-            role="assistant",
-            content=build_tool_calls_context(tool_calls),
-        )
+        return Message(role="assistant", content=build_tool_calls_context(tool_calls))
 
     def prepare_tool_result_message(
         self,

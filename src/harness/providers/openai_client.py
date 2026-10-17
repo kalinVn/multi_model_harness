@@ -14,10 +14,7 @@ class OpenAIClient:
     def __init__(self) -> None:
         self._client = OpenAI()
 
-        self._model = os.getenv(
-            "OPENAI_MODEL",
-            "gpt-5.5",
-        )
+        self._model = os.getenv("OPENAI_MODEL", "gpt-5.5")
 
     def generate(
         self,
@@ -25,9 +22,7 @@ class OpenAIClient:
     ) -> ModelResponse:
 
         if not messages:
-            raise ValueError(
-                "Cannot generate response with empty conversation."
-            )
+            raise ValueError("Cannot generate response with empty conversation.")
 
         input_messages = map_messages(messages)
 

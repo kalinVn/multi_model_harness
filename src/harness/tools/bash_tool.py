@@ -9,9 +9,7 @@ class BashTool:
         working_directory: Path | None = None,
         timeout_seconds: int = 30,
     ) -> None:
-        self._working_directory = (
-            working_directory or Path.cwd()
-        ).resolve()
+        self._working_directory = (working_directory or Path.cwd()).resolve()
 
         self._timeout_seconds = timeout_seconds
 
@@ -39,14 +37,10 @@ class BashTool:
         command = arguments.get("command")
 
         if not isinstance(command, str):
-            raise ValueError(
-                "bash requires a string 'command'."
-            )
+            raise ValueError("bash requires a string 'command'.")
 
         if not command.strip():
-            raise ValueError(
-                "bash requires a non-empty 'command'."
-            )
+            raise ValueError("bash requires a non-empty 'command'.")
 
         try:
             completed_process = subprocess.run(
@@ -74,14 +68,10 @@ class BashTool:
         stderr = completed_process.stderr.strip()
 
         if stdout:
-            parts.append(
-                f"Output:\n{stdout}"
-            )
+            parts.append(f"Output:\n{stdout}")
 
         if stderr:
-            parts.append(
-                f"Errors:\n{stderr}"
-            )
+            parts.append(f"Errors:\n{stderr}")
 
         if not stdout and not stderr:
             parts.append("No output.")

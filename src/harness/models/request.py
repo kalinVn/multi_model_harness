@@ -9,7 +9,4 @@ class Request:
 
     @classmethod
     def create(cls, message: str) -> "Request":
-        return cls(
-            message=message,
-            created_at=datetime.now(timezone.utc),
-        )
+        return cls(message=message, created_at=datetime.now(timezone.utc))

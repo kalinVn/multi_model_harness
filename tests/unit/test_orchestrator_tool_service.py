@@ -152,10 +152,7 @@ class MainOrchestratorToolServiceIntegrationTest(unittest.TestCase):
         ):
             result = runner.handle(Request.create("execute command review"))
 
-        self.assertEqual(
-            result,
-            "Command response remained invalid after 1 retries.",
-        )
+        self.assertEqual(result, "Command response remained invalid after 1 retries.")
         self.assertEqual(client.generate.call_count, 2)
         self.assertEqual(
             runner._session_manager.current_session.messages[-1],

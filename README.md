@@ -64,10 +64,23 @@ The current orchestrator executes one batch of tools per user turn and returns
 the initial response text. Automatic follow-up generation is not added by this
 provider replacement.
 
-## Tests
+## Test commands
 
-Run the test suite with:
+Start the interactive CLI:
 
 ```bash
-python -m unittest discover -s tests/unit
+python main.py
 ```
+
+Then enter any of the following commands at the prompt:
+
+```text
+execute command hello
+execute command test_bash
+execute command test_write_file
+```
+
+- `hello` verifies that a command can be loaded and executed.
+- `test_bash` runs `ls` through the Bash tool.
+- `test_write_file` creates `tool-test.txt` containing
+  `Hello from AI Harness!` through the file-writing tool.

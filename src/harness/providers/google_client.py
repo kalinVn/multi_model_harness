@@ -24,16 +24,9 @@ class GeminiClient:
         api_key = os.getenv("GEMINI_API_KEY")
 
         if not api_key:
-            raise ValueError(
-                "Missing GEMINI_API_KEY"
-            )
+            raise ValueError("Missing GEMINI_API_KEY")
 
-        timeout_seconds = int(
-            os.getenv(
-                "GEMINI_TIMEOUT_SECONDS",
-                "30",
-            )
-        )
+        timeout_seconds = int(os.getenv("GEMINI_TIMEOUT_SECONDS", "30"))
 
         self._client = genai.Client(
             api_key=api_key,
@@ -50,23 +43,16 @@ class GeminiClient:
             ),
         )
 
-        self._model = os.getenv(
-            "GEMINI_MODEL",
-            "gemini-2.5-flash",
-        )
+        self._model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
     def generate(
         self,
         messages: list[Message],
     ) -> ModelResponse:
-        contents, system_instruction = map_messages(
-            messages
-        )
+        contents, system_instruction = map_messages(messages)
 
         if not contents:
-            raise ValueError(
-                "Cannot generate response with empty conversation."
-            )
+            raise ValueError("Cannot generate response with empty conversation.")
 
         config = types.GenerateContentConfig(
             system_instruction=system_instruction,

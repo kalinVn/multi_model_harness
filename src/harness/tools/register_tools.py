@@ -18,16 +18,8 @@ def register_tools(
     registry: ToolRegistry,
     working_directory: Path | None = None,
 ) -> None:
-    registry.register(
-        ReadFileTool()
-    )
+    registry.register(ReadFileTool())
 
-    registry.register(
-        WriteFileTool()
-    )
+    registry.register(WriteFileTool())
 
-    registry.register(
-        BashTool(
-            working_directory=working_directory
-        )
-    )
+    registry.register(BashTool(working_directory=working_directory))

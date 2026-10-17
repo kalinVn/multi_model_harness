@@ -21,7 +21,4 @@ class Message:
         self,
         request_ids: list[str],
     ) -> bool:
-        return any(
-            tool_result.id in request_ids
-            for tool_result in self.tool_results
-        )
+        return any(tool_result.id in request_ids for tool_result in self.tool_results)

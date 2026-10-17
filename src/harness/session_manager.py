@@ -27,13 +27,9 @@ class SessionManager:
         self,
     ) -> Session:
         if self._current_session_id is None:
-            raise ValueError(
-                "No active session."
-            )
+            raise ValueError("No active session.")
 
-        return self.get_session(
-            self._current_session_id
-        )
+        return self.get_session(self._current_session_id)
 
     def create_session(
         self,
@@ -44,14 +40,8 @@ class SessionManager:
 
         session = Session(
             messages=[
-                Message(
-                    role="system",
-                    content=system_prompt,
-                ),
-                Message(
-                    role="system",
-                    content=tools_context,
-                ),
+                Message(role="system", content=system_prompt),
+                Message(role="system", content=tools_context),
             ]
         )
 
@@ -64,23 +54,17 @@ class SessionManager:
         self,
         session_id: str,
     ) -> Session:
-        session = self._sessions.get(
-            session_id
-        )
+        session = self._sessions.get(session_id)
 
         if session is None:
-            raise ValueError(
-                f"Unknown session: {session_id}"
-            )
+            raise ValueError(f"Unknown session: {session_id}")
 
         return session
 
     def list_sessions(
         self,
     ) -> list[Session]:
-        return list(
-            self._sessions.values()
-        )
+        return list(self._sessions.values())
 
     def set_current_session(
         self,
@@ -101,10 +85,7 @@ class SessionManager:
         if self._current_session_id != session_id:
             return
 
-        self._current_session_id = next(
-            iter(self._sessions),
-            None,
-        )
+        self._current_session_id = next(iter(self._sessions), None)
 
     def _load_system_prompt(
         self,

@@ -100,11 +100,7 @@ def parse_model_response(text: str) -> ModelResponse:
         raise ValueError("tool_result_output_requests must be an array")
 
     output_requests = [
-        _string(
-            result_id,
-            f"tool_result_output_requests[{index}]",
-            nonempty=True,
-        )
+        _string(result_id, f"tool_result_output_requests[{index}]", nonempty=True)
         for index, result_id in enumerate(output_requests_data)
     ]
 

@@ -144,10 +144,7 @@ class ToolServiceTest(unittest.TestCase):
 
         self.assertEqual(
             tool_call_message,
-            Message(
-                role="assistant",
-                content=build_tool_calls_context(tool_calls),
-            ),
+            Message(role="assistant", content=build_tool_calls_context(tool_calls)),
         )
         self.assertEqual(tool_result_message.role, "user")
         self.assertEqual(

@@ -12,9 +12,7 @@ class ToolRegistry:
         tool: Tool,
     ) -> None:
         if tool.name in self._tools:
-            raise ValueError(
-                f"Tool already registered: {tool.name}"
-            )
+            raise ValueError(f"Tool already registered: {tool.name}")
 
         self._tools[tool.name] = tool
 
@@ -25,9 +23,7 @@ class ToolRegistry:
         tool = self._tools.get(name)
 
         if tool is None:
-            raise ValueError(
-                f"Unknown tool: {name}"
-            )
+            raise ValueError(f"Unknown tool: {name}")
 
         return tool
 

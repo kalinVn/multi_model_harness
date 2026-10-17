@@ -59,10 +59,7 @@ class ModelMessageBuilderTest(unittest.TestCase):
             include_tools=False,
         )
 
-        self.assertEqual(
-            model_messages,
-            [Message(role="user", content="Continue")],
-        )
+        self.assertEqual(model_messages, [Message(role="user", content="Continue")])
         command_service.prepare_command_context.assert_not_called()
 
     def test_tool_results_generate_unique_ids_and_allow_summary_assignment(self):
@@ -388,10 +385,7 @@ class ModelMessageBuilderTest(unittest.TestCase):
 
         result = runner.handle(Request.create("Continue"))
 
-        self.assertEqual(
-            result,
-            "Maximum tool result output request steps exceeded.",
-        )
+        self.assertEqual(result, "Maximum tool result output request steps exceeded.")
         self.assertEqual(
             client.generate.call_count,
             MainOrchestrator.MAX_TOOL_RESULT_OUTPUT_REQUEST_STEPS + 1,
@@ -587,9 +581,7 @@ class ModelMessageBuilderTest(unittest.TestCase):
     def test_summary_only_command_response_is_retried_for_final_answer(self):
         client = Mock()
         client.generate.side_effect = [
-            ModelResponse(
-                tool_calls=[ToolCall("write_file", {"path": "result.txt"})]
-            ),
+            ModelResponse(tool_calls=[ToolCall("write_file", {"path": "result.txt"})]),
             ModelResponse(
                 tool_result_summaries=[
                     ToolResultSummary("result-id", "The file was created.")

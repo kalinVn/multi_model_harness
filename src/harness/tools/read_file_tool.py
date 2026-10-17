@@ -24,15 +24,11 @@ class ReadFileTool:
         path_value = arguments.get("path")
 
         if not isinstance(path_value, str):
-            raise ValueError(
-                "read_file requires a string 'path'."
-            )
+            raise ValueError("read_file requires a string 'path'.")
 
         path = Path(path_value)
 
         if not path.is_file():
-            raise FileNotFoundError(
-                f"File not found: {path}"
-            )
+            raise FileNotFoundError(f"File not found: {path}")
 
         return path.read_text(encoding="utf-8")

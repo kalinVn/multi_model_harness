@@ -28,7 +28,4 @@ def get_command_message_obj(
 
     command_context = create_context_from_command_obj(command_obj)
 
-    return Message(
-        role="system",
-        content=command_context,
-    )
+    return Message(role="system", content=command_context)

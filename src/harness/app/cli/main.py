@@ -13,11 +13,7 @@ from harness.models.request import Request
 
 def display_tool_result(tool_result: ToolResult) -> None:
     status = "completed" if tool_result.success else "failed"
-    print(
-        f"\nTool [{tool_result.name}] {status}:\n"
-        f"{tool_result.output}",
-        flush=True,
-    )
+    print(f"\nTool [{tool_result.name}] {status}:\n{tool_result.output}", flush=True)
 
 
 def main() -> None:

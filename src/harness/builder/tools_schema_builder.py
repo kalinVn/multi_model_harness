@@ -16,13 +16,9 @@ def build_tools_schema(
     ]
 
     for tool in tools:
-        parts.append(
-            f"Tool: {tool.name}"
-        )
+        parts.append(f"Tool: {tool.name}")
 
-        parts.append(
-            f"Description: {tool.description}"
-        )
+        parts.append(f"Description: {tool.description}")
 
         if tool.arguments_schema:
             parts.append("Arguments:")
@@ -31,14 +27,9 @@ def build_tools_schema(
                 argument_name,
                 argument_description,
             ) in tool.arguments_schema.items():
-                parts.append(
-                    f"- {argument_name}: "
-                    f"{argument_description}"
-                )
+                parts.append(f"- {argument_name}: " f"{argument_description}")
         else:
-            parts.append(
-                "Arguments: none"
-            )
+            parts.append("Arguments: none")
 
         parts.append("")
 

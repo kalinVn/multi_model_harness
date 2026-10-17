@@ -11,11 +11,7 @@ from harness.domain.tool_result import ToolResult
 
 class ToolResultContextBuilderTest(unittest.TestCase):
     def test_append_unsummarized_result_includes_complete_result(self):
-        result = ToolResult(
-            "read_file",
-            "full file contents",
-            id="unsummarized-id",
-        )
+        result = ToolResult("read_file", "full file contents", id="unsummarized-id")
         context = build_tool_results_context([result])
 
         self.assertIn("Tool result ID: unsummarized-id", context)
@@ -65,11 +61,7 @@ class ToolResultContextBuilderTest(unittest.TestCase):
             "Configuration summary.",
             id="first-id",
         )
-        unsummarized = ToolResult(
-            "bash",
-            "raw command output",
-            id="second-id",
-        )
+        unsummarized = ToolResult("bash", "raw command output", id="second-id")
 
         context = build_tool_results_context([summarized, unsummarized])
 

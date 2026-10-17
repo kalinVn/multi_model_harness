@@ -35,9 +35,4 @@ def parse_tool_calls(text: str) -> list[ToolCall]:
     if not isinstance(arguments, dict):
         return []
 
-    return [
-        ToolCall(
-            name=tool_name,
-            arguments=arguments,
-        )
-    ]
+    return [ToolCall(name=tool_name, arguments=arguments)]

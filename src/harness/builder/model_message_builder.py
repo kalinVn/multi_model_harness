@@ -39,12 +39,8 @@ class ModelMessageBuilder:
         # example, a file creation command can require JSON with answer and
         # command_summary fields without modifying the history.
         if parsed_command is not None:
-            response_format_instruction.append(
-                build_command_response_format_context()
-            )
-            command_message = command_service.prepare_command_context(
-                parsed_command
-            )
+            response_format_instruction.append(build_command_response_format_context())
+            command_message = command_service.prepare_command_context(parsed_command)
 
         messages_for_model = session_messages
         if not include_tools:
@@ -149,9 +145,7 @@ class ModelMessageBuilder:
                 model_messages.append(
                     Message(
                         role=message.role,
-                        content=build_tool_results_context(
-                            list(message.tool_results),
-                        ),
+                        content=build_tool_results_context(list(message.tool_results)),
                         tool_results=message.tool_results,
                     )
                 )

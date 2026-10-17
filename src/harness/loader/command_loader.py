@@ -12,14 +12,10 @@ class CommandLoader:
         description = file_command_sections.get("Description")
 
         if not name:
-            raise ValueError(
-                "Command must contain a '# Name' section."
-            )
+            raise ValueError("Command must contain a '# Name' section.")
 
         if not description:
-            raise ValueError(
-                "Command must contain a '# Description' section."
-            )
+            raise ValueError("Command must contain a '# Description' section.")
 
         # Extract all sections except "Name" and "Description".
         extra_sections = {
@@ -28,11 +24,7 @@ class CommandLoader:
             if key not in {"Name", "Description"}
         }
 
-        return Command(
-            name=name,
-            description=description,
-            sections=extra_sections,
-        )
+        return Command(name=name, description=description, sections=extra_sections)
 
     def _parse_file_command_content(
         self,

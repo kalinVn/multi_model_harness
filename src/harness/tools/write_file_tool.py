@@ -26,25 +26,15 @@ class WriteFileTool:
         content = arguments.get("content")
 
         if not isinstance(path_value, str):
-            raise ValueError(
-                "write_file requires a string 'path'."
-            )
+            raise ValueError("write_file requires a string 'path'.")
 
         if not isinstance(content, str):
-            raise ValueError(
-                "write_file requires a string 'content'."
-            )
+            raise ValueError("write_file requires a string 'content'.")
 
         path = Path(path_value)
 
-        path.parent.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
+        path.parent.mkdir(parents=True, exist_ok=True)
 
-        path.write_text(
-            content,
-            encoding="utf-8",
-        )
+        path.write_text(content, encoding="utf-8")
 
         return f"File written successfully: {path}"

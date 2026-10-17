@@ -33,11 +33,7 @@ class SessionTest(unittest.TestCase):
 
     def test_get_tool_result_by_id_returns_none_for_unknown_id(self):
         result = ToolResult("read_file", "output", id="known-id")
-        message = Message(
-            role="user",
-            content="Stored result",
-            tool_results=(result,),
-        )
+        message = Message(role="user", content="Stored result", tool_results=(result,))
         session = Session(messages=[message])
 
         self.assertIsNone(session.get_tool_result_by_id("unknown-id"))

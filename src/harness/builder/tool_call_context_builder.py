@@ -14,8 +14,4 @@ def build_tool_calls_context(
         for tool_call in tool_calls
     ]
 
-    return "Raw tool calls:\n" + json.dumps(
-        raw_calls,
-        ensure_ascii=False,
-        default=str,
-    )
+    return "Raw tool calls:\n" + json.dumps(raw_calls, ensure_ascii=False, default=str)

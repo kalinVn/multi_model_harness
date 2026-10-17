@@ -55,11 +55,7 @@ class CommandServiceTest(unittest.TestCase):
         )
         tool_registry = Mock()
         tool_registry.execute.return_value = "command file content"
-        service = self.create_service(
-            command_resolver,
-            command_loader,
-            tool_registry,
-        )
+        service = self.create_service(command_resolver, command_loader, tool_registry)
 
         message = service.prepare_command_context(
             ParsedCommand(name="review", arguments=[]),

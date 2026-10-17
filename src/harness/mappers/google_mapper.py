@@ -17,9 +17,7 @@ def map_messages(
 
     for message in messages:
         if message.role == "system":
-            system_messages.append(
-                message.content
-            )
+            system_messages.append(message.content)
             continue
 
         role = (
@@ -29,22 +27,11 @@ def map_messages(
         )
 
         contents.append(
-            types.Content(
-                role=role,
-                parts=[
-                    types.Part.from_text(
-                        text=message.content
-                    )
-                ],
-            )
+            types.Content(role=role, parts=[types.Part.from_text(text=message.content)])
         )
 
-    system_messages.append(
-        MODEL_RESPONSE_INSTRUCTION
-    )
+    system_messages.append(MODEL_RESPONSE_INSTRUCTION)
 
-    system_instruction = "\n\n".join(
-        system_messages
-    )
+    system_instruction = "\n\n".join(system_messages)
 
     return contents, system_instruction

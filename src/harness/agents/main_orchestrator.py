@@ -58,9 +58,7 @@ class MainOrchestrator:
             / ".caisa"
             / "commands"
         )
-        self._command_resolver = CommandResolver(
-            commands_directory
-        )
+        self._command_resolver = CommandResolver(commands_directory)
         self._command_loader = CommandLoader()
         self._tool_registry = ToolRegistry()
         register_tools(self._tool_registry, working_directory=self._project_root)
@@ -172,9 +170,7 @@ class MainOrchestrator:
         tool_call_message = self._tool_service.prepare_tool_call_message(state.response.tool_calls,)
         session.add_message(tool_call_message)
 
-        tool_results = self._tool_service.execute_tool_calls(
-            state.response.tool_calls,
-        )
+        tool_results = self._tool_service.execute_tool_calls(state.response.tool_calls)
 
         tool_result_message = self._tool_service.prepare_tool_result_message(
             tool_results,
@@ -215,12 +211,7 @@ class MainOrchestrator:
         # If there is no parsed command, save and return the response text
         # without any command-specific processing.
         if parsed_command is None:
-            session.add_message(
-                Message(
-                    role="assistant",
-                    content=response.text,
-                )
-            )
+            session.add_message(Message(role="assistant", content=response.text))
             return response.text
 
         # Parse the response and verify that it has the expected structure.

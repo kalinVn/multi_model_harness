@@ -14,10 +14,7 @@ from harness.providers.groq_client import (
 
 
 def create_model_client() -> ModelClient:
-    provider = os.getenv(
-        "MODEL_PROVIDER",
-        "google",
-    ).lower()
+    provider = os.getenv("MODEL_PROVIDER", "google").lower()
 
     if provider in {"google", "gemini"}:
         return GeminiClient()
@@ -28,6 +25,4 @@ def create_model_client() -> ModelClient:
     if provider == "groq":
         return GroqClient()
 
-    raise ValueError(
-        f"Unsupported MODEL_PROVIDER: {provider}"
-    )
+    raise ValueError(f"Unsupported MODEL_PROVIDER: {provider}")

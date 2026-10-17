@@ -12,10 +12,7 @@ class CliMainTest(unittest.TestCase):
             patch("harness.app.cli.main.load_dotenv"),
             patch("harness.app.cli.main.create_model_client") as create_model_client,
             patch("harness.app.cli.main.MainOrchestrator") as runner,
-            patch(
-                "harness.app.cli.main.read_input",
-                side_effect=["hello", "exit"],
-            ),
+            patch("harness.app.cli.main.read_input", side_effect=["hello", "exit"]),
             patch("sys.stdout", new_callable=io.StringIO) as stdout,
         ):
             runner.return_value.handle.return_value = "Received: hello"
@@ -65,11 +62,7 @@ class CliMainTest(unittest.TestCase):
         )
 
     def test_display_tool_result_identifies_failures(self) -> None:
-        result = ToolResult(
-            name="bash",
-            output="permission denied",
-            success=False,
-        )
+        result = ToolResult(name="bash", output="permission denied", success=False)
 
         with patch("sys.stdout", new_callable=io.StringIO) as stdout:
             display_tool_result(result)
@@ -84,10 +77,7 @@ class CliMainTest(unittest.TestCase):
             patch("harness.app.cli.main.load_dotenv"),
             patch("harness.app.cli.main.create_model_client"),
             patch("harness.app.cli.main.MainOrchestrator") as runner,
-            patch(
-                "harness.app.cli.main.read_input",
-                side_effect=["inspect", "exit"],
-            ),
+            patch("harness.app.cli.main.read_input", side_effect=["inspect", "exit"]),
             patch("sys.stdout", new_callable=io.StringIO) as stdout,
         ):
             def handle(_request):

@@ -48,7 +48,4 @@ def parse_command(text: str) -> ParsedCommand | None:
     # produces name="write_file" and arguments=["test1.txt", "test2.txt",
     # "test3.txt"].
                                                                     
-    return ParsedCommand(
-        name=parts[0],
-        arguments=parts[1:],
-    )
+    return ParsedCommand(name=parts[0], arguments=parts[1:])
