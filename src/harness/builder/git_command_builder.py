@@ -19,6 +19,7 @@ class GitCommandBuilder:
         operation: str,
         arguments: dict[str, Any],
     ) -> list[str]:
+        self._validator.require_arguments(arguments, "status")
         return getattr(self, f"_build_{operation}_command")(arguments)
 
     def _build_status_command(self, arguments: dict[str, Any]) -> list[str]:

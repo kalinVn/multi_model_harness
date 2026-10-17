@@ -4,6 +4,7 @@ from pathlib import Path
 
 from harness.config.git_tool_config import (
     GIT_ALLOWED_ENVIRONMENT_VARIABLES,
+    GIT_COMMAND_FAILURE_PREFIX,
     GIT_COMMAND_PREFIX,
     GIT_ENVIRONMENT_OVERRIDES,
 )
@@ -32,7 +33,7 @@ class GitToolService:
     def run(
         self,
         arguments: list[str],
-        failure_prefix: str = "Git command failed",
+        failure_prefix: str = GIT_COMMAND_FAILURE_PREFIX,
     ) -> str:
         environment = self._build_environment()
 

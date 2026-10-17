@@ -41,10 +41,7 @@ class GitTool:
             working_directory=self._working_directory,
             allow_write_operations=allow_write_operations,
             allow_remote_operations=allow_remote_operations,
-            run_git=lambda arguments, **options: self._run_git(
-                arguments,
-                **options,
-            ),
+            service=self._service,
         )
         self._command_builder = GitCommandBuilder(self._validator)
 
@@ -63,8 +60,7 @@ class GitTool:
     def execute(self, arguments: dict[str, Any]) -> str:
         operation, operation_arguments = self._validator.validate(arguments)
         command = self._command_builder.build(operation, operation_arguments)
-        failure_prefix: str = "Git command failed"
-
-        return self._service.run(command, failure_prefix=failure_prefix)
+        
+        return self._service.run(command)
 
 

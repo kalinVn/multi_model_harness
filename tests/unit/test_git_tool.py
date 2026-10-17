@@ -92,8 +92,8 @@ class GitToolTest(unittest.TestCase):
                 return_value=("status", {}),
             ) as validate,
             patch.object(
-                self.read_tool,
-                "_run_git",
+                self.read_tool._service,
+                "run",
                 return_value="status output",
             ) as run_git,
         ):
@@ -104,6 +104,9 @@ class GitToolTest(unittest.TestCase):
         run_git.assert_called_once_with(
             ["status", "--short", "--branch", "--untracked-files=all"]
         )
+
+    def test_validator_uses_git_tool_service(self):
+        self.assertIs(self.read_tool._validator._service, self.read_tool._service)
 
     def test_uses_shared_git_tool_configuration(self):
         self.assertEqual(self.read_tool.description, GIT_TOOL_DESCRIPTION)
@@ -565,7 +568,7 @@ class GitToolTest(unittest.TestCase):
                 {"operation": "switch", "args": {"branch": "missing-branch"}}
             )
 
-    def test_run_git_passes_only_allowlisted_environment_variables(self):
+    def test_git_service_passes_only_allowlisted_environment_variables(self):
         completed_process = subprocess.CompletedProcess(
             args=["git", "status"],
             returncode=0,
@@ -595,7 +598,7 @@ class GitToolTest(unittest.TestCase):
                 return_value=completed_process,
             ) as run_git,
         ):
-            output = self.read_tool._run_git(["status"])
+            output = self.read_tool._service.run(["status"])
 
         self.assertEqual(output, "status output")
         child_environment = run_git.call_args.kwargs["env"]
@@ -655,7 +658,7 @@ class GitToolTest(unittest.TestCase):
             ) as run_git,
         ):
             with self.assertRaises(RuntimeError) as caught:
-                self.read_tool._run_git(["fetch"])
+                self.read_tool._service.run(["fetch"])
 
         message = str(caught.exception)
         self.assertNotIn("password", message)

@@ -1,6 +1,5 @@
 import json
 import re
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +20,7 @@ from harness.config.git_tool_config import (
     TOP_LEVEL_ARGUMENTS,
     WRITE_OPERATIONS,
 )
+from harness.service.git_tool_service import GitToolService
 
 
 class GitToolValidator:
@@ -36,12 +36,12 @@ class GitToolValidator:
         working_directory: Path,
         allow_write_operations: bool,
         allow_remote_operations: bool,
-        run_git: Callable[..., str],
+        service: GitToolService,
     ) -> None:
         self._working_directory = working_directory
         self._allow_write_operations = allow_write_operations
         self._allow_remote_operations = allow_remote_operations
-        self._run_git = run_git
+        self._service = service
 
     def validate(self, arguments: dict[str, Any]) -> tuple[str, dict[str, Any]]:
         if not isinstance(arguments, dict):
@@ -151,7 +151,7 @@ class GitToolValidator:
             raise ValueError("Git branch name must be a non-empty safe string.")
 
         try:
-            self._run_git(
+            self._service.run(
                 ["check-ref-format", "--branch", value],
                 failure_prefix="Invalid Git branch name",
             )
@@ -165,7 +165,7 @@ class GitToolValidator:
             raise ValueError("Git tag name must be a non-empty safe string.")
 
         try:
-            self._run_git(
+            self._service.run(
                 ["check-ref-format", f"refs/tags/{value}"],
                 failure_prefix="Invalid Git tag name",
             )
@@ -181,7 +181,7 @@ class GitToolValidator:
         ):
             raise ValueError("Git remote name must be a non-empty safe string.")
 
-        remote_names = self._run_git(["remote"]).splitlines()
+        remote_names = self._service.run(["remote"]).splitlines()
         if value not in remote_names:
             raise ValueError(f"Unknown Git remote: {value}")
         return value
@@ -251,7 +251,7 @@ class GitToolValidator:
                 f"Git working directory does not exist: {self._working_directory}"
             )
 
-        repository_root = self._run_git(
+        repository_root = self._service.run(
             ["rev-parse", "--show-toplevel"],
             failure_prefix="Not a Git repository",
         )
