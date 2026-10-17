@@ -4,42 +4,32 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from harness.config.git_tool_config import (
+    GIT_OPERATION_DEFINITIONS,
+    GIT_REMOTE_OPERATIONS_ENVIRONMENT_VARIABLE,
+    GIT_WRITE_OPERATIONS_ENVIRONMENT_VARIABLE,
+    MAX_COUNT,
+    MAX_MESSAGE_LENGTH,
+    MAX_PATHS,
+    MAX_STASH_INDEX,
+    READ_OPERATIONS,
+    REMOTE_OPERATIONS,
+    RESET_MODE_VALUES,
+    SAFE_REMOTE_NAME_PATTERN,
+    SAFE_REVISION_PATTERN,
+    SUPPORTED_OPERATIONS,
+    TOP_LEVEL_ARGUMENTS,
+    WRITE_OPERATIONS,
+)
+
 
 class GitToolValidator:
     """Validate Git tool permissions and operation arguments."""
 
-    READ_OPERATIONS = {
-        "blame",
-        "branch_list",
-        "diff",
-        "log",
-        "ls_files",
-        "reflog",
-        "remote_list",
-        "rev_parse",
-        "show",
-        "stash_list",
-        "status",
-        "tag_list",
-    }
-    WRITE_OPERATIONS = {
-        "add",
-        "branch_create",
-        "branch_delete",
-        "branch_rename",
-        "cherry_pick",
-        "commit",
-        "merge",
-        "reset",
-        "restore",
-        "stash",
-        "stash_pop",
-        "switch",
-        "tag_create",
-        "tag_delete",
-    }
-    REMOTE_OPERATIONS = {"fetch", "pull", "push"}
-    OPERATIONS = READ_OPERATIONS | WRITE_OPERATIONS | REMOTE_OPERATIONS
+    READ_OPERATIONS = READ_OPERATIONS
+    WRITE_OPERATIONS = WRITE_OPERATIONS
+    REMOTE_OPERATIONS = REMOTE_OPERATIONS
+    OPERATIONS = SUPPORTED_OPERATIONS
 
     def __init__(
         self,
@@ -57,7 +47,7 @@ class GitToolValidator:
         if not isinstance(arguments, dict):
             raise ValueError("git arguments must be an object.")
 
-        unexpected_arguments = set(arguments) - {"operation", "args"}
+        unexpected_arguments = set(arguments) - TOP_LEVEL_ARGUMENTS
         if unexpected_arguments:
             names = ", ".join(sorted(unexpected_arguments))
             raise ValueError(f"git received unexpected arguments: {names}")
@@ -70,12 +60,12 @@ class GitToolValidator:
         if operation in self.WRITE_OPERATIONS and not self._allow_write_operations:
             raise PermissionError(
                 "Git write operations are disabled. Set "
-                "HARNESS_ENABLE_GIT_WRITE_OPERATIONS=true to enable them."
+                f"{GIT_WRITE_OPERATIONS_ENVIRONMENT_VARIABLE}=true to enable them."
             )
         if operation in self.REMOTE_OPERATIONS and not self._allow_remote_operations:
             raise PermissionError(
                 "Git remote operations are disabled. Set "
-                "HARNESS_ENABLE_GIT_REMOTE_OPERATIONS=true to enable them."
+                f"{GIT_REMOTE_OPERATIONS_ENVIRONMENT_VARIABLE}=true to enable them."
             )
 
         operation_arguments = self._parse_operation_arguments(arguments.get("args"))
@@ -85,16 +75,18 @@ class GitToolValidator:
     def require_arguments(
         self,
         arguments: dict[str, Any],
-        allowed: set[str],
         operation: str,
-        required: set[str] | None = None,
     ) -> None:
+        operation_definition = GIT_OPERATION_DEFINITIONS[operation]
+        allowed = operation_definition["allowed_arguments"]
+        required = operation_definition["required_arguments"]
+
         unexpected = set(arguments) - allowed
         if unexpected:
             names = ", ".join(sorted(unexpected))
             raise ValueError(f"git {operation} received unexpected args: {names}")
 
-        missing = (required or set()) - set(arguments)
+        missing = required - set(arguments)
         if missing:
             names = ", ".join(sorted(missing))
             raise ValueError(f"git {operation} is missing required args: {names}")
@@ -131,22 +123,24 @@ class GitToolValidator:
     def validate_paths(self, value: Any, operation: str) -> list[str]:
         if not isinstance(value, list) or not value:
             raise ValueError(f"git {operation} args.paths must be a non-empty array.")
-        if len(value) > 100:
-            raise ValueError(f"git {operation} accepts at most 100 paths at a time.")
+        if len(value) > MAX_PATHS:
+            raise ValueError(
+                f"git {operation} accepts at most {MAX_PATHS} paths at a time."
+            )
         return [self.validate_path(path, operation) for path in value]
 
     def validate_max_count(self, value: Any, operation: str) -> int:
         if isinstance(value, bool) or not isinstance(value, int):
             raise ValueError(f"git {operation} args.max_count must be an integer.")
-        if not 1 <= value <= 100:
+        if not 1 <= value <= MAX_COUNT:
             raise ValueError(
-                f"git {operation} args.max_count must be between 1 and 100."
+                f"git {operation} args.max_count must be between 1 and {MAX_COUNT}."
             )
         return value
 
     def validate_revision(self, value: Any) -> str:
         if not isinstance(value, str) or not re.fullmatch(
-            r"[A-Za-z0-9][A-Za-z0-9._/@{}~^+\-]*",
+            SAFE_REVISION_PATTERN,
             value,
         ):
             raise ValueError("Git revision must be a non-empty safe revision.")
@@ -182,7 +176,7 @@ class GitToolValidator:
 
     def validate_remote_name(self, value: Any) -> str:
         if not isinstance(value, str) or not re.fullmatch(
-            r"[A-Za-z0-9][A-Za-z0-9._/\-]*",
+            SAFE_REMOTE_NAME_PATTERN,
             value,
         ):
             raise ValueError("Git remote name must be a non-empty safe string.")
@@ -192,9 +186,16 @@ class GitToolValidator:
             raise ValueError(f"Unknown Git remote: {value}")
         return value
 
-    def validate_boolean(self, value: Any, error_message: str) -> bool:
+    def validate_diff_staged(self, value: Any) -> bool:
         if not isinstance(value, bool):
-            raise ValueError(error_message)
+            raise ValueError("git diff args.staged must be a boolean.")
+        return value
+
+    def validate_stash_include_untracked(self, value: Any) -> bool:
+        if not isinstance(value, bool):
+            raise ValueError(
+                "git stash args.include_untracked must be a boolean."
+            )
         return value
 
     def validate_message(self, value: Any, operation: str) -> str:
@@ -202,9 +203,10 @@ class GitToolValidator:
             raise ValueError(
                 f"git {operation} args.message must be a non-empty string."
             )
-        if len(value) > 1000:
+        if len(value) > MAX_MESSAGE_LENGTH:
             raise ValueError(
-                f"git {operation} args.message must not exceed 1000 characters."
+                f"git {operation} args.message must not exceed "
+                f"{MAX_MESSAGE_LENGTH} characters."
             )
         return value
 
@@ -213,7 +215,7 @@ class GitToolValidator:
             raise ValueError("git restore only supports the safe staged=true variant.")
 
     def validate_reset_mode(self, value: Any) -> str:
-        if value not in {"soft", "mixed"}:
+        if value not in RESET_MODE_VALUES:
             raise ValueError("git reset args.mode must be 'soft' or 'mixed'.")
         return value
 
@@ -221,9 +223,12 @@ class GitToolValidator:
         if (
             isinstance(value, bool)
             or not isinstance(value, int)
-            or not 0 <= value <= 1000
+            or not 0 <= value <= MAX_STASH_INDEX
         ):
-            raise ValueError("git stash_pop args.index must be between 0 and 1000.")
+            raise ValueError(
+                "git stash_pop args.index must be between 0 and "
+                f"{MAX_STASH_INDEX}."
+            )
         return value
 
     def _parse_operation_arguments(self, value: Any) -> dict[str, Any]:

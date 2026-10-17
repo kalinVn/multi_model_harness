@@ -1,0 +1,23 @@
+BASH_ALLOWED_ENVIRONMENT_VARIABLES = frozenset(
+    {
+        "COLORTERM",
+        "HOME",
+        "LANG",
+        "LANGUAGE",
+        "LC_ALL",
+        "LC_CTYPE",
+        "LOGNAME",
+        "PATH",
+        "PYTHONPATH",
+        "SHELL",
+        "SSH_AUTH_SOCK",
+        "TEMP",
+        "TERM",
+        "TMP",
+        "TMPDIR",
+        "TZ",
+        "USER",
+        "VIRTUAL_ENV",
+        "XDG_CONFIG_HOME",
+    }
+)

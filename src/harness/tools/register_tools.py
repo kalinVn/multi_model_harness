@@ -1,6 +1,10 @@
 import os
 from pathlib import Path
 
+from harness.config.git_tool_config import (
+    GIT_REMOTE_OPERATIONS_ENVIRONMENT_VARIABLE,
+    GIT_WRITE_OPERATIONS_ENVIRONMENT_VARIABLE,
+)
 from harness.tools.read_file_tool import (
     ReadFileTool,
 )
@@ -27,11 +31,11 @@ def register_tools(
     registry.register(BashTool(working_directory=working_directory))
 
     allow_git_write_operations = (
-        os.getenv("HARNESS_ENABLE_GIT_WRITE_OPERATIONS", "").strip().lower()
+        os.getenv(GIT_WRITE_OPERATIONS_ENVIRONMENT_VARIABLE, "").strip().lower()
         == "true"
     )
     allow_git_remote_operations = (
-        os.getenv("HARNESS_ENABLE_GIT_REMOTE_OPERATIONS", "").strip().lower()
+        os.getenv(GIT_REMOTE_OPERATIONS_ENVIRONMENT_VARIABLE, "").strip().lower()
         == "true"
     )
     registry.register(

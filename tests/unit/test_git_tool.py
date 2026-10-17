@@ -5,6 +5,19 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from harness.builder.git_command_builder import GitCommandBuilder
+from harness.config.git_tool_config import (
+    GIT_ARGUMENT_PROPERTIES,
+    GIT_ALLOWED_ENVIRONMENT_VARIABLES,
+    GIT_ENVIRONMENT_OVERRIDES,
+    GIT_OPERATION_DEFINITIONS,
+    GIT_TOOL_ARGUMENTS_SCHEMA,
+    GIT_TOOL_DESCRIPTION,
+    READ_OPERATIONS,
+    REMOTE_OPERATIONS,
+    SUPPORTED_OPERATIONS,
+    WRITE_OPERATIONS,
+)
 from harness.tools.git_tool import GitTool
 from harness.tools.register_tools import register_tools
 from harness.tools.tool_registry import ToolRegistry
@@ -91,6 +104,41 @@ class GitToolTest(unittest.TestCase):
         run_git.assert_called_once_with(
             ["status", "--short", "--branch", "--untracked-files=all"]
         )
+
+    def test_uses_shared_git_tool_configuration(self):
+        self.assertEqual(self.read_tool.description, GIT_TOOL_DESCRIPTION)
+        self.assertEqual(self.read_tool.arguments_schema, GIT_TOOL_ARGUMENTS_SCHEMA)
+        self.assertIsNot(self.read_tool.arguments_schema, GIT_TOOL_ARGUMENTS_SCHEMA)
+        self.assertIs(GitTool.READ_OPERATIONS, READ_OPERATIONS)
+        self.assertIs(GitTool.WRITE_OPERATIONS, WRITE_OPERATIONS)
+        self.assertIs(GitTool.REMOTE_OPERATIONS, REMOTE_OPERATIONS)
+        self.assertIs(GitTool.OPERATIONS, SUPPORTED_OPERATIONS)
+
+        self.assertEqual(set(GIT_OPERATION_DEFINITIONS), SUPPORTED_OPERATIONS)
+        for operation, definition in GIT_OPERATION_DEFINITIONS.items():
+            with self.subTest(operation=operation):
+                self.assertTrue(
+                    definition["required_arguments"]
+                    <= definition["allowed_arguments"]
+                )
+                self.assertTrue(
+                    definition["allowed_arguments"]
+                    <= set(GIT_ARGUMENT_PROPERTIES)
+                )
+                self.assertTrue(
+                    hasattr(GitCommandBuilder, f"_build_{operation}_command")
+                )
+
+    def test_command_builder_dynamically_dispatches_operation(self):
+        with patch.object(
+            self.read_tool._command_builder,
+            "_build_status_command",
+            return_value=["status-command"],
+        ) as build_status:
+            command = self.read_tool._command_builder.build("status", {})
+
+        self.assertEqual(command, ["status-command"])
+        build_status.assert_called_once_with({})
 
     def test_diff_supports_worktree_and_staged_changes(self):
         (self.repository / "tracked.txt").write_text("changed\n", encoding="utf-8")
@@ -517,6 +565,70 @@ class GitToolTest(unittest.TestCase):
                 {"operation": "switch", "args": {"branch": "missing-branch"}}
             )
 
+    def test_run_git_passes_only_allowlisted_environment_variables(self):
+        completed_process = subprocess.CompletedProcess(
+            args=["git", "status"],
+            returncode=0,
+            stdout="status output",
+            stderr="",
+        )
+        parent_environment = {
+            "PATH": "/usr/bin",
+            "HOME": "/home/harness",
+            "USER": "harness",
+            "LOGNAME": "harness",
+            "LANG": "en_US.UTF-8",
+            "LC_ALL": "en_US.UTF-8",
+            "SSH_AUTH_SOCK": "/tmp/ssh-agent.sock",
+            "XDG_CONFIG_HOME": "/home/harness/.config",
+            "OPENAI_API_KEY": "openai-secret-value",
+            "GEMINI_API_KEY": "gemini-secret-value",
+            "GROQ_API_KEY": "groq-secret-value",
+            "SERVICE_PASSWORD": "service-secret-value",
+            "UNRELATED_SETTING": "unrelated-value",
+        }
+
+        with (
+            patch.dict("os.environ", parent_environment, clear=True),
+            patch(
+                "harness.service.git_tool_service.subprocess.run",
+                return_value=completed_process,
+            ) as run_git,
+        ):
+            output = self.read_tool._run_git(["status"])
+
+        self.assertEqual(output, "status output")
+        child_environment = run_git.call_args.kwargs["env"]
+        for name in (
+            "PATH",
+            "HOME",
+            "USER",
+            "LOGNAME",
+            "LANG",
+            "SSH_AUTH_SOCK",
+            "XDG_CONFIG_HOME",
+        ):
+            with self.subTest(name=name):
+                self.assertEqual(child_environment[name], parent_environment[name])
+
+        self.assertEqual(child_environment["LC_ALL"], "C")
+        self.assertEqual(
+            set(child_environment),
+            (
+                set(parent_environment) & GIT_ALLOWED_ENVIRONMENT_VARIABLES
+            )
+            | set(GIT_ENVIRONMENT_OVERRIDES),
+        )
+        for name in (
+            "OPENAI_API_KEY",
+            "GEMINI_API_KEY",
+            "GROQ_API_KEY",
+            "SERVICE_PASSWORD",
+            "UNRELATED_SETTING",
+        ):
+            with self.subTest(name=name):
+                self.assertNotIn(name, child_environment)
+
     def test_redacts_credentials_from_git_output(self):
         completed_process = subprocess.CompletedProcess(
             args=["git", "fetch"],
@@ -524,12 +636,23 @@ class GitToolTest(unittest.TestCase):
             stdout="",
             stderr=(
                 "failed for https://user:password@example.test/ and "
-                "environment-secret"
+                "environment-secret, groq-secret-value, and tiny"
             ),
         )
         with (
-            patch.dict("os.environ", {"SERVICE_TOKEN": "environment-secret"}),
-            patch("harness.tools.git_tool.subprocess.run", return_value=completed_process),
+            patch.dict(
+                "os.environ",
+                {
+                    "GROQ_API_KEY": "groq-secret-value",
+                    "SERVICE_TOKEN": "environment-secret",
+                    "SHORT_TOKEN": "tiny",
+                },
+                clear=True,
+            ),
+            patch(
+                "harness.service.git_tool_service.subprocess.run",
+                return_value=completed_process,
+            ) as run_git,
         ):
             with self.assertRaises(RuntimeError) as caught:
                 self.read_tool._run_git(["fetch"])
@@ -537,7 +660,12 @@ class GitToolTest(unittest.TestCase):
         message = str(caught.exception)
         self.assertNotIn("password", message)
         self.assertNotIn("environment-secret", message)
+        self.assertNotIn("groq-secret-value", message)
+        self.assertNotIn("tiny", message)
         self.assertIn("<redacted>", message)
+        self.assertNotIn("GROQ_API_KEY", run_git.call_args.kwargs["env"])
+        self.assertNotIn("SERVICE_TOKEN", run_git.call_args.kwargs["env"])
+        self.assertNotIn("SHORT_TOKEN", run_git.call_args.kwargs["env"])
 
     def test_write_operations_are_disabled_by_default(self):
         calls = [

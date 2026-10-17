@@ -1,6 +1,9 @@
-from pathlib import Path
+import os
 import subprocess
+from pathlib import Path
 from typing import Any
+
+from harness.config.bash_tool_config import BASH_ALLOWED_ENVIRONMENT_VARIABLES
 
 
 class BashTool:
@@ -42,10 +45,17 @@ class BashTool:
         if not command.strip():
             raise ValueError("bash requires a non-empty 'command'.")
 
+        environment = {
+            name: os.environ[name]
+            for name in BASH_ALLOWED_ENVIRONMENT_VARIABLES
+            if name in os.environ
+        }
+
         try:
             completed_process = subprocess.run(
                 command,
                 cwd=self._working_directory,
+                env=environment,
                 shell=True,
                 executable="/bin/bash",
                 capture_output=True,
@@ -53,7 +63,7 @@ class BashTool:
                 timeout=self._timeout_seconds,
                 check=False,
             )
-            
+
         except subprocess.TimeoutExpired as error:
             raise RuntimeError(
                 "Bash command timed out after "
