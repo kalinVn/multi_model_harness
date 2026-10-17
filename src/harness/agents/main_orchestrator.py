@@ -205,12 +205,15 @@ class MainOrchestrator:
         parsed_command: ParsedCommand | None,
         state,
     ) -> str | list[Message]:
-        """ str: финален отговор към потребителя, напр. "Файлът е прочетен успешно."
-            list[Message]: нов контекст с инструкция за поправка на JSON;
-            изпращаме го на модела при следващата итерация.
+        """Return the final response or model context for a retry.
+
+        str: The final response to the user, such as "The file was read
+        successfully."
+        list[Message]: New context containing an instruction to fix the JSON;
+        it is sent to the model during the next iteration.
         """
-        # Проверяваме дали имаме изобщо команда
-        # Ako parsed_command е None, просто записваме текста , без да се занимаваме с нищо друго
+        # If there is no parsed command, save and return the response text
+        # without any command-specific processing.
         if parsed_command is None:
             session.add_message(
                 Message(
@@ -220,20 +223,17 @@ class MainOrchestrator:
             )
             return response.text
 
-        #Проверява дали парснатият респонс връща очаквания резултат.
-        # Ако искаш, мога да предложа и по-формално или по-стегнато обяснение.
-        #Пример: ако респонсът е JSON с поле status: "ok", парсваме респонса и проверяваме,
-        # че status е точно "ok", а не "error
+        # Parse the response and verify that it has the expected structure.
+        # For example, if the response is JSON with status: "ok", verify that
+        # status is exactly "ok" rather than "error".
         parsed_response = parse_command_response(response.text)
 
-        # Ako parsed_response е None, т.е има грешка в парсването , примерно не е върнал правилния output
-        #  тогава добавяме към session messages нов message в който казваме на модела че не е върнал правилния
-        #  резултат
+        # A non-None parsed response is valid and can be saved to the session.
         if parsed_response is not None:
 
             answer, command_summary = parsed_response
 
-            # Записваме command_summary като системно съобщение
+            # Save command_summary as a system message.
             command_summary_message = (
                 self._command_service.prepare_command_summary_message(
                     parsed_command,
@@ -243,13 +243,11 @@ class MainOrchestrator:
             session.add_message(command_summary_message)
             session.add_message(Message(role="assistant", content=answer))
 
-            # ЗФиналния текст който потребителя трябва да чуе
+            # Return the final text intended for the user.
             return answer
 
-        # Ако сме изчерпали всички опити за поправяне на отговора,
-        # записваме съобщението в историята и връщаме текста към потребителя
-        # връщаме стринг message и добавяме в Message(role="assistant", content=message)
-        #  в session messages
+        # Once all response-correction attempts are exhausted, save the error
+        # message in the session history and return it to the user.
         if state.command_response_retries >= self.MAX_COMMAND_RESPONSE_RETRIES:
             message = (
                 "Command response remained invalid after "

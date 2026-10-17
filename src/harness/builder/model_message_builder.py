@@ -22,22 +22,22 @@ class ModelMessageBuilder:
         command_service: CommandService,
         include_tools: bool = True,
     ) -> list[Message]:
-        """Добавя системно съобщение само за текущия ход, което указва на модела как да форматира
-        финалния отговор при команда. Това съобщение не се записва в историята на сесията и важи
-        само за конкретното извикване.
-        Може да добавим – например, при команда за създаване на файл, инструктираме модела
-        финалният отговор да е JSON с полета answer и command_summary. Това важи само за този ход
-        и не променя историята.
+        """Add a system message for the current turn that tells the model how
+        to format the final response for a command. This message is not saved
+        in the session history and applies only to the current invocation.
+        For example, for a file creation command, we can instruct the model to
+        return the final response as JSON with answer and command_summary
+        fields. This applies only to the current turn and does not modify the
+        history.
         """
         response_format_instruction: list[Message] = []
         command_message = None
 
-        # Добавяме системно съобщение само за текущия ход, което указва на модела как да форматира
-        # финалния отговор при команда. Това съобщение не се записва в историята на сесията и важи
-        # само за конкретното извикване.
-        # Може да добавим – например, при команда за създаване на файл, инструктираме модела
-        # финалният отговор да е JSON с полета answer и command_summary. Това важи само за този ход
-        # и не променя историята.
+        # Add a system message for the current turn that tells the model how
+        # to format the final response for a command. The message is not saved
+        # in the session history and applies only to this invocation. For
+        # example, a file creation command can require JSON with answer and
+        # command_summary fields without modifying the history.
         if parsed_command is not None:
             response_format_instruction.append(
                 build_command_response_format_context()
@@ -66,13 +66,12 @@ class ModelMessageBuilder:
         return model_messages
 
     def compose_model_messages(self, messages: list[Message]) -> list[Message]:
-        """Обхожда всички съобщения и подготвя контекста за модела.
+        """Process all messages and prepare the model context.
 
-        За съобщенията с tool_results използва summary, ако съществува,
-        или пълния output, ако липсва.
-        Събира ID-тата на tool results без summary и добавя
-        инструкции към модела за тяхното обобщаване.
-        Не променя оригиналните съобщения от сесията.
+        For messages with tool_results, use the summary when one exists or the
+        full output otherwise. Collect the IDs of tool results without a
+        summary and add instructions asking the model to summarize them. The
+        original session messages are not modified.
         """
         model_messages: list[Message] = []
 
@@ -93,9 +92,9 @@ class ModelMessageBuilder:
         model_messages: list[Message],
         tool_result_output_requests: list[str],
     ) -> list[Message]:
-        """Обновява само контекстите с изрично поискани пълни tool outputs.
+        """Update only contexts with explicitly requested full tool outputs.
 
-        Оригиналните съобщения от сесията остават непроменени.
+        The original session messages remain unchanged.
         """
         if not tool_result_output_requests:
             return model_messages
@@ -130,15 +129,14 @@ class ModelMessageBuilder:
         messages: list[Message],
         model_messages: list[Message],
     ) -> list[str]:
-        """Обхожда всички съобщения и проверява дали съдържат tool_results.
+        """Process all messages and check whether they contain tool_results.
 
-        Ако има tool_results, обхожда всеки ToolResult.
-        Ако ToolResult има валидно summary, използва него вместо пълния output.
-        Ако няма summary, използва пълния output и добавя result.id
-        в tool_result_ids_to_summarize за последващо обобщаване.
-        Добавя обработеното съобщение в model_messages.
-        Ако съобщението няма tool_results, го добавя без промяна.
-        Не променя оригиналните съобщения от сесията.
+        For messages with tool_results, inspect each ToolResult. Use a valid
+        summary instead of the full output when available. Otherwise, use the
+        full output and add result.id to tool_result_ids_to_summarize for later
+        summarization. Add the processed message to model_messages. Messages
+        without tool_results are added unchanged. The original session
+        messages are not modified.
         """
         tool_result_ids_to_summarize: list[str] = []
 
@@ -167,13 +165,13 @@ class ModelMessageBuilder:
         model_messages: list[Message],
         tool_result_ids_to_summarize: list[str],
     ) -> None:
-        """Проверява дали има ToolResult ID-та, които трябва да бъдат обобщени.
+        """Check whether any ToolResult IDs need to be summarized.
 
-        Използва вече събраните ID-та в tool_result_ids_to_summarize.
-        Ако има такива ID-та, добавя към model_messages инструкция,
-        която указва на модела за кои ToolResult-и трябва да генерира summary.
-        Не обхожда повторно всички съобщения и не обработва tool output.
-        Не променя оригиналните съобщения в сесията.
+        Use the IDs already collected in tool_result_ids_to_summarize. If any
+        exist, append an instruction to model_messages that tells the model
+        which ToolResults require summaries. Do not iterate over every message
+        again or process tool output. The original session messages are not
+        modified.
         """
         if not tool_result_ids_to_summarize:
             return
