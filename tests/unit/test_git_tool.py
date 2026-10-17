@@ -70,6 +70,28 @@ class GitToolTest(unittest.TestCase):
         self.assertIn("## main", output)
         self.assertIn("?? untracked.txt", output)
 
+    def test_execute_delegates_validation_to_git_tool_validator(self):
+        arguments = {"unexpected": "value"}
+        with (
+            patch.object(
+                self.read_tool._validator,
+                "validate",
+                return_value=("status", {}),
+            ) as validate,
+            patch.object(
+                self.read_tool,
+                "_run_git",
+                return_value="status output",
+            ) as run_git,
+        ):
+            output = self.read_tool.execute(arguments)
+
+        self.assertEqual(output, "status output")
+        validate.assert_called_once_with(arguments)
+        run_git.assert_called_once_with(
+            ["status", "--short", "--branch", "--untracked-files=all"]
+        )
+
     def test_diff_supports_worktree_and_staged_changes(self):
         (self.repository / "tracked.txt").write_text("changed\n", encoding="utf-8")
 

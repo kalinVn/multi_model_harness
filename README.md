@@ -208,3 +208,6 @@ execute command test_write_file
 - `test_bash` runs `ls` through the Bash tool.
 - `test_write_file` creates `tool-test.txt` containing
   `Hello from AI Harness!` through the file-writing tool.
+
+
+  test
