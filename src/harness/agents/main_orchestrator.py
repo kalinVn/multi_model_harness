@@ -114,12 +114,12 @@ class MainOrchestrator:
         )
 
         if not state.response.tool_calls: 
-            return self._handle_without_tool_results(state, session, requested_tool_result_ids)
+            return self._handle_no_tool_calls(state, session, requested_tool_result_ids)
         else:
-            return self._handle_with_tool_calls(state, session, requested_tool_result_ids)
+            return self._handle_tool_calls(state, session, requested_tool_result_ids)
 
 
-    def _handle_without_tool_results(self, state, session ,requested_tool_result_ids):
+    def _handle_no_tool_calls(self, state, session ,requested_tool_result_ids):
             updated_model_messages = (
                 self._tool_service.update_model_messages_by_requested_tool_result_ids(
                     state.model_messages,
@@ -160,7 +160,7 @@ class MainOrchestrator:
             return self._loop(state, session)
 
             
-    def _handle_with_tool_calls(self, state, session, requested_tool_result_ids):
+    def _handle_tool_calls(self, state, session, requested_tool_result_ids):
 
         if state.tool_steps >= self.MAX_TOOL_STEPS:
 
@@ -169,9 +169,7 @@ class MainOrchestrator:
 
             return message
         
-        tool_call_message = self._tool_service.prepare_tool_call_message(
-            state.response.tool_calls,
-        )
+        tool_call_message = self._tool_service.prepare_tool_call_message(state.response.tool_calls,)
         session.add_message(tool_call_message)
 
         tool_results = self._tool_service.execute_tool_calls(
