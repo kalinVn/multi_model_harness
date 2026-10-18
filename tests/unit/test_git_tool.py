@@ -78,18 +78,28 @@ class GitToolTest(unittest.TestCase):
     def test_status_reports_repository_changes(self):
         (self.repository / "untracked.txt").write_text("new\n", encoding="utf-8")
 
-        output = self.read_tool.execute({"operation": "status"})
+        output = self.read_tool.execute(
+            {
+                "command_name": "status",
+                "command": [
+                    "status",
+                    "--short",
+                    "--branch",
+                    "--untracked-files=all",
+                ],
+            }
+        )
 
         self.assertIn("## main", output)
         self.assertIn("?? untracked.txt", output)
 
     def test_execute_delegates_validation_to_git_tool_validator(self):
-        arguments = {"unexpected": "value"}
+        command = ["status", "--short", "--branch", "--untracked-files=all"]
+        arguments = {"command_name": "status", "command": command}
         with (
             patch.object(
                 self.read_tool._validator,
                 "validate",
-                return_value=("status", {}),
             ) as validate,
             patch.object(
                 self.read_tool._service,
@@ -101,9 +111,26 @@ class GitToolTest(unittest.TestCase):
 
         self.assertEqual(output, "status output")
         validate.assert_called_once_with(arguments)
-        run_git.assert_called_once_with(
-            ["status", "--short", "--branch", "--untracked-files=all"]
+        run_git.assert_called_once_with(command)
+
+    def test_validator_methods_return_none_for_valid_commands(self):
+        arguments = {
+            "command_name": "status",
+            "command": [
+                "status",
+                "--short",
+                "--branch",
+                "--untracked-files=all",
+            ],
+        }
+
+        self.assertIsNone(
+            self.read_tool._validator.validate_command(
+                arguments["command_name"],
+                arguments["command"],
+            )
         )
+        self.assertIsNone(self.read_tool._validator.validate(arguments))
 
     def test_validator_uses_git_tool_service(self):
         self.assertIs(self.read_tool._validator._service, self.read_tool._service)
@@ -116,6 +143,10 @@ class GitToolTest(unittest.TestCase):
         self.assertIs(GitTool.WRITE_OPERATIONS, WRITE_OPERATIONS)
         self.assertIs(GitTool.REMOTE_OPERATIONS, REMOTE_OPERATIONS)
         self.assertIs(GitTool.OPERATIONS, SUPPORTED_OPERATIONS)
+        self.assertEqual(
+            set(self.read_tool.arguments_schema),
+            {"command_name", "command"},
+        )
 
         self.assertEqual(set(GIT_OPERATION_DEFINITIONS), SUPPORTED_OPERATIONS)
         for operation, definition in GIT_OPERATION_DEFINITIONS.items():
@@ -131,14 +162,23 @@ class GitToolTest(unittest.TestCase):
                 self.assertTrue(
                     hasattr(GitCommandBuilder, f"_build_{operation}_command")
                 )
+                self.assertTrue(
+                    hasattr(
+                        self.read_tool._validator,
+                        f"_validate_{operation}_command",
+                    )
+                )
+
+        self.assertFalse(hasattr(self.read_tool, "_command_builder"))
 
     def test_command_builder_dynamically_dispatches_operation(self):
+        command_builder = GitCommandBuilder(self.read_tool._validator)
         with patch.object(
-            self.read_tool._command_builder,
+            command_builder,
             "_build_status_command",
             return_value=["status-command"],
         ) as build_status:
-            command = self.read_tool._command_builder.build("status", {})
+            command = command_builder.build("status", {})
 
         self.assertEqual(command, ["status-command"])
         build_status.assert_called_once_with({})
@@ -147,37 +187,82 @@ class GitToolTest(unittest.TestCase):
         (self.repository / "tracked.txt").write_text("changed\n", encoding="utf-8")
 
         worktree_output = self.read_tool.execute(
-            {"operation": "diff", "args": {"path": "tracked.txt"}}
+            {
+                "command_name": "diff",
+                "command": [
+                    "diff",
+                    "--no-ext-diff",
+                    "--no-textconv",
+                    "--no-color",
+                    "--",
+                    "tracked.txt",
+                ],
+            }
         )
         self.assertIn("+changed", worktree_output)
 
         self._git("add", "tracked.txt")
         staged_output = self.read_tool.execute(
-            {"operation": "diff", "args": {"staged": True}}
+            {
+                "command_name": "diff",
+                "command": [
+                    "diff",
+                    "--no-ext-diff",
+                    "--no-textconv",
+                    "--no-color",
+                    "--cached",
+                    "--",
+                ],
+            }
         )
         self.assertIn("+changed", staged_output)
 
     def test_log_limits_results(self):
         output = self.read_tool.execute(
-            {"operation": "log", "args": {"max_count": 1}}
+            {
+                "command_name": "log",
+                "command": ["log", "--oneline", "--no-decorate", "--max-count=1"],
+            }
         )
 
         self.assertIn("Initial commit", output)
         self.assertEqual(len(output.splitlines()), 1)
 
     def test_branch_list_marks_current_branch(self):
-        output = self.read_tool.execute({"operation": "branch_list"})
+        output = self.read_tool.execute(
+            {
+                "command_name": "branch_list",
+                "command": ["branch", "--list", "--no-color"],
+            }
+        )
 
         self.assertIn("* main", output)
 
     def test_show_returns_commit_and_file_content(self):
         commit_output = self.read_tool.execute(
-            {"operation": "show", "args": {"revision": "HEAD"}}
+            {
+                "command_name": "show",
+                "command": [
+                    "show",
+                    "--no-ext-diff",
+                    "--no-textconv",
+                    "--no-color",
+                    "--format=fuller",
+                    "HEAD",
+                    "--",
+                ],
+            }
         )
         file_output = self.read_tool.execute(
             {
-                "operation": "show",
-                "args": {"revision": "HEAD", "path": "tracked.txt"},
+                "command_name": "show",
+                "command": [
+                    "show",
+                    "--no-ext-diff",
+                    "--no-textconv",
+                    "--no-color",
+                    "HEAD:tracked.txt",
+                ],
             }
         )
 
@@ -187,21 +272,31 @@ class GitToolTest(unittest.TestCase):
     def test_tag_list_reports_local_tags(self):
         self._git("tag", "v1.0.0")
 
-        output = self.read_tool.execute({"operation": "tag_list"})
+        output = self.read_tool.execute(
+            {
+                "command_name": "tag_list",
+                "command": ["tag", "--list", "--sort=refname"],
+            }
+        )
 
         self.assertEqual(output, "v1.0.0")
 
     def test_remote_list_reports_names_without_urls(self):
         remote = self._create_bare_remote()
 
-        output = self.read_tool.execute({"operation": "remote_list"})
+        output = self.read_tool.execute(
+            {"command_name": "remote_list", "command": ["remote"]}
+        )
 
         self.assertEqual(output, "origin")
         self.assertNotIn(str(remote), output)
 
     def test_blame_reports_file_history(self):
         output = self.read_tool.execute(
-            {"operation": "blame", "args": {"path": "tracked.txt"}}
+            {
+                "command_name": "blame",
+                "command": ["blame", "--date=short", "HEAD", "--", "tracked.txt"],
+            }
         )
 
         self.assertIn("Harness Tests", output)
@@ -209,21 +304,34 @@ class GitToolTest(unittest.TestCase):
 
     def test_rev_parse_resolves_revision(self):
         output = self.read_tool.execute(
-            {"operation": "rev_parse", "args": {"revision": "HEAD"}}
+            {
+                "command_name": "rev_parse",
+                "command": [
+                    "rev-parse",
+                    "--verify",
+                    "--end-of-options",
+                    "HEAD^{object}",
+                ],
+            }
         )
 
         self.assertEqual(output, self._git("rev-parse", "HEAD"))
 
     def test_reflog_limits_results(self):
         output = self.read_tool.execute(
-            {"operation": "reflog", "args": {"max_count": 1}}
+            {
+                "command_name": "reflog",
+                "command": ["reflog", "--oneline", "--max-count=1"],
+            }
         )
 
         self.assertIn("commit (initial): Initial commit", output)
         self.assertEqual(len(output.splitlines()), 1)
 
     def test_ls_files_lists_tracked_paths(self):
-        output = self.read_tool.execute({"operation": "ls_files"})
+        output = self.read_tool.execute(
+            {"command_name": "ls_files", "command": ["ls-files", "--"]}
+        )
 
         self.assertEqual(output, "tracked.txt")
 
@@ -231,7 +339,7 @@ class GitToolTest(unittest.TestCase):
         (self.repository / "new.txt").write_text("new\n", encoding="utf-8")
 
         self.write_tool.execute(
-            {"operation": "add", "args": {"paths": ["new.txt"]}}
+            {"command_name": "add", "command": ["add", "--", "new.txt"]}
         )
 
         self.assertIn("A  new.txt", self._git("status", "--short"))
@@ -239,11 +347,20 @@ class GitToolTest(unittest.TestCase):
     def test_commit_creates_local_commit(self):
         (self.repository / "new.txt").write_text("new\n", encoding="utf-8")
         self.write_tool.execute(
-            {"operation": "add", "args": {"paths": ["new.txt"]}}
+            {"command_name": "add", "command": ["add", "--", "new.txt"]}
         )
 
         output = self.write_tool.execute(
-            {"operation": "commit", "args": {"message": "Add new file"}}
+            {
+                "command_name": "commit",
+                "command": [
+                    "commit",
+                    "--no-verify",
+                    "--no-gpg-sign",
+                    "-m",
+                    "Add new file",
+                ],
+            }
         )
 
         self.assertIn("Add new file", output)
@@ -251,12 +368,18 @@ class GitToolTest(unittest.TestCase):
 
     def test_branch_create_and_switch(self):
         self.write_tool.execute(
-            {"operation": "branch_create", "args": {"name": "feature/test"}}
+            {
+                "command_name": "branch_create",
+                "command": ["branch", "--no-track", "feature/test"],
+            }
         )
         self.assertIn("feature/test", self._git("branch", "--list"))
 
         output = self.write_tool.execute(
-            {"operation": "switch", "args": {"branch": "feature/test"}}
+            {
+                "command_name": "switch",
+                "command": ["switch", "--no-guess", "feature/test"],
+            }
         )
 
         self.assertIn("Switched to branch 'feature/test'", output)
@@ -267,14 +390,17 @@ class GitToolTest(unittest.TestCase):
 
         self.write_tool.execute(
             {
-                "operation": "branch_rename",
-                "args": {"old_name": "old-name", "new_name": "new-name"},
+                "command_name": "branch_rename",
+                "command": ["branch", "-m", "old-name", "new-name"],
             }
         )
         self.assertIn("new-name", self._git("branch", "--list"))
 
         self.write_tool.execute(
-            {"operation": "branch_delete", "args": {"name": "new-name"}}
+            {
+                "command_name": "branch_delete",
+                "command": ["branch", "-d", "new-name"],
+            }
         )
         self.assertNotIn("new-name", self._git("branch", "--list"))
 
@@ -285,7 +411,10 @@ class GitToolTest(unittest.TestCase):
 
         with self.assertRaisesRegex(RuntimeError, "not fully merged"):
             self.write_tool.execute(
-                {"operation": "branch_delete", "args": {"name": "unmerged"}}
+                {
+                    "command_name": "branch_delete",
+                    "command": ["branch", "-d", "unmerged"],
+                }
             )
 
         self.assertIn("unmerged", self._git("branch", "--list"))
@@ -296,7 +425,10 @@ class GitToolTest(unittest.TestCase):
         self._git("switch", "main")
 
         output = self.write_tool.execute(
-            {"operation": "merge", "args": {"branch": "feature"}}
+            {
+                "command_name": "merge",
+                "command": ["merge", "--no-edit", "--no-gpg-sign", "feature"],
+            }
         )
 
         self.assertTrue((self.repository / "feature.txt").is_file())
@@ -310,7 +442,15 @@ class GitToolTest(unittest.TestCase):
 
         with self.assertRaisesRegex(RuntimeError, "Git command failed"):
             self.write_tool.execute(
-                {"operation": "merge", "args": {"branch": "conflicting"}}
+                {
+                    "command_name": "merge",
+                    "command": [
+                        "merge",
+                        "--no-edit",
+                        "--no-gpg-sign",
+                        "conflicting",
+                    ],
+                }
             )
 
         contents = (self.repository / "tracked.txt").read_text(encoding="utf-8")
@@ -322,7 +462,10 @@ class GitToolTest(unittest.TestCase):
         self._git("switch", "main")
 
         self.write_tool.execute(
-            {"operation": "cherry_pick", "args": {"revision": revision}}
+            {
+                "command_name": "cherry_pick",
+                "command": ["cherry-pick", "--no-gpg-sign", revision],
+            }
         )
 
         self.assertEqual(
@@ -336,8 +479,8 @@ class GitToolTest(unittest.TestCase):
 
         self.write_tool.execute(
             {
-                "operation": "restore",
-                "args": {"paths": ["tracked.txt"], "staged": True},
+                "command_name": "restore",
+                "command": ["restore", "--staged", "--", "tracked.txt"],
             }
         )
 
@@ -348,13 +491,19 @@ class GitToolTest(unittest.TestCase):
         self._commit_file("second.txt", "second\n", "Second commit")
 
         self.write_tool.execute(
-            {"operation": "reset", "args": {"mode": "soft", "revision": "HEAD~1"}}
+            {
+                "command_name": "reset",
+                "command": ["reset", "--soft", "HEAD~1"],
+            }
         )
         self.assertIn("second.txt", self._git("diff", "--cached", "--name-only"))
 
         self._git("commit", "-m", "Second commit again")
         self.write_tool.execute(
-            {"operation": "reset", "args": {"mode": "mixed", "revision": "HEAD~1"}}
+            {
+                "command_name": "reset",
+                "command": ["reset", "--mixed", "HEAD~1"],
+            }
         )
         self.assertEqual(self._git("diff", "--cached", "--name-only"), "")
         self.assertIn("?? second.txt", self._git("status", "--short"))
@@ -363,7 +512,10 @@ class GitToolTest(unittest.TestCase):
         (self.repository / "tracked.txt").write_text("stashed\n", encoding="utf-8")
 
         self.write_tool.execute(
-            {"operation": "stash", "args": {"message": "Harness stash"}}
+            {
+                "command_name": "stash",
+                "command": ["stash", "push", "--message", "Harness stash", "--"],
+            }
         )
         self.assertEqual(
             (self.repository / "tracked.txt").read_text(encoding="utf-8"),
@@ -371,10 +523,17 @@ class GitToolTest(unittest.TestCase):
         )
         self.assertIn(
             "Harness stash",
-            self.read_tool.execute({"operation": "stash_list"}),
+            self.read_tool.execute(
+                {"command_name": "stash_list", "command": ["stash", "list"]}
+            ),
         )
 
-        self.write_tool.execute({"operation": "stash_pop", "args": {"index": 0}})
+        self.write_tool.execute(
+            {
+                "command_name": "stash_pop",
+                "command": ["stash", "pop", "stash@{0}"],
+            }
+        )
         self.assertEqual(
             (self.repository / "tracked.txt").read_text(encoding="utf-8"),
             "stashed\n",
@@ -382,31 +541,41 @@ class GitToolTest(unittest.TestCase):
 
     def test_tag_create_and_delete(self):
         self.write_tool.execute(
-            {"operation": "tag_create", "args": {"name": "v2.0.0"}}
+            {
+                "command_name": "tag_create",
+                "command": ["tag", "v2.0.0", "HEAD"],
+            }
         )
         self.assertIn("v2.0.0", self._git("tag", "--list"))
 
         self.write_tool.execute(
-            {"operation": "tag_delete", "args": {"name": "v2.0.0"}}
+            {
+                "command_name": "tag_delete",
+                "command": ["tag", "-d", "v2.0.0"],
+            }
         )
         self.assertNotIn("v2.0.0", self._git("tag", "--list"))
 
-    def test_accepts_json_encoded_operation_arguments(self):
-        output = self.read_tool.execute(
-            {
-                "operation": "log",
-                "args": json.dumps({"max_count": 1}),
-            }
-        )
-
-        self.assertIn("Initial commit", output)
+    def test_rejects_json_encoded_command(self):
+        with self.assertRaisesRegex(ValueError, "non-empty array"):
+            self.read_tool.execute(
+                {
+                    "command_name": "log",
+                    "command": json.dumps(
+                        ["log", "--oneline", "--no-decorate", "--max-count=1"]
+                    ),
+                }
+            )
 
     def test_fetch_updates_remote_tracking_references(self):
         self._create_bare_remote()
         self._git("push", "origin", "main")
 
         self.remote_tool.execute(
-            {"operation": "fetch", "args": {"remote": "origin"}}
+            {
+                "command_name": "fetch",
+                "command": ["fetch", "--no-tags", "origin"],
+            }
         )
 
         self.assertEqual(
@@ -451,8 +620,14 @@ class GitToolTest(unittest.TestCase):
 
         self.remote_tool.execute(
             {
-                "operation": "pull",
-                "args": {"remote": "origin", "branch": "main"},
+                "command_name": "pull",
+                "command": [
+                    "pull",
+                    "--ff-only",
+                    "--no-rebase",
+                    "origin",
+                    "main",
+                ],
             }
         )
 
@@ -466,8 +641,14 @@ class GitToolTest(unittest.TestCase):
 
         output = self.remote_tool.execute(
             {
-                "operation": "push",
-                "args": {"remote": "origin", "branch": "main"},
+                "command_name": "push",
+                "command": [
+                    "push",
+                    "--porcelain",
+                    "--no-verify",
+                    "origin",
+                    "refs/heads/main:refs/heads/main",
+                ],
             }
         )
 
@@ -483,21 +664,43 @@ class GitToolTest(unittest.TestCase):
     def test_rejects_invalid_operations_and_arguments(self):
         invalid_calls = [
             {},
-            {"operation": "rebase"},
-            {"operation": "status", "unexpected": "value"},
-            {"operation": "status", "args": []},
-            {"operation": "status", "args": "not-json"},
-            {"operation": "status", "args": {"extra": True}},
-            {"operation": "diff", "args": {"staged": "yes"}},
-            {"operation": "log", "args": {"max_count": 0}},
-            {"operation": "show", "args": {"revision": "--help"}},
-            {"operation": "add", "args": {"paths": []}},
-            {"operation": "commit", "args": {"message": " "}},
-            {"operation": "branch_create", "args": {"name": "--help"}},
+            {"command_name": "rebase", "command": ["rebase", "main"]},
+            {
+                "command_name": "status",
+                "command": ["status"],
+                "unexpected": "value",
+            },
+            {"command_name": "status", "command": []},
+            {"command_name": "status", "command": "status"},
+            {"command_name": "status", "command": ["status", "--porcelain"]},
+            {
+                "command_name": "status",
+                "command": ["push", "origin", "main"],
+            },
+            {
+                "command_name": "branch_create",
+                "command": ["branch", "-d", "feature"],
+            },
+            {
+                "command_name": "stash",
+                "command": ["stash", "pop", "stash@{0}"],
+            },
+            {
+                "command_name": "tag_create",
+                "command": ["tag", "--list", "--sort=refname"],
+            },
+            {"command_name": "status", "command": ["-c", "alias.status=!sh"]},
+            {"command_name": "status", "command": ["status", "&&", "push"]},
+            {"command_name": "status", "command": ["status", 1]},
+            {"command_name": "status", "command": ["status\0"]},
+            {
+                "command_name": "commit",
+                "command": ["commit", "--no-verify", "--no-gpg-sign", "-m", " "],
+            },
         ]
 
         for arguments in invalid_calls:
-            if arguments.get("operation") in GitTool.WRITE_OPERATIONS:
+            if arguments.get("command_name") in GitTool.WRITE_OPERATIONS:
                 tool = self.write_tool
             else:
                 tool = self.read_tool
@@ -506,32 +709,113 @@ class GitToolTest(unittest.TestCase):
 
     def test_rejects_invalid_arguments_for_extended_operations(self):
         invalid_calls = [
-            (self.read_tool, {"operation": "tag_list", "args": {"pattern": "*"}}),
-            (self.read_tool, {"operation": "blame", "args": {"path": "."}}),
-            (self.read_tool, {"operation": "rev_parse", "args": {"revision": "--all"}}),
-            (self.read_tool, {"operation": "reflog", "args": {"max_count": 101}}),
-            (self.write_tool, {"operation": "branch_rename", "args": {"old_name": "main"}}),
-            (self.write_tool, {"operation": "branch_delete", "args": {"name": "--force"}}),
-            (self.write_tool, {"operation": "merge", "args": {"branch": "--abort"}}),
-            (self.write_tool, {"operation": "cherry_pick", "args": {"revision": "--abort"}}),
             (
-                self.write_tool,
+                self.read_tool,
                 {
-                    "operation": "restore",
-                    "args": {"paths": ["tracked.txt"], "staged": False},
+                    "command_name": "tag_list",
+                    "command": ["tag", "--list", "--sort=refname", "*"],
                 },
             ),
-            (self.write_tool, {"operation": "reset", "args": {"mode": "hard"}}),
-            (self.write_tool, {"operation": "stash", "args": {"include_untracked": "yes"}}),
-            (self.write_tool, {"operation": "stash_pop", "args": {"index": -1}}),
-            (self.write_tool, {"operation": "tag_create", "args": {"name": "--force"}}),
-            (self.remote_tool, {"operation": "fetch", "args": {"remote": "missing"}}),
-            (self.remote_tool, {"operation": "pull", "args": {"remote": "origin"}}),
+            (
+                self.read_tool,
+                {
+                    "command_name": "blame",
+                    "command": ["blame", "--date=short", "HEAD", "--", "."],
+                },
+            ),
+            (
+                self.read_tool,
+                {
+                    "command_name": "rev_parse",
+                    "command": [
+                        "rev-parse",
+                        "--verify",
+                        "--end-of-options",
+                        "--all^{object}",
+                    ],
+                },
+            ),
+            (
+                self.read_tool,
+                {
+                    "command_name": "reflog",
+                    "command": ["reflog", "--oneline", "--max-count=101"],
+                },
+            ),
+            (
+                self.write_tool,
+                {"command_name": "branch_rename", "command": ["branch", "-m", "main"]},
+            ),
+            (
+                self.write_tool,
+                {"command_name": "branch_delete", "command": ["branch", "-D", "main"]},
+            ),
+            (
+                self.write_tool,
+                {"command_name": "merge", "command": ["merge", "--abort"]},
+            ),
+            (
+                self.write_tool,
+                {"command_name": "cherry_pick", "command": ["cherry-pick", "--abort"]},
+            ),
+            (
+                self.write_tool,
+                {"command_name": "restore", "command": ["restore", "tracked.txt"]},
+            ),
+            (
+                self.write_tool,
+                {"command_name": "reset", "command": ["reset", "--hard", "HEAD"]},
+            ),
+            (
+                self.write_tool,
+                {"command_name": "stash", "command": ["stash", "push", "--all", "--"]},
+            ),
+            (
+                self.write_tool,
+                {"command_name": "stash_pop", "command": ["stash", "pop", "stash@{-1}"]},
+            ),
+            (
+                self.write_tool,
+                {"command_name": "tag_create", "command": ["tag", "--force", "HEAD"]},
+            ),
+            (
+                self.remote_tool,
+                {"command_name": "fetch", "command": ["fetch", "--no-tags", "missing"]},
+            ),
             (
                 self.remote_tool,
                 {
-                    "operation": "push",
-                    "args": {"remote": "origin", "branch": "--force"},
+                    "command_name": "fetch",
+                    "command": ["fetch", "--no-tags", "https://example.test/repo"],
+                },
+            ),
+            (
+                self.remote_tool,
+                {"command_name": "pull", "command": ["pull", "origin", "main"]},
+            ),
+            (
+                self.remote_tool,
+                {
+                    "command_name": "push",
+                    "command": [
+                        "push",
+                        "--force",
+                        "origin",
+                        "refs/heads/main:refs/heads/main",
+                    ],
+                },
+            ),
+            (
+                self.remote_tool,
+                {
+                    "command_name": "push",
+                    "command": [
+                        "push",
+                        "--porcelain",
+                        "--no-verify",
+                        "origin",
+                        "refs/heads/main:refs/heads/other",
+                    ],
                 },
             ),
         ]
@@ -547,7 +831,7 @@ class GitToolTest(unittest.TestCase):
         for path in ("../outside.txt", str(outside_path), ".git/config", ":(top)*"):
             with self.subTest(path=path), self.assertRaises(ValueError):
                 self.write_tool.execute(
-                    {"operation": "add", "args": {"paths": [path]}}
+                    {"command_name": "add", "command": ["add", "--", path]}
                 )
 
     def test_rejects_working_directory_that_is_not_repository_root(self):
@@ -555,17 +839,40 @@ class GitToolTest(unittest.TestCase):
         subdirectory.mkdir()
 
         with self.assertRaisesRegex(ValueError, "repository root"):
-            GitTool(working_directory=subdirectory).execute({"operation": "status"})
+            GitTool(working_directory=subdirectory).execute(
+                {
+                    "command_name": "status",
+                    "command": [
+                        "status",
+                        "--short",
+                        "--branch",
+                        "--untracked-files=all",
+                    ],
+                }
+            )
 
         outside_directory = self.root / "not-a-repository"
         outside_directory.mkdir()
         with self.assertRaisesRegex(RuntimeError, "Not a Git repository"):
-            GitTool(working_directory=outside_directory).execute({"operation": "status"})
+            GitTool(working_directory=outside_directory).execute(
+                {
+                    "command_name": "status",
+                    "command": [
+                        "status",
+                        "--short",
+                        "--branch",
+                        "--untracked-files=all",
+                    ],
+                }
+            )
 
     def test_surfaces_git_command_failures(self):
         with self.assertRaisesRegex(RuntimeError, "Git command failed"):
             self.write_tool.execute(
-                {"operation": "switch", "args": {"branch": "missing-branch"}}
+                {
+                    "command_name": "switch",
+                    "command": ["switch", "--no-guess", "missing-branch"],
+                }
             )
 
     def test_git_service_passes_only_allowlisted_environment_variables(self):
@@ -601,6 +908,7 @@ class GitToolTest(unittest.TestCase):
             output = self.read_tool._service.run(["status"])
 
         self.assertEqual(output, "status output")
+        self.assertNotIn("shell", run_git.call_args.kwargs)
         child_environment = run_git.call_args.kwargs["env"]
         for name in (
             "PATH",
@@ -672,48 +980,63 @@ class GitToolTest(unittest.TestCase):
 
     def test_write_operations_are_disabled_by_default(self):
         calls = [
-            {"operation": "add", "args": {"paths": ["tracked.txt"]}},
-            {"operation": "commit", "args": {"message": "Message"}},
-            {"operation": "branch_create", "args": {"name": "feature"}},
+            {"command_name": "add", "command": ["add", "--", "tracked.txt"]},
             {
-                "operation": "branch_rename",
-                "args": {"old_name": "main", "new_name": "renamed"},
+                "command_name": "commit",
+                "command": [
+                    "commit",
+                    "--no-verify",
+                    "--no-gpg-sign",
+                    "-m",
+                    "Message",
+                ],
             },
-            {"operation": "branch_delete", "args": {"name": "feature"}},
-            {"operation": "switch", "args": {"branch": "main"}},
-            {"operation": "merge", "args": {"branch": "main"}},
-            {"operation": "cherry_pick", "args": {"revision": "HEAD"}},
             {
-                "operation": "restore",
-                "args": {"paths": ["tracked.txt"], "staged": True},
+                "command_name": "branch_create",
+                "command": ["branch", "--no-track", "feature"],
             },
-            {"operation": "reset", "args": {"mode": "mixed"}},
-            {"operation": "stash"},
-            {"operation": "stash_pop"},
-            {"operation": "tag_create", "args": {"name": "v1"}},
-            {"operation": "tag_delete", "args": {"name": "v1"}},
+            {"command_name": "branch_rename", "command": ["branch", "-m", "main", "renamed"]},
+            {"command_name": "branch_delete", "command": ["branch", "-d", "feature"]},
+            {"command_name": "switch", "command": ["switch", "--no-guess", "main"]},
+            {"command_name": "merge", "command": ["merge", "--no-edit", "--no-gpg-sign", "main"]},
+            {"command_name": "cherry_pick", "command": ["cherry-pick", "--no-gpg-sign", "HEAD"]},
+            {"command_name": "restore", "command": ["restore", "--staged", "--", "tracked.txt"]},
+            {"command_name": "reset", "command": ["reset", "--mixed", "HEAD"]},
+            {"command_name": "stash", "command": ["stash", "push", "--"]},
+            {"command_name": "stash_pop", "command": ["stash", "pop", "stash@{0}"]},
+            {"command_name": "tag_create", "command": ["tag", "v1", "HEAD"]},
+            {"command_name": "tag_delete", "command": ["tag", "-d", "v1"]},
         ]
 
         for arguments in calls:
-            with self.subTest(operation=arguments["operation"]):
+            with self.subTest(operation=arguments["command_name"]):
                 with self.assertRaisesRegex(PermissionError, "disabled"):
                     self.read_tool.execute(arguments)
 
     def test_remote_operations_are_disabled_separately(self):
         calls = [
-            {"operation": "fetch", "args": {"remote": "origin"}},
             {
-                "operation": "pull",
-                "args": {"remote": "origin", "branch": "main"},
+                "command_name": "fetch",
+                "command": ["fetch", "--no-tags", "origin"],
             },
             {
-                "operation": "push",
-                "args": {"remote": "origin", "branch": "main"},
+                "command_name": "pull",
+                "command": ["pull", "--ff-only", "--no-rebase", "origin", "main"],
+            },
+            {
+                "command_name": "push",
+                "command": [
+                    "push",
+                    "--porcelain",
+                    "--no-verify",
+                    "origin",
+                    "refs/heads/main:refs/heads/main",
+                ],
             },
         ]
 
         for arguments in calls:
-            with self.subTest(operation=arguments["operation"]):
+            with self.subTest(operation=arguments["command_name"]):
                 with self.assertRaisesRegex(PermissionError, "remote operations"):
                     self.read_tool.execute(arguments)
 
@@ -730,7 +1053,10 @@ class GitToolTest(unittest.TestCase):
 
         git_tool = registry.get("git")
         git_tool.execute(
-            {"operation": "branch_create", "args": {"name": "registered"}}
+            {
+                "command_name": "branch_create",
+                "command": ["branch", "--no-track", "registered"],
+            }
         )
 
         self.assertIn("registered", self._git("branch", "--list"))
@@ -738,7 +1064,10 @@ class GitToolTest(unittest.TestCase):
         self._create_bare_remote()
         self._git("push", "origin", "main")
         git_tool.execute(
-            {"operation": "fetch", "args": {"remote": "origin"}}
+            {
+                "command_name": "fetch",
+                "command": ["fetch", "--no-tags", "origin"],
+            }
         )
 
 

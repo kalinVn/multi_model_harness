@@ -1,4 +1,3 @@
-import json
 import re
 from pathlib import Path
 from typing import Any
@@ -7,6 +6,7 @@ from harness.config.git_tool_config import (
     GIT_OPERATION_DEFINITIONS,
     GIT_REMOTE_OPERATIONS_ENVIRONMENT_VARIABLE,
     GIT_WRITE_OPERATIONS_ENVIRONMENT_VARIABLE,
+    MAX_COMMAND_TOKENS,
     MAX_COUNT,
     MAX_MESSAGE_LENGTH,
     MAX_PATHS,
@@ -24,7 +24,7 @@ from harness.service.git_tool_service import GitToolService
 
 
 class GitToolValidator:
-    """Validate Git tool permissions and operation arguments."""
+    """Validate Git tool permissions and complete command arguments."""
 
     READ_OPERATIONS = READ_OPERATIONS
     WRITE_OPERATIONS = WRITE_OPERATIONS
@@ -43,7 +43,7 @@ class GitToolValidator:
         self._allow_remote_operations = allow_remote_operations
         self._service = service
 
-    def validate(self, arguments: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    def validate(self, arguments: dict[str, Any]) -> None:
         if not isinstance(arguments, dict):
             raise ValueError("git arguments must be an object.")
 
@@ -52,25 +52,411 @@ class GitToolValidator:
             names = ", ".join(sorted(unexpected_arguments))
             raise ValueError(f"git received unexpected arguments: {names}")
 
-        operation = arguments.get("operation")
-        if not isinstance(operation, str) or operation not in self.OPERATIONS:
-            allowed = ", ".join(sorted(self.OPERATIONS))
-            raise ValueError(f"git operation must be one of: {allowed}")
+        missing_arguments = TOP_LEVEL_ARGUMENTS - set(arguments)
+        if missing_arguments:
+            names = ", ".join(sorted(missing_arguments))
+            raise ValueError(f"git is missing required arguments: {names}")
 
-        if operation in self.WRITE_OPERATIONS and not self._allow_write_operations:
+        self.validate_command(
+            arguments["command_name"],
+            arguments["command"],
+        )
+        self._ensure_project_repository()
+
+    def validate_command(
+        self,
+        command_name: str,
+        command: list[str],
+    ) -> None:
+        if not isinstance(command_name, str) or command_name not in self.OPERATIONS:
+            allowed = ", ".join(sorted(self.OPERATIONS))
+            raise ValueError(f"git command_name must be one of: {allowed}")
+        if not isinstance(command, list) or not command:
+            raise ValueError("git command must be a non-empty array.")
+        if len(command) > MAX_COMMAND_TOKENS:
+            raise ValueError(
+                f"git command accepts at most {MAX_COMMAND_TOKENS} tokens."
+            )
+        if any(not isinstance(token, str) for token in command):
+            raise ValueError("git command tokens must be strings.")
+        if any("\0" in token for token in command):
+            raise ValueError("git command tokens cannot contain NUL bytes.")
+
+        self._validate_operation_permission(command_name)
+        validator = getattr(self, f"_validate_{command_name}_command")
+        validator(command)
+
+    def _validate_operation_permission(self, command_name: str) -> None:
+        if command_name in self.WRITE_OPERATIONS and not self._allow_write_operations:
             raise PermissionError(
                 "Git write operations are disabled. Set "
                 f"{GIT_WRITE_OPERATIONS_ENVIRONMENT_VARIABLE}=true to enable them."
             )
-        if operation in self.REMOTE_OPERATIONS and not self._allow_remote_operations:
+        if command_name in self.REMOTE_OPERATIONS and not self._allow_remote_operations:
             raise PermissionError(
                 "Git remote operations are disabled. Set "
                 f"{GIT_REMOTE_OPERATIONS_ENVIRONMENT_VARIABLE}=true to enable them."
             )
 
-        operation_arguments = self._parse_operation_arguments(arguments.get("args"))
-        self._ensure_project_repository()
-        return operation, operation_arguments
+    def _validate_status_command(self, command: list[str]) -> None:
+        self._require_exact_command(
+            "status",
+            command,
+            ["status", "--short", "--branch", "--untracked-files=all"],
+        )
+
+    def _validate_diff_command(self, command: list[str]) -> None:
+        prefix = ["diff", "--no-ext-diff", "--no-textconv", "--no-color"]
+        if command[:4] != prefix:
+            self._raise_invalid_command("diff")
+
+        index = 4
+        canonical_command = list(prefix)
+        if index < len(command) and command[index] == "--cached":
+            canonical_command.append("--cached")
+            index += 1
+        if index >= len(command) or command[index] != "--":
+            self._raise_invalid_command("diff")
+
+        canonical_command.append("--")
+        remaining = command[index + 1 :]
+        if len(remaining) > 1:
+            self._raise_invalid_command("diff")
+        if remaining:
+            canonical_command.append(self.validate_path(remaining[0], "diff"))
+        self._require_exact_command("diff", command, canonical_command)
+
+    def _validate_log_command(self, command: list[str]) -> None:
+        if len(command) != 4 or command[:3] != [
+            "log",
+            "--oneline",
+            "--no-decorate",
+        ]:
+            self._raise_invalid_command("log")
+        max_count = self._validate_count_option(command[3], "log")
+        self._require_exact_command(
+            "log",
+            command,
+            ["log", "--oneline", "--no-decorate", f"--max-count={max_count}"],
+        )
+
+    def _validate_branch_list_command(self, command: list[str]) -> None:
+        self._require_exact_command(
+            "branch_list",
+            command,
+            ["branch", "--list", "--no-color"],
+        )
+
+    def _validate_show_command(self, command: list[str]) -> None:
+        prefix = ["show", "--no-ext-diff", "--no-textconv", "--no-color"]
+        if command[:4] != prefix:
+            self._raise_invalid_command("show")
+
+        remaining = command[4:]
+        if (
+            len(remaining) == 3
+            and remaining[0] == "--format=fuller"
+            and remaining[2] == "--"
+        ):
+            revision = self.validate_revision(remaining[1])
+            self._require_exact_command(
+                "show",
+                command,
+                [*prefix, "--format=fuller", revision, "--"],
+            )
+            return
+        if len(remaining) == 1:
+            revision, separator, path = remaining[0].partition(":")
+            if not separator:
+                self._raise_invalid_command("show")
+            revision = self.validate_revision(revision)
+            path = self.validate_file_path(path, "show")
+            self._require_exact_command(
+                "show",
+                command,
+                [*prefix, f"{revision}:{path}"],
+            )
+            return
+
+        self._raise_invalid_command("show")
+
+    def _validate_tag_list_command(self, command: list[str]) -> None:
+        self._require_exact_command(
+            "tag_list",
+            command,
+            ["tag", "--list", "--sort=refname"],
+        )
+
+    def _validate_remote_list_command(self, command: list[str]) -> None:
+        self._require_exact_command("remote_list", command, ["remote"])
+
+    def _validate_blame_command(self, command: list[str]) -> None:
+        if (
+            len(command) != 5
+            or command[:2] != ["blame", "--date=short"]
+            or command[3] != "--"
+        ):
+            self._raise_invalid_command("blame")
+        revision = self.validate_revision(command[2])
+        path = self.validate_file_path(command[4], "blame")
+        self._require_exact_command(
+            "blame",
+            command,
+            ["blame", "--date=short", revision, "--", path],
+        )
+
+    def _validate_rev_parse_command(self, command: list[str]) -> None:
+        suffix = "^{object}"
+        if len(command) != 4 or command[:3] != [
+            "rev-parse",
+            "--verify",
+            "--end-of-options",
+        ] or not command[3].endswith(suffix):
+            self._raise_invalid_command("rev_parse")
+        revision = self.validate_revision(command[3][: -len(suffix)])
+        self._require_exact_command(
+            "rev_parse",
+            command,
+            ["rev-parse", "--verify", "--end-of-options", f"{revision}{suffix}"],
+        )
+
+    def _validate_reflog_command(self, command: list[str]) -> None:
+        if len(command) != 3 or command[:2] != ["reflog", "--oneline"]:
+            self._raise_invalid_command("reflog")
+        max_count = self._validate_count_option(command[2], "reflog")
+        self._require_exact_command(
+            "reflog",
+            command,
+            ["reflog", "--oneline", f"--max-count={max_count}"],
+        )
+
+    def _validate_ls_files_command(self, command: list[str]) -> None:
+        if len(command) not in {2, 3} or command[:2] != ["ls-files", "--"]:
+            self._raise_invalid_command("ls_files")
+        canonical_command = ["ls-files", "--"]
+        if len(command) == 3:
+            canonical_command.append(self.validate_path(command[2], "ls_files"))
+        self._require_exact_command("ls_files", command, canonical_command)
+
+    def _validate_stash_list_command(self, command: list[str]) -> None:
+        self._require_exact_command(
+            "stash_list",
+            command,
+            ["stash", "list"],
+        )
+
+    def _validate_add_command(self, command: list[str]) -> None:
+        if len(command) < 3 or command[:2] != ["add", "--"]:
+            self._raise_invalid_command("add")
+        paths = self.validate_paths(command[2:], "add")
+        self._require_exact_command("add", command, ["add", "--", *paths])
+
+    def _validate_commit_command(self, command: list[str]) -> None:
+        if len(command) != 5 or command[:4] != [
+            "commit",
+            "--no-verify",
+            "--no-gpg-sign",
+            "-m",
+        ]:
+            self._raise_invalid_command("commit")
+        message = self.validate_message(command[4], "commit")
+        self._require_exact_command(
+            "commit",
+            command,
+            ["commit", "--no-verify", "--no-gpg-sign", "-m", message],
+        )
+
+    def _validate_branch_create_command(self, command: list[str]) -> None:
+        if len(command) != 3 or command[:2] != ["branch", "--no-track"]:
+            self._raise_invalid_command("branch_create")
+        name = self.validate_branch_name(command[2])
+        self._require_exact_command(
+            "branch_create",
+            command,
+            ["branch", "--no-track", name],
+        )
+
+    def _validate_branch_rename_command(self, command: list[str]) -> None:
+        if len(command) != 4 or command[:2] != ["branch", "-m"]:
+            self._raise_invalid_command("branch_rename")
+        old_name = self.validate_branch_name(command[2])
+        new_name = self.validate_branch_name(command[3])
+        self._require_exact_command(
+            "branch_rename",
+            command,
+            ["branch", "-m", old_name, new_name],
+        )
+
+    def _validate_branch_delete_command(self, command: list[str]) -> None:
+        if len(command) != 3 or command[:2] != ["branch", "-d"]:
+            self._raise_invalid_command("branch_delete")
+        name = self.validate_branch_name(command[2])
+        self._require_exact_command(
+            "branch_delete",
+            command,
+            ["branch", "-d", name],
+        )
+
+    def _validate_switch_command(self, command: list[str]) -> None:
+        if len(command) != 3 or command[:2] != ["switch", "--no-guess"]:
+            self._raise_invalid_command("switch")
+        branch = self.validate_branch_name(command[2])
+        self._require_exact_command(
+            "switch",
+            command,
+            ["switch", "--no-guess", branch],
+        )
+
+    def _validate_merge_command(self, command: list[str]) -> None:
+        if len(command) != 4 or command[:3] != [
+            "merge",
+            "--no-edit",
+            "--no-gpg-sign",
+        ]:
+            self._raise_invalid_command("merge")
+        branch = self.validate_branch_name(command[3])
+        self._require_exact_command(
+            "merge",
+            command,
+            ["merge", "--no-edit", "--no-gpg-sign", branch],
+        )
+
+    def _validate_cherry_pick_command(self, command: list[str]) -> None:
+        if len(command) != 3 or command[:2] != ["cherry-pick", "--no-gpg-sign"]:
+            self._raise_invalid_command("cherry_pick")
+        revision = self.validate_revision(command[2])
+        self._require_exact_command(
+            "cherry_pick",
+            command,
+            ["cherry-pick", "--no-gpg-sign", revision],
+        )
+
+    def _validate_restore_command(self, command: list[str]) -> None:
+        if len(command) < 4 or command[:3] != ["restore", "--staged", "--"]:
+            self._raise_invalid_command("restore")
+        paths = self.validate_paths(command[3:], "restore")
+        self._require_exact_command(
+            "restore",
+            command,
+            ["restore", "--staged", "--", *paths],
+        )
+
+    def _validate_reset_command(self, command: list[str]) -> None:
+        if len(command) != 3 or not command[1].startswith("--"):
+            self._raise_invalid_command("reset")
+        mode = self.validate_reset_mode(command[1][2:])
+        revision = self.validate_revision(command[2])
+        self._require_exact_command(
+            "reset",
+            command,
+            ["reset", f"--{mode}", revision],
+        )
+
+    def _validate_stash_command(self, command: list[str]) -> None:
+        if command[:2] != ["stash", "push"]:
+            self._raise_invalid_command("stash")
+
+        index = 2
+        canonical_command = ["stash", "push"]
+        if index < len(command) and command[index] == "--include-untracked":
+            canonical_command.append("--include-untracked")
+            index += 1
+        if index < len(command) and command[index] == "--message":
+            if index + 1 >= len(command):
+                self._raise_invalid_command("stash")
+            message = self.validate_message(command[index + 1], "stash")
+            canonical_command.extend(["--message", message])
+            index += 2
+        if command[index:] != ["--"]:
+            self._raise_invalid_command("stash")
+        canonical_command.append("--")
+        self._require_exact_command("stash", command, canonical_command)
+
+    def _validate_stash_pop_command(self, command: list[str]) -> None:
+        if len(command) != 3 or command[:2] != ["stash", "pop"]:
+            self._raise_invalid_command("stash_pop")
+        match = re.fullmatch(r"stash@\{([0-9]+)\}", command[2])
+        if match is None:
+            self._raise_invalid_command("stash_pop")
+        index = self.validate_stash_index(int(match.group(1)))
+        self._require_exact_command(
+            "stash_pop",
+            command,
+            ["stash", "pop", f"stash@{{{index}}}"],
+        )
+
+    def _validate_tag_create_command(self, command: list[str]) -> None:
+        if len(command) != 3 or command[0] != "tag":
+            self._raise_invalid_command("tag_create")
+        name = self.validate_tag_name(command[1])
+        revision = self.validate_revision(command[2])
+        self._require_exact_command(
+            "tag_create",
+            command,
+            ["tag", name, revision],
+        )
+
+    def _validate_tag_delete_command(self, command: list[str]) -> None:
+        if len(command) != 3 or command[:2] != ["tag", "-d"]:
+            self._raise_invalid_command("tag_delete")
+        name = self.validate_tag_name(command[2])
+        self._require_exact_command(
+            "tag_delete",
+            command,
+            ["tag", "-d", name],
+        )
+
+    def _validate_fetch_command(self, command: list[str]) -> None:
+        if len(command) != 3 or command[:2] != ["fetch", "--no-tags"]:
+            self._raise_invalid_command("fetch")
+        remote = self.validate_remote_name(command[2])
+        self._require_exact_command(
+            "fetch",
+            command,
+            ["fetch", "--no-tags", remote],
+        )
+
+    def _validate_pull_command(self, command: list[str]) -> None:
+        if len(command) != 5 or command[:3] != [
+            "pull",
+            "--ff-only",
+            "--no-rebase",
+        ]:
+            self._raise_invalid_command("pull")
+        remote = self.validate_remote_name(command[3])
+        branch = self.validate_branch_name(command[4])
+        self._require_exact_command(
+            "pull",
+            command,
+            ["pull", "--ff-only", "--no-rebase", remote, branch],
+        )
+
+    def _validate_push_command(self, command: list[str]) -> None:
+        if len(command) != 5 or command[:3] != [
+            "push",
+            "--porcelain",
+            "--no-verify",
+        ]:
+            self._raise_invalid_command("push")
+        remote = self.validate_remote_name(command[3])
+        refspec = command[4]
+        prefix = "refs/heads/"
+        source, separator, destination = refspec.partition(":")
+        if (
+            not separator
+            or not source.startswith(prefix)
+            or not destination.startswith(prefix)
+        ):
+            self._raise_invalid_command("push")
+        branch = self.validate_branch_name(source.removeprefix(prefix))
+        expected_refspec = f"{prefix}{branch}:{prefix}{branch}"
+        if refspec != expected_refspec:
+            self._raise_invalid_command("push")
+        self._require_exact_command(
+            "push",
+            command,
+            ["push", "--porcelain", "--no-verify", remote, expected_refspec],
+        )
 
     def require_arguments(
         self,
@@ -157,7 +543,6 @@ class GitToolValidator:
             )
         except RuntimeError as error:
             raise ValueError(str(error)) from error
-
         return value
 
     def validate_tag_name(self, value: Any) -> str:
@@ -171,7 +556,6 @@ class GitToolValidator:
             )
         except RuntimeError as error:
             raise ValueError(str(error)) from error
-
         return value
 
     def validate_remote_name(self, value: Any) -> str:
@@ -193,9 +577,7 @@ class GitToolValidator:
 
     def validate_stash_include_untracked(self, value: Any) -> bool:
         if not isinstance(value, bool):
-            raise ValueError(
-                "git stash args.include_untracked must be a boolean."
-            )
+            raise ValueError("git stash args.include_untracked must be a boolean.")
         return value
 
     def validate_message(self, value: Any, operation: str) -> str:
@@ -231,19 +613,29 @@ class GitToolValidator:
             )
         return value
 
-    def _parse_operation_arguments(self, value: Any) -> dict[str, Any]:
-        if value is None:
-            return {}
+    def _validate_count_option(self, token: str, operation: str) -> int:
+        prefix = "--max-count="
+        if not token.startswith(prefix) or not token.removeprefix(prefix).isdigit():
+            self._raise_invalid_command(operation)
+        value = int(token.removeprefix(prefix))
+        return self.validate_max_count(value, operation)
 
-        if isinstance(value, str):
-            try:
-                value = json.loads(value)
-            except json.JSONDecodeError as error:
-                raise ValueError("git args must contain a valid JSON object.") from error
+    @staticmethod
+    def _require_exact_command(
+        operation: str,
+        command: list[str],
+        expected: list[str],
+    ) -> None:
+        if command != expected:
+            raise ValueError(
+                f"git {operation} command does not match the supported structure."
+            )
 
-        if not isinstance(value, dict):
-            raise ValueError("git args must be an object or a JSON-encoded object.")
-        return value
+    @staticmethod
+    def _raise_invalid_command(operation: str) -> None:
+        raise ValueError(
+            f"git {operation} command does not match the supported structure."
+        )
 
     def _ensure_project_repository(self) -> None:
         if not self._working_directory.is_dir():

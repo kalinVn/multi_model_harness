@@ -56,16 +56,50 @@ class GitToolWorkflowTest(unittest.TestCase):
 
     def test_status_add_commit_status_workflow(self):
         runner, client = self._create_orchestrator([
-            ModelResponse(tool_calls=[ToolCall("git", {"operation": "status", "args": {}})]),
             ModelResponse(tool_calls=[ToolCall(
                 "git",
-                {"operation": "add", "args": {"paths": ["tracked.txt"]}},
+                {
+                    "command_name": "status",
+                    "command": [
+                        "status",
+                        "--short",
+                        "--branch",
+                        "--untracked-files=all",
+                    ],
+                },
             )]),
             ModelResponse(tool_calls=[ToolCall(
                 "git",
-                {"operation": "commit", "args": {"message": "Update tracked file"}},
+                {
+                    "command_name": "add",
+                    "command": ["add", "--", "tracked.txt"],
+                },
             )]),
-            ModelResponse(tool_calls=[ToolCall("git", {"operation": "status", "args": {}})]),
+            ModelResponse(tool_calls=[ToolCall(
+                "git",
+                {
+                    "command_name": "commit",
+                    "command": [
+                        "commit",
+                        "--no-verify",
+                        "--no-gpg-sign",
+                        "-m",
+                        "Update tracked file",
+                    ],
+                },
+            )]),
+            ModelResponse(tool_calls=[ToolCall(
+                "git",
+                {
+                    "command_name": "status",
+                    "command": [
+                        "status",
+                        "--short",
+                        "--branch",
+                        "--untracked-files=all",
+                    ],
+                },
+            )]),
             ModelResponse(text="Changes were committed and the repository is clean."),
         ])
 
@@ -90,17 +124,54 @@ class GitToolWorkflowTest(unittest.TestCase):
 
     def test_invalid_add_arguments_are_returned_and_model_can_recover(self):
         runner, client = self._create_orchestrator([
-            ModelResponse(tool_calls=[ToolCall("git", {"operation": "status", "args": {}})]),
-            ModelResponse(tool_calls=[ToolCall("git", {"operation": "add", "args": {}})]),
             ModelResponse(tool_calls=[ToolCall(
                 "git",
-                {"operation": "add", "args": {"paths": ["tracked.txt"]}},
+                {
+                    "command_name": "status",
+                    "command": [
+                        "status",
+                        "--short",
+                        "--branch",
+                        "--untracked-files=all",
+                    ],
+                },
             )]),
             ModelResponse(tool_calls=[ToolCall(
                 "git",
-                {"operation": "commit", "args": {"message": "Recovered commit"}},
+                {"command_name": "add", "command": ["add", "--"]},
             )]),
-            ModelResponse(tool_calls=[ToolCall("git", {"operation": "status", "args": {}})]),
+            ModelResponse(tool_calls=[ToolCall(
+                "git",
+                {
+                    "command_name": "add",
+                    "command": ["add", "--", "tracked.txt"],
+                },
+            )]),
+            ModelResponse(tool_calls=[ToolCall(
+                "git",
+                {
+                    "command_name": "commit",
+                    "command": [
+                        "commit",
+                        "--no-verify",
+                        "--no-gpg-sign",
+                        "-m",
+                        "Recovered commit",
+                    ],
+                },
+            )]),
+            ModelResponse(tool_calls=[ToolCall(
+                "git",
+                {
+                    "command_name": "status",
+                    "command": [
+                        "status",
+                        "--short",
+                        "--branch",
+                        "--untracked-files=all",
+                    ],
+                },
+            )]),
             ModelResponse(text="Recovered from the invalid add call and committed the changes."),
         ])
 
@@ -114,7 +185,7 @@ class GitToolWorkflowTest(unittest.TestCase):
         recovery_messages = client.generate.call_args_list[2].args[0]
         self.assertTrue(any(
             "Success: False" in message.content
-            and "missing required args: paths" in message.content
+            and "command does not match the supported structure" in message.content
             for message in recovery_messages
         ))
         self.assertEqual(self._git("log", "-1", "--pretty=%s"), "Recovered commit")
@@ -123,8 +194,30 @@ class GitToolWorkflowTest(unittest.TestCase):
     def test_tool_iteration_limit_is_configurable(self):
         client = Mock()
         client.generate.side_effect = [
-            ModelResponse(tool_calls=[ToolCall("git", {"operation": "status"})]),
-            ModelResponse(tool_calls=[ToolCall("git", {"operation": "status"})]),
+            ModelResponse(tool_calls=[ToolCall(
+                "git",
+                {
+                    "command_name": "status",
+                    "command": [
+                        "status",
+                        "--short",
+                        "--branch",
+                        "--untracked-files=all",
+                    ],
+                },
+            )]),
+            ModelResponse(tool_calls=[ToolCall(
+                "git",
+                {
+                    "command_name": "status",
+                    "command": [
+                        "status",
+                        "--short",
+                        "--branch",
+                        "--untracked-files=all",
+                    ],
+                },
+            )]),
         ]
         with patch.dict(
             os.environ,

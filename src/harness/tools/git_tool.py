@@ -2,7 +2,6 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
-from harness.builder.git_command_builder import GitCommandBuilder
 from harness.config.git_tool_config import (
     DEFAULT_ALLOW_REMOTE_OPERATIONS,
     DEFAULT_ALLOW_WRITE_OPERATIONS,
@@ -43,7 +42,6 @@ class GitTool:
             allow_remote_operations=allow_remote_operations,
             service=self._service,
         )
-        self._command_builder = GitCommandBuilder(self._validator)
 
     @property
     def name(self) -> str:
@@ -58,9 +56,8 @@ class GitTool:
         return deepcopy(GIT_TOOL_ARGUMENTS_SCHEMA)
 
     def execute(self, arguments: dict[str, Any]) -> str:
-        operation, operation_arguments = self._validator.validate(arguments)
-        command = self._command_builder.build(operation, operation_arguments)
-        
+        self._validator.validate(arguments)
+        command = arguments["command"]
         return self._service.run(command)
 
 

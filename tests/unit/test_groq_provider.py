@@ -98,7 +98,7 @@ class GroqProviderTest(unittest.TestCase):
                 },
             }})
 
-    def test_git_schema_exposes_typed_add_and_commit_arguments(self):
+    def test_git_schema_exposes_typed_complete_command_arguments(self):
         _, definitions = map_messages(self.messages)
         git_definition = next(
             definition
@@ -107,14 +107,14 @@ class GroqProviderTest(unittest.TestCase):
         )
         parameters = git_definition["function"]["parameters"]
 
-        self.assertEqual(parameters["required"], ["operation"])
-        self.assertIn("add", parameters["properties"]["operation"]["enum"])
-        self.assertIn("commit", parameters["properties"]["operation"]["enum"])
-        args = parameters["properties"]["args"]
-        self.assertEqual(args["type"], "object")
-        self.assertEqual(args["properties"]["paths"]["type"], "array")
-        self.assertEqual(args["properties"]["paths"]["items"], {"type": "string"})
-        self.assertEqual(args["properties"]["message"]["type"], "string")
+        self.assertEqual(parameters["required"], ["command_name", "command"])
+        command_name = parameters["properties"]["command_name"]
+        self.assertIn("add", command_name["enum"])
+        self.assertIn("commit", command_name["enum"])
+        command = parameters["properties"]["command"]
+        self.assertEqual(command["type"], "array")
+        self.assertEqual(command["items"], {"type": "string"})
+        self.assertEqual(command["minItems"], 1)
 
     def test_no_argument_tool_and_user_text_do_not_create_extra_tools(self):
         no_arguments = Mock(name='tool')
@@ -136,6 +136,21 @@ class GroqProviderTest(unittest.TestCase):
         ], [ToolResultSummary('original-id', 'Earlier result')]))
         self.assertEqual(self.reply(calls=[tool_call()]).tool_calls,
                          [ToolCall('read_file', {'path': 'README.md'})])
+
+    def test_native_git_call_preserves_complete_command_array(self):
+        arguments = {
+            "command_name": "status",
+            "command": [
+                "status",
+                "--short",
+                "--branch",
+                "--untracked-files=all",
+            ],
+        }
+
+        response = self.reply(calls=[tool_call("git", json.dumps(arguments))])
+
+        self.assertEqual(response.tool_calls, [ToolCall("git", arguments)])
 
     def test_rejects_malformed_and_unavailable_native_calls(self):
         invalid = [tool_call('unknown'), tool_call(arguments='[]'), tool_call(arguments='{'),

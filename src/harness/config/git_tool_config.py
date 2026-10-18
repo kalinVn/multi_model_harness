@@ -9,6 +9,8 @@ from harness.config.sensitive_data_redaction_config import (
 GIT_TOOL_NAME = "git"
 GIT_TOOL_DESCRIPTION = (
     "Runs allowlisted Git operations in the project repository. "
+    "Provide the supported logical command_name and the complete canonical "
+    "Git argument array in command, excluding the git executable. "
     "Read, local write, and remote operations are separately restricted. "
     "Destructive and force variants are unavailable."
 )
@@ -247,7 +249,7 @@ REMOTE_OPERATIONS = {
     if definition["type"] == REMOTE_OPERATION_TYPE
 }
 SUPPORTED_OPERATIONS = set(GIT_OPERATION_DEFINITIONS)
-TOP_LEVEL_ARGUMENTS = frozenset({"operation", "args"})
+TOP_LEVEL_ARGUMENTS = frozenset({"command_name", "command"})
 
 DEFAULT_REVISION = "HEAD"
 DEFAULT_MAX_COUNT = 20
@@ -256,6 +258,7 @@ MAX_PATHS = 100
 MAX_MESSAGE_LENGTH = 1000
 DEFAULT_STASH_INDEX = 0
 MAX_STASH_INDEX = 1000
+MAX_COMMAND_TOKENS = MAX_PATHS + 3
 RESET_MODES = ("soft", "mixed")
 RESET_MODE_VALUES = frozenset(RESET_MODES)
 
@@ -287,21 +290,38 @@ GIT_ARGUMENT_PROPERTIES: dict[str, dict[str, Any]] = {
     "staged": {"type": "boolean"},
 }
 
-GIT_TOOL_ARGUMENTS_SCHEMA: dict[str, str | dict[str, Any]] = {
-    "operation": {
+GIT_COMMAND_ARGUMENT_DESCRIPTION = (
+    "Complete canonical Git argument array, excluding the git executable. "
+    "Use exactly one supported form: status --short --branch "
+    "--untracked-files=all; diff --no-ext-diff --no-textconv --no-color "
+    "[--cached] -- [path]; log --oneline --no-decorate --max-count=N; "
+    "branch --list --no-color; show --no-ext-diff --no-textconv --no-color "
+    "--format=fuller REVISION --; show --no-ext-diff --no-textconv --no-color "
+    "REVISION:PATH; tag --list --sort=refname; remote; blame --date=short "
+    "REVISION -- PATH; rev-parse --verify --end-of-options REVISION^{object}; "
+    "reflog --oneline --max-count=N; ls-files -- [path]; stash list; "
+    "add -- PATH...; commit --no-verify --no-gpg-sign -m MESSAGE; "
+    "branch --no-track NAME; branch -m OLD NEW; branch -d NAME; "
+    "switch --no-guess BRANCH; merge --no-edit --no-gpg-sign BRANCH; "
+    "cherry-pick --no-gpg-sign REVISION; restore --staged -- PATH...; "
+    "reset (--soft|--mixed) REVISION; stash push [--include-untracked] "
+    "[--message MESSAGE] --; stash pop stash@{INDEX}; tag NAME REVISION; "
+    "tag -d NAME; fetch --no-tags REMOTE; pull --ff-only --no-rebase "
+    "REMOTE BRANCH; push --porcelain --no-verify REMOTE "
+    "refs/heads/BRANCH:refs/heads/BRANCH."
+)
+
+GIT_TOOL_ARGUMENTS_SCHEMA: dict[str, dict[str, Any]] = {
+    "command_name": {
         "type": "string",
         "enum": sorted(SUPPORTED_OPERATIONS),
-        "description": "The allowlisted Git operation to execute.",
+        "description": "The supported logical Git operation represented by command.",
     },
-    "args": {
-        "type": "object",
-        "description": (
-            "Operation-specific arguments. For add, paths is required. "
-            "For commit, message is required. Use an empty object when "
-            "the selected operation takes no arguments."
-        ),
-        "properties": GIT_ARGUMENT_PROPERTIES,
-        "additionalProperties": False,
-        "x-required": False,
+    "command": {
+        "type": "array",
+        "items": {"type": "string"},
+        "minItems": 1,
+        "maxItems": MAX_COMMAND_TOKENS,
+        "description": GIT_COMMAND_ARGUMENT_DESCRIPTION,
     },
 }
