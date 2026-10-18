@@ -5,10 +5,16 @@ import re
 from openai import APIConnectionError, APIStatusError, OpenAI, RateLimitError
 
 from harness.domain.message import Message
-from harness.mappers.groq_mapper import map_messages, map_response
+from harness.mappers.groq_mapper import map_response, prepare_groq_tools, prepare_groq_messages
 from harness.models.errors import ModelConnectionError, ModelRateLimitError
+from harness.models.groq_tool_type import GroqToolType
 from harness.models.response import ModelResponse
+from harness.models.tool_schema import ToolSchema
 from harness.parser.command_response_parser import parse_command_response
+from harness.validators.messages_validator import MessagesValidator
+
+
+GroqResponseParseResult = ModelResponse | tuple[list[dict[str, str]], dict]
 
 
 class GroqClient:
@@ -28,121 +34,164 @@ class GroqClient:
             max_retries=2,
         )
 
-    def generate(self, messages: list[Message]) -> ModelResponse:
-        if not messages or not any(message.role != "system" for message in messages):
-            raise ValueError("Cannot generate response with empty conversation.")
-        mapped, tools = map_messages(messages)
-        options = {"tools": tools, "tool_choice": "auto"} if tools else {
-            "response_format": {"type": "json_object"},
-        }
-        command_response_required = any(
-            "`command_summary`" in message.content
-            for message in messages
-        )
-        request_messages = mapped
-        request_options = options
-        invalid_response_retries = 0
+    def generate(
+        self,
+        model_messages: list[Message],
+        tools: list[ToolSchema] | None = None,
+    ) -> ModelResponse:
+        MessagesValidator.validate(model_messages)
 
-        while True:
-            try:
-                response = self._client.chat.completions.create(
-                    model=self._model,
-                    messages=request_messages,
-                    **request_options,
+        tools_list = prepare_groq_tools(tools)
+        groq_messages = prepare_groq_messages(model_messages)
+
+        if tools_list:
+            groq_options = {
+                "tools": tools_list,
+                "tool_choice": "auto",
+            }
+        else:
+            groq_options = {
+                "response_format": {"type": "json_object"},
+            }
+
+        command_response_required = any("`command_summary`" in message.content for message in model_messages)
+
+        request_messages = groq_messages.copy()
+        request_options = groq_options.copy()
+
+        for retry_attempt in range(self.MAX_INVALID_RESPONSE_RETRIES + 1):
+            choice = self._fetch_groq_response(
+                request_messages,
+                request_options
+            )
+
+            parse_result = self._parse_groq_response(
+                choice,
+                tools_list,
+                command_response_required,
+                retry_attempt,
+                groq_messages,
+                groq_options
+            )
+
+            if isinstance(parse_result, ModelResponse):
+                return parse_result
+
+            request_messages, request_options = parse_result
+
+    def _fetch_groq_response(
+        self,
+        request_messages: list[dict[str, str]],
+        request_options: dict,
+    ):
+        try:
+            response = self._client.chat.completions.create(
+                model=self._model,
+                messages=request_messages,
+                **request_options,
+            )
+        except RateLimitError as error:
+            raise ModelRateLimitError(
+                "Groq request quota exceeded. Retry after the cooldown."
+            ) from error
+        except APIConnectionError as error:
+            raise ModelConnectionError(
+                "Groq could not be reached. Check the connection."
+            ) from error
+        except APIStatusError as error:
+            details = self._format_api_error_details(error)
+            size_guidance = ""
+            if error.status_code == 413:
+                size_guidance = (
+                    " Reduce HARNESS_MAX_HISTORY_MESSAGES and "
+                    "HARNESS_MAX_TOOL_RESULT_CHARS."
                 )
-            except RateLimitError as error:
-                raise ModelRateLimitError(
-                    "Groq request quota exceeded. Retry after the cooldown."
-                ) from error
-            except APIConnectionError as error:
-                raise ModelConnectionError(
-                    "Groq could not be reached. Check the connection."
-                ) from error
-            except APIStatusError as error:
-                details = self._format_api_error_details(error)
-                size_guidance = ""
-                if error.status_code == 413:
-                    size_guidance = (
-                        " Reduce HARNESS_MAX_HISTORY_MESSAGES and "
-                        "HARNESS_MAX_TOOL_RESULT_CHARS."
-                    )
-                raise ModelConnectionError(
-                    f"Groq request failed ({error.status_code}): {details}."
-                    f"{size_guidance}"
-                ) from error
+            raise ModelConnectionError(
+                f"Groq request failed ({error.status_code}): {details}."
+                f"{size_guidance}"
+            ) from error
 
-            if not response.choices:
-                raise ValueError("Groq returned no response choices")
+        if not response.choices:
+            raise ValueError("Groq returned no response choices")
 
-            choice = response.choices[0]
-            if choice.finish_reason not in {"stop", "tool_calls"}:
+        choice = response.choices[0]
+        if choice.finish_reason not in {"stop", "tool_calls"}:
+            raise ValueError(
+                "Groq returned an incomplete response: "
+                f"{choice.finish_reason}"
+            )
+
+        return choice
+
+    def _parse_groq_response(
+        self,
+        choice,
+        tools_list: list[GroqToolType],
+        command_response_required: bool,
+        retry_attempt: int,
+        groq_messages: list[dict[str, str]],
+        groq_options: dict,
+    ) -> GroqResponseParseResult:
+        try:
+            return map_response(choice.message, tools_list)
+        except ValueError as error:
+            response_text = choice.message.content
+            if (
+                not command_response_required
+                and not choice.message.tool_calls
+                and isinstance(response_text, str)
+                and response_text.strip()
+                and not response_text.lstrip().startswith(("{", "[", "```"))
+            ):
+                return ModelResponse(text=response_text)
+
+            if (
+                command_response_required
+                and not choice.message.tool_calls
+                and parse_command_response(response_text) is not None
+            ):
+                return ModelResponse(text=response_text)
+
+            if retry_attempt >= self.MAX_INVALID_RESPONSE_RETRIES:
                 raise ValueError(
-                    "Groq returned an incomplete response: "
-                    f"{choice.finish_reason}"
+                    "Groq returned an invalid model response after "
+                    f"{self.MAX_INVALID_RESPONSE_RETRIES} retries: {error}"
+                ) from error
+
+            if command_response_required:
+                expected_response = (
+                    'If the command is complete, return exactly this outer JSON '
+                    'shape: {"text":"{\\"answer\\":\\"Done\\",'
+                    '\\"command_summary\\":\\"One concise sentence.\\"}",'
+                    '"tool_calls":[],"tool_result_summaries":[]}.'
+                )
+            else:
+                expected_response = (
+                    'If no tool is needed, return exactly this JSON shape: '
+                    '{"text":"Your answer","tool_calls":[],'
+                    '"tool_result_summaries":[]}.'
                 )
 
-            try:
-                return map_response(choice.message, tools)
-            except ValueError as error:
-                response_text = choice.message.content
-                if (
-                    not command_response_required
-                    and not choice.message.tool_calls
-                    and isinstance(response_text, str)
-                    and response_text.strip()
-                    and not response_text.lstrip().startswith(("{", "[", "```"))
-                ):
-                    return ModelResponse(text=response_text)
-
-                if (
-                    command_response_required
-                    and not choice.message.tool_calls
-                    and parse_command_response(response_text) is not None
-                ):
-                    return ModelResponse(text=response_text)
-
-                if (
-                    invalid_response_retries
-                    >= self.MAX_INVALID_RESPONSE_RETRIES
-                ):
-                    raise ValueError(
-                        "Groq returned an invalid model response after "
-                        f"{self.MAX_INVALID_RESPONSE_RETRIES} retries: {error}"
-                    ) from error
-
-                invalid_response_retries += 1
-                if command_response_required:
-                    expected_response = (
-                        'If the command is complete, return exactly this outer JSON '
-                        'shape: {"text":"{\\"answer\\":\\"Done\\",'
-                        '\\"command_summary\\":\\"One concise sentence.\\"}",'
-                        '"tool_calls":[],"tool_result_summaries":[]}.'
-                    )
-                else:
-                    expected_response = (
-                        'If no tool is needed, return exactly this JSON shape: '
-                        '{"text":"Your answer","tool_calls":[],'
-                        '"tool_result_summaries":[]}.'
-                    )
-
-                request_messages = mapped + [
-                    {
-                        "role": "system",
-                        "content": (
-                            "The previous response was invalid: "
-                            f"{error}. Follow the response protocol exactly. "
-                            "If a tool is needed, invoke it as a native function "
-                            "call and leave message content empty; never put a tool "
-                            "call JSON object in message content. "
-                            f"{expected_response} Do not return Markdown or plain "
-                            "text outside the outer JSON object."
-                        ),
-                    }
-                ]
-                request_options = {
-                    **options,
-                    "temperature": 0,
+            request_messages = groq_messages + [
+                {
+                    "role": "system",
+                    "content": (
+                        "The previous response was invalid: "
+                        f"{error}. Follow the response protocol exactly. "
+                        "If a tool is needed, invoke it as a native function "
+                        "call and leave message content empty; never put a tool "
+                        "call JSON object in message content. "
+                        f"{expected_response} Do not return Markdown or plain "
+                        "text outside the outer JSON object."
+                    ),
                 }
+            ]
+            request_options = {
+                **groq_options,
+                "temperature": 0,
+            }
+
+            return request_messages, request_options
 
     @staticmethod
     def _format_api_error_details(error: APIStatusError) -> str:

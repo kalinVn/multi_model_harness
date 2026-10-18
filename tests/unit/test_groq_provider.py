@@ -16,7 +16,7 @@ from harness.domain.message import Message
 from harness.domain.tool_call import ToolCall
 from harness.domain.tool_result import ToolResult
 from harness.factory.model_client_factory import create_model_client
-from harness.mappers.groq_mapper import map_messages
+from harness.mappers.groq_mapper import prepare_groq_request
 from harness.models.errors import ModelConnectionError, ModelRateLimitError
 from harness.models.response import ModelResponse
 from harness.models.tool_result_summary import ToolResultSummary
@@ -47,7 +47,8 @@ class GroqProviderTest(unittest.TestCase):
         registry = ToolRegistry()
         register_tools(registry)
         self.tools = registry.list_tools()
-        self.messages = [Message(role='system', content=build_tools_schema(self.tools)),
+        self.tool_schemas = build_tools_schema(self.tools)
+        self.messages = [Message(role='system', content='Project instructions'),
                          Message(role='user', content='hi')]
 
     def reply(self, content=None, calls=None, finish=None):
@@ -55,7 +56,7 @@ class GroqProviderTest(unittest.TestCase):
             finish_reason=finish or ('tool_calls' if calls else 'stop'),
             message=SimpleNamespace(content=content, tool_calls=calls),
         )])
-        return self.client.generate(self.messages)
+        return self.client.generate(self.messages, self.tool_schemas)
 
     def test_configuration_and_greeting(self):
         self.sdk.assert_called_once_with(api_key='test-key', base_url='https://api.groq.com/openai/v1',
@@ -71,35 +72,27 @@ class GroqProviderTest(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, name):
                     GroqClient()
 
-    def test_existing_tool_catalog_is_converted_without_mutating_messages(self):
+    def test_structured_tool_schemas_are_converted_without_mutating_messages(self):
         original = deepcopy(self.messages)
-        mapped, definitions = map_messages(self.messages)
+        original_schemas = deepcopy(self.tool_schemas)
+        groq_messages, definitions = prepare_groq_request(
+            self.messages,
+            self.tool_schemas,
+        )
         self.assertEqual(self.messages, original)
-        self.assertEqual(mapped[1], {'role': 'user', 'content': 'hi'})
-        self.assertNotIn('Tool call format:', mapped[0]['content'])
+        self.assertEqual(self.tool_schemas, original_schemas)
+        self.assertEqual(groq_messages[1], {'role': 'user', 'content': 'hi'})
+        self.assertEqual(groq_messages[0]['content'], 'Project instructions')
         self.assertEqual(len(definitions), len(self.tools))
-        for tool, definition in zip(self.tools, definitions):
-            properties = {}
-            required = []
-            for name, schema in tool.arguments_schema.items():
-                if isinstance(schema, str):
-                    properties[name] = {"type": "string", "description": schema}
-                    required.append(name)
-                    continue
-
-                property_schema = deepcopy(schema)
-                if property_schema.pop("x-required", True):
-                    required.append(name)
-                properties[name] = property_schema
+        for tool_schema, definition in zip(self.tool_schemas, definitions):
             self.assertEqual(definition, {'type': 'function', 'function': {
-                'name': tool.name, 'description': tool.description, 'parameters': {
-                    'type': 'object', 'properties': properties,
-                    'required': required, 'additionalProperties': False,
-                },
+                'name': tool_schema['name'],
+                'description': tool_schema['description'],
+                'parameters': tool_schema['parameters'],
             }})
 
     def test_git_schema_exposes_typed_complete_command_arguments(self):
-        _, definitions = map_messages(self.messages)
+        _, definitions = prepare_groq_request(self.messages, self.tool_schemas)
         git_definition = next(
             definition
             for definition in definitions
@@ -121,12 +114,34 @@ class GroqProviderTest(unittest.TestCase):
         no_arguments.name = 'status'
         no_arguments.description = 'Shows status.'
         no_arguments.arguments_schema = {}
-        catalog = build_tools_schema([no_arguments])
-        _, tools = map_messages([Message(role='system', content=catalog),
-                                 Message(role='user', content=build_tools_schema(self.tools))])
+        schemas = build_tools_schema([no_arguments])
+        _, tools = prepare_groq_request(
+            [
+                Message(
+                    role='system',
+                    content='Available tools:\n\nThis is ordinary content.',
+                ),
+                Message(role='user', content='Continue'),
+            ],
+            schemas,
+        )
         self.assertEqual(len(tools), 1)
         self.assertEqual(tools[0]['function']['parameters']['properties'], {})
         self.assertEqual(tools[0]['function']['parameters']['required'], [])
+
+    def test_plain_text_tool_catalog_is_not_parsed(self):
+        message = Message(
+            role='system',
+            content='Available tools:\n\nTool: fake\nDescription: Not a tool.',
+        )
+
+        groq_messages, tools = prepare_groq_request([message], [])
+
+        self.assertEqual(tools, [])
+        self.assertEqual(
+            groq_messages[0],
+            {'role': 'system', 'content': message.content},
+        )
 
     def test_native_parallel_calls_and_summaries(self):
         response = self.reply(envelope('Reading', [{'id': 'original-id', 'summary': 'Earlier result'}]),
@@ -171,7 +186,7 @@ class GroqProviderTest(unittest.TestCase):
             self.reply(envelope('Partial'), finish='length')
         self.create.return_value = SimpleNamespace(choices=[])
         with self.assertRaisesRegex(ValueError, 'no response choices'):
-            self.client.generate(self.messages)
+            self.client.generate(self.messages, self.tool_schemas)
 
     def test_invalid_response_is_retried_with_format_correction(self):
         invalid = SimpleNamespace(choices=[SimpleNamespace(
@@ -184,7 +199,10 @@ class GroqProviderTest(unittest.TestCase):
         )])
         self.create.side_effect = [invalid, valid]
 
-        self.assertEqual(self.client.generate(self.messages), ModelResponse(text='Done'))
+        self.assertEqual(
+            self.client.generate(self.messages, self.tool_schemas),
+            ModelResponse(text='Done'),
+        )
 
         self.assertEqual(self.create.call_count, 2)
         retry_messages = self.create.call_args_list[1].kwargs['messages']
@@ -211,7 +229,10 @@ class GroqProviderTest(unittest.TestCase):
             message=SimpleNamespace(content=inner, tool_calls=None),
         )])
 
-        self.assertEqual(self.client.generate(self.messages).text, inner)
+        self.assertEqual(
+            self.client.generate(self.messages, self.tool_schemas).text,
+            inner,
+        )
         self.assertEqual(self.create.call_count, 1)
 
     def test_invalid_direct_command_json_still_uses_bounded_retries(self):
@@ -223,7 +244,7 @@ class GroqProviderTest(unittest.TestCase):
         )])
 
         with self.assertRaisesRegex(ValueError, 'invalid model response after 2 retries'):
-            self.client.generate(self.messages)
+            self.client.generate(self.messages, self.tool_schemas)
 
         self.assertEqual(self.create.call_count, 3)
 
@@ -235,7 +256,7 @@ class GroqProviderTest(unittest.TestCase):
         )])
 
         with self.assertRaisesRegex(ValueError, 'invalid model response after 2 retries'):
-            self.client.generate(self.messages)
+            self.client.generate(self.messages, self.tool_schemas)
 
         self.assertEqual(self.create.call_count, 3)
 
@@ -252,6 +273,7 @@ class GroqProviderTest(unittest.TestCase):
 
     def test_no_tools_and_empty_conversation(self):
         self.messages = [Message(role='user', content='Hello')]
+        self.tool_schemas = []
         self.reply(envelope('Hello'))
         self.assertNotIn('tools', self.create.call_args.kwargs)
         self.assertEqual(self.create.call_args.kwargs['response_format'], {'type': 'json_object'})
@@ -271,7 +293,7 @@ class GroqProviderTest(unittest.TestCase):
         for error, expected in cases:
             self.create.side_effect = error
             with self.subTest(error=error), self.assertRaises(expected):
-                self.client.generate(self.messages)
+                self.client.generate(self.messages, self.tool_schemas)
 
     def test_api_error_exposes_safe_details_and_413_guidance(self):
         request = httpx.Request(
@@ -291,7 +313,7 @@ class GroqProviderTest(unittest.TestCase):
         )
 
         with self.assertRaises(ModelConnectionError) as raised:
-            self.client.generate(self.messages)
+            self.client.generate(self.messages, self.tool_schemas)
 
         message = str(raised.exception)
         self.assertIn('Request body is too large', message)

@@ -11,11 +11,13 @@ from harness.models.errors import (
     ModelRateLimitError,
 )
 from harness.models.response import ModelResponse
-from harness.parser.response_parser import (
-    parse_model_response,
-)
+from harness.models.tool_schema import ToolSchema
 from harness.mappers.google_mapper import (
+    get_response_text,
+    has_function_calls,
     map_messages,
+    map_response,
+    map_tool_schemas,
 )
 
 
@@ -48,8 +50,13 @@ class GeminiClient:
     def generate(
         self,
         messages: list[Message],
+        tools: list[ToolSchema] | None = None,
     ) -> ModelResponse:
-        contents, system_instruction = map_messages(messages)
+        native_tools = map_tool_schemas(tools or [])
+        contents, system_instruction = map_messages(
+            messages,
+            use_native_tools=bool(native_tools),
+        )
 
         if not contents:
             raise ValueError("Cannot generate response with empty conversation.")
@@ -57,6 +64,7 @@ class GeminiClient:
         config = types.GenerateContentConfig(
             system_instruction=system_instruction,
             response_mime_type="application/json",
+            tools=native_tools or None,
         )
 
         try:
@@ -91,9 +99,9 @@ class GeminiClient:
                 "Check the internet connection and try again."
             ) from error
 
-        response_text = response.text or ""
+        response_text = get_response_text(response)
 
-        if not response_text.strip():
+        if not response_text.strip() and not has_function_calls(response):
             details = []
             if response.prompt_feedback and response.prompt_feedback.block_reason:
                 details.append(f"block_reason={response.prompt_feedback.block_reason}")
@@ -104,6 +112,6 @@ class GeminiClient:
             raise ValueError(f"Gemini returned no response text{suffix}")
 
         try:
-            return parse_model_response(response_text)
+            return map_response(response, tools)
         except ValueError as error:
             raise ValueError(f"Gemini returned an invalid model response: {error}") from error

@@ -4,6 +4,7 @@ from openai import OpenAI
 
 from harness.domain.message import Message
 from harness.models.response import ModelResponse
+from harness.models.tool_schema import ToolSchema
 from harness.parser.response_parser import parse_model_response
 from harness.mappers.openai_mapper import (
     map_messages,
@@ -19,12 +20,13 @@ class OpenAIClient:
     def generate(
         self,
         messages: list[Message],
+        tools: list[ToolSchema] | None = None,
     ) -> ModelResponse:
 
         if not messages:
             raise ValueError("Cannot generate response with empty conversation.")
 
-        input_messages = map_messages(messages)
+        input_messages = map_messages(messages, tools)
 
         response = self._client.responses.create(
             model=self._model,

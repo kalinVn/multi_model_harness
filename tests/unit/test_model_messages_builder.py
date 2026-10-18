@@ -618,6 +618,8 @@ class ModelMessageBuilderTest(unittest.TestCase):
             self.assertEqual(runner.handle(Request.create("execute command review")), "Done")
 
         self.assertEqual(client.generate.call_count, 2)
+        self.assertTrue(client.generate.call_args_list[0].kwargs["tools"])
+        self.assertEqual(client.generate.call_args_list[1].kwargs["tools"], [])
         retry_messages = client.generate.call_args_list[1].args[0]
         self.assertIn(command_context, retry_messages)
         self.assertFalse(

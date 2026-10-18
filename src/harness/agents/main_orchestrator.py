@@ -32,6 +32,10 @@ from harness.tools.register_tools import (
     register_tools,
 )
 from harness.builder.model_message_builder import ModelMessageBuilder
+from harness.builder.tools_schema_builder import (
+    TOOLS_CONTEXT_HEADER,
+    build_tools_schema,
+)
 from harness.models.model_client import (
     ModelClient,
 )
@@ -81,6 +85,7 @@ class MainOrchestrator:
         self._command_loader = CommandLoader()
         self._tool_registry = ToolRegistry()
         register_tools(self._tool_registry, working_directory=self._project_root)
+        self._tool_schemas = build_tools_schema(self._tool_registry.list_tools())
         self._command_service = CommandService(
             command_resolver=self._command_resolver,
             command_loader=self._command_loader,
@@ -143,7 +148,19 @@ class MainOrchestrator:
    
 
     def _loop(self, state, session):
-        state.response = self._model_client.generate(state.model_messages)
+        tools = (
+            self._tool_schemas
+            if any(
+                message.role == "system"
+                and message.content.startswith(TOOLS_CONTEXT_HEADER)
+                for message in state.model_messages
+            )
+            else []
+        )
+        state.response = self._model_client.generate(
+            state.model_messages,
+            tools=tools,
+        )
                     
         session.apply_tool_result_summaries(state.response.tool_result_summaries)
         requested_tool_result_ids = self._tool_service.get_requested_tool_result_ids(

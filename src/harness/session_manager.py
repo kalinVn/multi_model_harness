@@ -6,7 +6,7 @@ from harness.tools.tool_registry import (
     ToolRegistry,
 )
 from harness.builder.tools_schema_builder import (
-    build_tools_schema,
+    build_tools_context,
 )
 
 
@@ -109,4 +109,4 @@ class SessionManager:
         
         tools = self._tool_registry.list_tools()
 
-        return build_tools_schema(tools)
+        return build_tools_context(tools)
