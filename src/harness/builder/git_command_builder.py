@@ -9,7 +9,7 @@ from harness.validators.git_tool_validator import GitToolValidator
 
 
 class GitCommandBuilder:
-    """Build validated argument lists for supported Git operations."""
+    """Изгражда валидирани списъци с аргументи за поддържаните Git операции."""
 
     def __init__(self, validator: GitToolValidator) -> None:
         self._validator = validator

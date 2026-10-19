@@ -1,4 +1,4 @@
-"""Groq conversions at the existing text-only provider boundary."""
+"""Преобразувания за Groq в съществуващата граница на доставчик само с текст."""
 import json
 from copy import deepcopy
 
@@ -10,37 +10,37 @@ from harness.models.response import ModelResponse
 from harness.models.tool_schema import ToolSchema
 from harness.parser.response_parser import prepare_model_response
 from harness.validators.tools_validator import ToolsValidator
-# Groq API requires a specific tool format, so we convert our
-# provider-independent Harness tool definitions into Groq function definitions.
-# The "type": "function" field identifies the tool type,
-# while "function" contains its name, description, and parameters.
+# Groq API изисква специфичен формат на инструментите, затова преобразуваме
+# независимите от доставчика дефиниции на Harness инструменти в дефиниции на Groq функции.
+# Полето "type": "function" определя типа на инструмента,
+# а "function" съдържа неговите име, описание и параметри.
 
 
 def prepare_groq_tools(tools: list[ToolSchema]) -> list[GroqToolType]:
     """
-        Convert Harness tool definitions into the Groq API function format.
+        Преобразува дефинициите на Harness инструменти във формата за функции на Groq API.
 
-        Groq API requires a specific tool format, so we convert our
-        provider-independent Harness tool definitions into Groq function definitions.
-        The "type": "function" field identifies the tool type,
-        while "function" contains its name, description, and parameters.
+        Groq API изисква специфичен формат на инструментите, затова преобразуваме
+        независимите от доставчика дефиниции на Harness инструменти в дефиниции на Groq функции.
+        Полето "type": "function" определя типа на инструмента,
+        а "function" съдържа неговите име, описание и параметри.
 
-        Example input:
+        Примерен вход:
             [
                 {
                     "name": "read_file",
-                    "description": "Reads a file",
+                    "description": "Чете файл",
                     "parameters": {}
                 }
             ]
 
-        Example output:
+        Примерен изход:
             [
                 {
                     "type": "function",
                     "function": {
                         "name": "read_file",
-                        "description": "Reads a file",
+                        "description": "Чете файл",
                         "parameters": {}
                     }
                 }
@@ -72,16 +72,16 @@ def prepare_groq_messages(
     model_messages: list[Message],
 ) -> list[dict[str, str]]:
     """
-    Convert a list of Harness Message objects into Groq-compatible dictionaries.
-    Each Message is converted to a dictionary containing "role" and "content".
-    Append the Groq system response instruction to the messages.
+    Преобразува списък от Harness Message обекти в съвместими с Groq речници.
+    Всеки Message се преобразува в речник, съдържащ "role" и "content".
+    Добавя системната инструкция за Groq отговор към съобщенията.
 
-    Example input:
-        [Message(role="user", content="Hello")]
+    Примерен вход:
+        [Message(role="user", content="Здравей")]
 
-    Example output:
+    Примерен изход:
         [
-            {"role": "user", "content": "Hello"},
+            {"role": "user", "content": "Здравей"},
             {"role": "system", "content": GROQ_RESPONSE_INSTRUCTION}
         ]
     """

@@ -12,7 +12,7 @@ from harness.tools.tool_registry import ToolRegistry
 
 
 class ToolService:
-    """Provide tool execution and tool-message preparation operations."""
+    """Предоставя операции за изпълнение на инструменти и подготовка на съобщения за инструменти."""
 
     def __init__(
         self,
@@ -28,7 +28,7 @@ class ToolService:
         self,
         tool_calls: list[ToolCall],
     ) -> list[ToolResult]:
-        """Execute tool calls and return their results in the same order."""
+        """Изпълнява извикванията на инструменти и връща резултатите им в същия ред."""
         tool_results: list[ToolResult] = []
 
         for tool_call in tool_calls:
@@ -56,7 +56,7 @@ class ToolService:
         session: Session,
         response: ModelResponse,
     ) -> list[str]:
-        """Return requested tool-result IDs that exist in the session."""
+        """Връща заявените ID на резултати от инструменти, които съществуват в сесията."""
         requested_tool_result_ids: list[str] = []
 
         for result_id in response.tool_result_output_requests:
@@ -71,7 +71,7 @@ class ToolService:
         model_messages: list[Message],
         requested_tool_result_ids: list[str],
     ) -> list[Message]:
-        """Expose full output for explicitly requested tool results."""
+        """Предоставя пълния изход за изрично заявените резултати от инструменти."""
         if not requested_tool_result_ids:
             return model_messages
 
@@ -88,7 +88,7 @@ class ToolService:
         tool_calls: list[ToolCall],
         tool_results: list[ToolResult],
     ) -> tuple[Message, Message]:
-        """Build session messages for tool calls and their existing results."""
+        """Изгражда съобщения за сесията за извиквания на инструменти и съществуващите им резултати."""
         return (
             self.prepare_tool_call_message(tool_calls),
             self.prepare_tool_result_message(tool_results),
@@ -98,7 +98,7 @@ class ToolService:
         self,
         tool_calls: list[ToolCall],
     ) -> Message:
-        """Build the assistant message that describes tool calls."""
+        """Изгражда съобщението на асистента, което описва извикванията на инструменти."""
         
         return Message(role="assistant", content=build_tool_calls_context(tool_calls))
 
@@ -106,7 +106,7 @@ class ToolService:
         self,
         tool_results: list[ToolResult],
     ) -> Message:
-        """Build the user message that contains existing tool results."""
+        """Изгражда потребителското съобщение, което съдържа съществуващите резултати от инструменти."""
         return Message(
             role="user",
             content=build_tool_results_context(tool_results),

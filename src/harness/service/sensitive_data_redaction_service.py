@@ -9,7 +9,7 @@ from harness.config.sensitive_data_redaction_config import (
 
 
 class SensitiveDataRedactionService:
-    """Remove credentials and environment secrets from process output."""
+    """Премахва идентификационни данни и тайни от средата от изхода на процеса."""
 
     def redact(
         self,

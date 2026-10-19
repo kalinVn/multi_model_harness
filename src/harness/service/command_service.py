@@ -7,7 +7,7 @@ from harness.tools.tool_registry import ToolRegistry
 
 
 class CommandService:
-    """Prepare command-specific messages."""
+    """Подготвя съобщения, специфични за команда."""
 
     def __init__(
         self,
@@ -23,7 +23,7 @@ class CommandService:
         self,
         parsed_command: ParsedCommand,
     ) -> Message:
-        """Build the model context for a parsed command."""
+        """Изгражда контекста на модела за разборирана команда."""
         return get_command_message_obj(
             parsed_command.name,
             command_resolver=self._command_resolver,
@@ -36,7 +36,7 @@ class CommandService:
         parsed_command: ParsedCommand,
         command_summary: str,
     ) -> Message:
-        """Build the system message that summarizes a completed command."""
+        """Изгражда системното съобщение, което обобщава завършена команда."""
         return Message(
             role="system",
             content=(

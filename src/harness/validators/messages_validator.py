@@ -2,16 +2,16 @@ from harness.domain.message import Message
 
 
 class MessagesValidator:
-    """Validate that model messages contain conversation content."""
+    """Валидира, че съобщенията към модела съдържат разговорно съдържание."""
 
     @staticmethod
     def validate(messages: list[Message]) -> None:
         """
-        Validate that messages include at least one non-system message.
+        Валидира, че съобщенията включват поне едно несистемно съобщение.
 
-        Example (valid): [Message(role="user", content="Hello")].
-        Example (invalid): [Message(role="system", content="Rules")].
-        Result: ValueError because the conversation has no non-system message.
+        Пример (валиден): [Message(role="user", content="Здравей")].
+        Пример (невалиден): [Message(role="system", content="Правила")].
+        Резултат: ValueError, защото разговорът няма несистемно съобщение.
         """
         if not messages or not any(
             message.role != "system"

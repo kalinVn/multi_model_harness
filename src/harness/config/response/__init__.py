@@ -1,1 +1,1 @@
-"""Response instruction configuration."""
+"""Конфигурация на инструкциите за отговор."""

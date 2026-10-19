@@ -2,7 +2,7 @@ from typing import Any, TypedDict
 
 
 class ToolSchema(TypedDict):
-    """Provider-independent structured definition of one Harness tool."""
+    """Независима от доставчика структурирана дефиниция на един Harness инструмент."""
 
     name: str
     description: str

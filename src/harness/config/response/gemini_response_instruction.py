@@ -3,5 +3,5 @@ from harness.config.response.groq_response_instruction import (
 )
 
 
-# Gemini and Groq use the same native function-calling response protocol.
+# Gemini и Groq използват един и същ нативен протокол за отговор с извикване на функции.
 GEMINI_RESPONSE_INSTRUCTION = GROQ_RESPONSE_INSTRUCTION

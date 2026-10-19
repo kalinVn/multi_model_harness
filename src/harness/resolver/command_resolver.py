@@ -6,10 +6,10 @@ class CommandResolver:
         self._commands_directory = commands_directory
 
     def resolve(self, command_name: str) -> Path:
-        """Check whether the command file exists.
+        """Проверява дали файлът на командата съществува.
 
-        The command name is provided as an argument, while the resolver stores
-        the commands directory.
+        Името на командата се подава като аргумент, а resolver съхранява
+        директорията с команди.
         """
         command_path = (
             self._commands_directory

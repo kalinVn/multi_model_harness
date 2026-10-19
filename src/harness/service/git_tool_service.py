@@ -14,7 +14,7 @@ from harness.service.sensitive_data_redaction_service import (
 
 
 class GitToolService:
-    """Execute Git commands with the configured security restrictions."""
+    """Изпълнява Git команди с конфигурираните ограничения за сигурност."""
 
     def __init__(
         self,

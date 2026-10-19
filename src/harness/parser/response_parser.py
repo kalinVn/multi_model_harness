@@ -1,4 +1,4 @@
-"""Strict provider-independent JSON response decoding."""
+"""Строго и независимо от доставчика декодиране на JSON отговор."""
 import json
 
 from harness.domain.tool_call import ToolCall
@@ -10,16 +10,16 @@ from harness.validators.string_validator import StringValidator
 
 def _parse_tool_calls(data) -> list[ToolCall]:
     """
-    Parse and validate tool calls from the model response data.
+    Разборира и валидира извикванията на инструменти от данните на отговора на модела.
 
-    Example (valid):
+    Пример (валиден):
         {"tool_calls": [{"tool": "bash", "arguments": {"command": "ls"}}]}
 
-    Example (invalid):
+    Пример (невалиден):
         {"tool_calls": [{"tool": 123, "arguments": {}}]}
 
-    Returns:
-        A list of validated ToolCall objects.
+    Връща:
+        Списък с валидирани ToolCall обекти.
     """
     tool_calls = []
     for index, call in enumerate(data["tool_calls"]):
@@ -35,16 +35,16 @@ def _parse_tool_calls(data) -> list[ToolCall]:
 
 def _parse_tool_result_summaries(data) -> list[ToolResultSummary]:
     """
-    Parse and validate tool result summaries from the model response data.
+    Разборира и валидира обобщенията на резултатите от инструменти от данните на отговора на модела.
 
-    Example (valid):
-        {"tool_result_summaries": [{"id": "call_1", "summary": "Command completed"}]}
+    Пример (валиден):
+        {"tool_result_summaries": [{"id": "call_1", "summary": "Командата приключи"}]}
 
-    Example (invalid):
-        {"tool_result_summaries": [{"id": 123, "summary": "Command completed"}]}
+    Пример (невалиден):
+        {"tool_result_summaries": [{"id": 123, "summary": "Командата приключи"}]}
 
-    Returns:
-        A list of validated ToolResultSummary objects.
+    Връща:
+        Списък с валидирани ToolResultSummary обекти.
     """
     summaries = []
     for index, summary in enumerate(data["tool_result_summaries"]):
@@ -60,16 +60,16 @@ def _parse_tool_result_summaries(data) -> list[ToolResultSummary]:
 
 def _get_output_requests(data):
     """
-    Read and validate tool result output request IDs from model response data.
+    Прочита и валидира ID на заявките за изход от резултати на инструменти от данните на отговора на модела.
 
-    Example (valid):
+    Пример (валиден):
         {"tool_result_output_requests": ["result_1"]}
 
-    Example (invalid):
+    Пример (невалиден):
         {"tool_result_output_requests": "result_1"}
 
-    Returns:
-        A list of validated result IDs.
+    Връща:
+        Списък с валидирани ID на резултати.
     """
     output_requests_data = data.get("tool_result_output_requests", [])
     ModelResponseValidator.validate_output_request_data(output_requests_data)
@@ -83,51 +83,51 @@ def _get_output_requests(data):
 
 
 def prepare_model_response(text: str) -> ModelResponse:
-    """Decode the complete response or raise ValueError; never infer tool execution.
+    """Декодира пълния отговор или генерира ValueError; никога не предполага изпълнение на инструмент.
 
-    Tool-result IDs are opaque and preserved verbatim. The runner checks them
-    against executed results. Tool argument schemas are validated at execution.
-      Parse and validate a JSON model response.
+    ID на резултатите от инструменти са непрозрачни и се запазват дословно. Runner ги проверява
+    спрямо изпълнените резултати. Схемите на аргументите на инструментите се валидират при изпълнение.
+      Разборира и валидира JSON отговор на модела.
 
-    Args:
-        text: JSON string containing the model response.
+    Аргументи:
+        text: JSON низ, съдържащ отговора на модела.
 
-    Example (input):
-        '{"text": "Hello", "tool_calls": [], "tool_result_summaries": []}'
+    Пример (вход):
+        '{"text": "Здравей", "tool_calls": [], "tool_result_summaries": []}'
 
-    Example (output):
+    Пример (изход):
         ModelResponse(
-            text="Hello",
+            text="Здравей",
             tool_calls=[],
             tool_result_summaries=[],
             tool_result_output_requests=[]
         )
 
-    Returns:
-        ModelResponse: The parsed and validated model response.
+    Връща:
+        ModelResponse: Разборираният и валидиран отговор на модела.
 
-    Raises:
-        ValueError: If the JSON or response data is invalid.
+    Генерира:
+        ValueError: Ако JSON или данните на отговора са невалидни.
     """
 
     ModelResponseValidator.validate(text)
 
-    # Parse the JSON response into a Python object (dictionary).
+    # Разборираме JSON отговора до Python обект (речник).
     #
-    # Example of valid JSON:
-    # {"text": "Hello", "tool_calls": [], "tool_result_summaries": []}
-    # Result: Python dictionary with accessible fields.
+    # Пример за валиден JSON:
+    # {"text": "Здравей", "tool_calls": [], "tool_result_summaries": []}
+    # Резултат: Python речник с достъпни полета.
     #
-    # Example of duplicate JSON fields:
-    # {"text": "Hello", "text": "World"}
-    # Result: ValueError("Duplicate JSON field: text")
+    # Пример за дублирани JSON полета:
+    # {"text": "Здравей", "text": "Свят"}
+    # Резултат: ValueError("Duplicate JSON field: text")
     #
-    # Example of invalid numeric constants:
-    # {"text": "Hello", "value": NaN}
-    # Result: ValueError("Invalid JSON constant: NaN")
+    # Пример за невалидни числови константи:
+    # {"text": "Здравей", "value": NaN}
+    # Резултат: ValueError("Invalid JSON constant: NaN")
     #
-    # Reject duplicate fields and invalid numeric constants
-    # such as NaN, Infinity, and -Infinity.
+    # Отхвърляме дублирани полета и невалидни числови константи
+    # като NaN, Infinity и -Infinity.
 
     try:
         data = json.loads(text, object_pairs_hook=ModelResponseValidator.validate_json_object_pairs, parse_constant=ModelResponseValidator.validate_json_constant)

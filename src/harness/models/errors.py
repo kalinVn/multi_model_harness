@@ -1,6 +1,6 @@
 class ModelRateLimitError(RuntimeError):
-    """Raised when a model provider temporarily rejects requests."""
+    """Генерира се, когато доставчик на модел временно отхвърля заявки."""
 
 
 class ModelConnectionError(RuntimeError):
-    """Raised when a model provider cannot be reached."""
+    """Генерира се, когато доставчикът на модел не може да бъде достигнат."""

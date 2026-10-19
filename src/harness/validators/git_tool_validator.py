@@ -24,7 +24,7 @@ from harness.service.git_tool_service import GitToolService
 
 
 class GitToolValidator:
-    """Validate Git tool permissions and complete command arguments."""
+    """Валидира разрешенията на Git инструмента и пълните аргументи на командата."""
 
     READ_OPERATIONS = READ_OPERATIONS
     WRITE_OPERATIONS = WRITE_OPERATIONS
@@ -45,11 +45,11 @@ class GitToolValidator:
 
     def validate(self, arguments: dict[str, Any]) -> None:
         """
-        Validate the top-level Git arguments and repository context.
+        Валидира аргументите от най-горно ниво на Git и контекста на хранилището.
 
-        Example (valid): {"command_name": "status", "command": ["status", "--short", "--branch", "--untracked-files=all"]}.
-        Example (invalid): {"command_name": "status"}.
-        Result: ValueError because a required argument is missing.
+        Пример (валиден): {"command_name": "status", "command": ["status", "--short", "--branch", "--untracked-files=all"]}.
+        Пример (невалиден): {"command_name": "status"}.
+        Резултат: ValueError, защото липсва задължителен аргумент.
         """
         if not isinstance(arguments, dict):
             raise ValueError("git arguments must be an object.")
@@ -76,11 +76,11 @@ class GitToolValidator:
         command: list[str],
     ) -> None:
         """
-        Validate a supported Git command's tokens, permission, and structure.
+        Валидира токените, разрешението и структурата на поддържана Git команда.
 
-        Example (valid): command_name="status" with the canonical status tokens.
-        Example (invalid): command_name="unknown".
-        Result: ValueError, or PermissionError when the operation is disabled.
+        Пример (валиден): command_name="status" с каноничните status токени.
+        Пример (невалиден): command_name="unknown".
+        Резултат: ValueError или PermissionError, когато операцията е забранена.
         """
         if not isinstance(command_name, str) or command_name not in self.OPERATIONS:
             allowed = ", ".join(sorted(self.OPERATIONS))
@@ -102,11 +102,11 @@ class GitToolValidator:
 
     def _validate_operation_permission(self, command_name: str) -> None:
         """
-        Validate that the requested Git operation is enabled.
+        Валидира, че заявената Git операция е разрешена.
 
-        Example (valid): "status" when read operations are allowed.
-        Example (invalid): "commit" when write operations are disabled.
-        Result: PermissionError because the operation is not enabled.
+        Пример (валиден): "status", когато операциите за четене са разрешени.
+        Пример (невалиден): "commit", когато операциите за запис са забранени.
+        Резултат: PermissionError, защото операцията не е разрешена.
         """
         if command_name in self.WRITE_OPERATIONS and not self._allow_write_operations:
             raise PermissionError(
@@ -121,11 +121,11 @@ class GitToolValidator:
 
     def _validate_status_command(self, command: list[str]) -> None:
         """
-        Validate the exact canonical Git status command.
+        Валидира точната канонична Git status команда.
 
-        Example (valid): ["status", "--short", "--branch", "--untracked-files=all"].
-        Example (invalid): ["status"].
-        Result: ValueError because the command structure is unsupported.
+        Пример (валиден): ["status", "--short", "--branch", "--untracked-files=all"].
+        Пример (невалиден): ["status"].
+        Резултат: ValueError, защото структурата на командата не се поддържа.
         """
         self._require_exact_command(
             "status",
@@ -135,11 +135,11 @@ class GitToolValidator:
 
     def _validate_diff_command(self, command: list[str]) -> None:
         """
-        Validate the safe canonical Git diff command and optional path.
+        Валидира безопасната канонична Git diff команда и незадължителния път.
 
-        Example (valid): ["diff", "--no-ext-diff", "--no-textconv", "--no-color", "--"].
-        Example (invalid): ["diff", "README.md"].
-        Result: ValueError because the command structure is unsupported.
+        Пример (валиден): ["diff", "--no-ext-diff", "--no-textconv", "--no-color", "--"].
+        Пример (невалиден): ["diff", "README.md"].
+        Резултат: ValueError, защото структурата на командата не се поддържа.
         """
         prefix = ["diff", "--no-ext-diff", "--no-textconv", "--no-color"]
         if command[:4] != prefix:
@@ -163,11 +163,11 @@ class GitToolValidator:
 
     def _validate_log_command(self, command: list[str]) -> None:
         """
-        Validate the canonical Git log command and bounded max count.
+        Валидира каноничната Git log команда и ограничения максимален брой.
 
-        Example (valid): ["log", "--oneline", "--no-decorate", "--max-count=10"].
-        Example (invalid): ["log", "--oneline"].
-        Result: ValueError because the command structure is unsupported.
+        Пример (валиден): ["log", "--oneline", "--no-decorate", "--max-count=10"].
+        Пример (невалиден): ["log", "--oneline"].
+        Резултат: ValueError, защото структурата на командата не се поддържа.
         """
         if len(command) != 4 or command[:3] != [
             "log",
@@ -184,11 +184,11 @@ class GitToolValidator:
 
     def _validate_branch_list_command(self, command: list[str]) -> None:
         """
-        Validate the exact canonical Git branch-list command.
+        Валидира точната канонична Git команда за изброяване на клонове.
 
-        Example (valid): ["branch", "--list", "--no-color"].
-        Example (invalid): ["branch", "--all"].
-        Result: ValueError because the command structure is unsupported.
+        Пример (валиден): ["branch", "--list", "--no-color"].
+        Пример (невалиден): ["branch", "--all"].
+        Резултат: ValueError, защото структурата на командата не се поддържа.
         """
         self._require_exact_command(
             "branch_list",
@@ -198,11 +198,11 @@ class GitToolValidator:
 
     def _validate_show_command(self, command: list[str]) -> None:
         """
-        Validate a safe Git show command for a revision or revision path.
+        Валидира безопасна Git show команда за ревизия или път в ревизия.
 
-        Example (valid): ["show", "--no-ext-diff", "--no-textconv", "--no-color", "HEAD:README.md"].
-        Example (invalid): ["show", "HEAD"].
-        Result: ValueError because the command structure is unsupported.
+        Пример (валиден): ["show", "--no-ext-diff", "--no-textconv", "--no-color", "HEAD:README.md"].
+        Пример (невалиден): ["show", "HEAD"].
+        Резултат: ValueError, защото структурата на командата не се поддържа.
         """
         prefix = ["show", "--no-ext-diff", "--no-textconv", "--no-color"]
         if command[:4] != prefix:
@@ -238,11 +238,11 @@ class GitToolValidator:
 
     def _validate_tag_list_command(self, command: list[str]) -> None:
         """
-        Validate the exact canonical Git tag-list command.
+        Валидира точната канонична Git команда за изброяване на tag-ове.
 
-        Example (valid): ["tag", "--list", "--sort=refname"].
-        Example (invalid): ["tag", "--list"].
-        Result: ValueError because the command structure is unsupported.
+        Пример (валиден): ["tag", "--list", "--sort=refname"].
+        Пример (невалиден): ["tag", "--list"].
+        Резултат: ValueError, защото структурата на командата не се поддържа.
         """
         self._require_exact_command(
             "tag_list",
@@ -252,21 +252,21 @@ class GitToolValidator:
 
     def _validate_remote_list_command(self, command: list[str]) -> None:
         """
-        Validate the exact canonical Git remote-list command.
+        Валидира точната канонична Git команда за изброяване на remote-и.
 
-        Example (valid): ["remote"].
-        Example (invalid): ["remote", "-v"].
-        Result: ValueError because the command structure is unsupported.
+        Пример (валиден): ["remote"].
+        Пример (невалиден): ["remote", "-v"].
+        Резултат: ValueError, защото структурата на командата не се поддържа.
         """
         self._require_exact_command("remote_list", command, ["remote"])
 
     def _validate_blame_command(self, command: list[str]) -> None:
         """
-        Validate a canonical Git blame command with safe revision and file path.
+        Валидира канонична Git blame команда с безопасна ревизия и път до файл.
 
-        Example (valid): ["blame", "--date=short", "HEAD", "--", "README.md"].
-        Example (invalid): ["blame", "README.md"].
-        Result: ValueError because the command structure is unsupported.
+        Пример (валиден): ["blame", "--date=short", "HEAD", "--", "README.md"].
+        Пример (невалиден): ["blame", "README.md"].
+        Резултат: ValueError, защото структурата на командата не се поддържа.
         """
         if (
             len(command) != 5
@@ -284,11 +284,11 @@ class GitToolValidator:
 
     def _validate_rev_parse_command(self, command: list[str]) -> None:
         """
-        Validate the canonical Git rev-parse object verification command.
+        Валидира каноничната Git rev-parse команда за проверка на обект.
 
-        Example (valid): ["rev-parse", "--verify", "--end-of-options", "HEAD^{object}"].
-        Example (invalid): ["rev-parse", "HEAD"].
-        Result: ValueError because the command structure is unsupported.
+        Пример (валиден): ["rev-parse", "--verify", "--end-of-options", "HEAD^{object}"].
+        Пример (невалиден): ["rev-parse", "HEAD"].
+        Резултат: ValueError, защото структурата на командата не се поддържа.
         """
         suffix = "^{object}"
         if len(command) != 4 or command[:3] != [
@@ -306,11 +306,11 @@ class GitToolValidator:
 
     def _validate_reflog_command(self, command: list[str]) -> None:
         """
-        Validate the canonical Git reflog command and bounded max count.
+        Валидира каноничната Git reflog команда и ограничения максимален брой.
 
-        Example (valid): ["reflog", "--oneline", "--max-count=10"].
-        Example (invalid): ["reflog", "--oneline"].
-        Result: ValueError because the command structure is unsupported.
+        Пример (валиден): ["reflog", "--oneline", "--max-count=10"].
+        Пример (невалиден): ["reflog", "--oneline"].
+        Резултат: ValueError, защото структурата на командата не се поддържа.
         """
         if len(command) != 3 or command[:2] != ["reflog", "--oneline"]:
             self._raise_invalid_command("reflog")
@@ -323,11 +323,11 @@ class GitToolValidator:
 
     def _validate_ls_files_command(self, command: list[str]) -> None:
         """
-        Validate the canonical Git ls-files command and optional path.
+        Валидира каноничната Git ls-files команда и незадължителния път.
 
-        Example (valid): ["ls-files", "--", "src"].
-        Example (invalid): ["ls-files", "src"].
-        Result: ValueError because the command structure is unsupported.
+        Пример (валиден): ["ls-files", "--", "src"].
+        Пример (невалиден): ["ls-files", "src"].
+        Резултат: ValueError, защото структурата на командата не се поддържа.
         """
         if len(command) not in {2, 3} or command[:2] != ["ls-files", "--"]:
             self._raise_invalid_command("ls_files")
@@ -338,11 +338,11 @@ class GitToolValidator:
 
     def _validate_stash_list_command(self, command: list[str]) -> None:
         """
-        Validate the exact canonical Git stash-list command.
+        Валидира точната канонична Git stash-list команда.
 
-        Example (valid): ["stash", "list"].
-        Example (invalid): ["stash"].
-        Result: ValueError because the command structure is unsupported.
+        Пример (валиден): ["stash", "list"].
+        Пример (невалиден): ["stash"].
+        Резултат: ValueError, защото структурата на командата не се поддържа.
         """
         self._require_exact_command(
             "stash_list",
@@ -352,11 +352,11 @@ class GitToolValidator:
 
     def _validate_add_command(self, command: list[str]) -> None:
         """
-        Validate the canonical Git add command with one or more safe paths.
+        Валидира каноничната Git add команда с един или повече безопасни пътища.
 
-        Example (valid): ["add", "--", "README.md"].
-        Example (invalid): ["add", "README.md"].
-        Result: ValueError because the command structure is unsupported.
+        Пример (валиден): ["add", "--", "README.md"].
+        Пример (невалиден): ["add", "README.md"].
+        Резултат: ValueError, защото структурата на командата не се поддържа.
         """
         if len(command) < 3 or command[:2] != ["add", "--"]:
             self._raise_invalid_command("add")
@@ -365,11 +365,11 @@ class GitToolValidator:
 
     def _validate_commit_command(self, command: list[str]) -> None:
         """
-        Validate the canonical Git commit command and commit message.
+        Валидира каноничната Git commit команда и commit съобщението.
 
-        Example (valid): ["commit", "--no-verify", "--no-gpg-sign", "-m", "Update docs"].
-        Example (invalid): ["commit", "-m", "Update docs"].
-        Result: ValueError because the command structure is unsupported.
+        Пример (валиден): ["commit", "--no-verify", "--no-gpg-sign", "-m", "Актуализиране на документацията"].
+        Пример (невалиден): ["commit", "-m", "Актуализиране на документацията"].
+        Резултат: ValueError, защото структурата на командата не се поддържа.
         """
         if len(command) != 5 or command[:4] != [
             "commit",
@@ -387,11 +387,11 @@ class GitToolValidator:
 
     def _validate_branch_create_command(self, command: list[str]) -> None:
         """
-        Validate the canonical command for creating a safe branch name.
+        Валидира каноничната команда за създаване на безопасно име на клон.
 
-        Example (valid): ["branch", "--no-track", "feature/docs"].
-        Example (invalid): ["branch", "feature/docs"].
-        Result: ValueError because the command structure is unsupported.
+        Пример (валиден): ["branch", "--no-track", "feature/docs"].
+        Пример (невалиден): ["branch", "feature/docs"].
+        Резултат: ValueError, защото структурата на командата не се поддържа.
         """
         if len(command) != 3 or command[:2] != ["branch", "--no-track"]:
             self._raise_invalid_command("branch_create")
@@ -404,11 +404,11 @@ class GitToolValidator:
 
     def _validate_branch_rename_command(self, command: list[str]) -> None:
         """
-        Validate the canonical command for renaming safe branch names.
+        Валидира каноничната команда за преименуване на безопасни имена на клонове.
 
-        Example (valid): ["branch", "-m", "old-name", "new-name"].
-        Example (invalid): ["branch", "-m", "new-name"].
-        Result: ValueError because the command structure is unsupported.
+        Пример (валиден): ["branch", "-m", "old-name", "new-name"].
+        Пример (невалиден): ["branch", "-m", "new-name"].
+        Резултат: ValueError, защото структурата на командата не се поддържа.
         """
         if len(command) != 4 or command[:2] != ["branch", "-m"]:
             self._raise_invalid_command("branch_rename")
@@ -422,11 +422,11 @@ class GitToolValidator:
 
     def _validate_branch_delete_command(self, command: list[str]) -> None:
         """
-        Validate the canonical command for deleting a safe branch name.
+        Валидира каноничната команда за изтриване на безопасно име на клон.
 
-        Example (valid): ["branch", "-d", "feature/docs"].
-        Example (invalid): ["branch", "-D", "feature/docs"].
-        Result: ValueError because the command structure is unsupported.
+        Пример (валиден): ["branch", "-d", "feature/docs"].
+        Пример (невалиден): ["branch", "-D", "feature/docs"].
+        Резултат: ValueError, защото структурата на командата не се поддържа.
         """
         if len(command) != 3 or command[:2] != ["branch", "-d"]:
             self._raise_invalid_command("branch_delete")
@@ -439,11 +439,11 @@ class GitToolValidator:
 
     def _validate_switch_command(self, command: list[str]) -> None:
         """
-        Validate the canonical Git switch command and safe branch name.
+        Валидира каноничната Git switch команда и безопасното име на клон.
 
-        Example (valid): ["switch", "--no-guess", "main"].
-        Example (invalid): ["switch", "main"].
-        Result: ValueError because the command structure is unsupported.
+        Пример (валиден): ["switch", "--no-guess", "main"].
+        Пример (невалиден): ["switch", "main"].
+        Резултат: ValueError, защото структурата на командата не се поддържа.
         """
         if len(command) != 3 or command[:2] != ["switch", "--no-guess"]:
             self._raise_invalid_command("switch")
@@ -456,11 +456,11 @@ class GitToolValidator:
 
     def _validate_merge_command(self, command: list[str]) -> None:
         """
-        Validate the canonical Git merge command and safe branch name.
+        Валидира каноничната Git merge команда и безопасното име на клон.
 
-        Example (valid): ["merge", "--no-edit", "--no-gpg-sign", "feature/docs"].
-        Example (invalid): ["merge", "feature/docs"].
-        Result: ValueError because the command structure is unsupported.
+        Пример (валиден): ["merge", "--no-edit", "--no-gpg-sign", "feature/docs"].
+        Пример (невалиден): ["merge", "feature/docs"].
+        Резултат: ValueError, защото структурата на командата не се поддържа.
         """
         if len(command) != 4 or command[:3] != [
             "merge",
@@ -477,11 +477,11 @@ class GitToolValidator:
 
     def _validate_cherry_pick_command(self, command: list[str]) -> None:
         """
-        Validate the canonical Git cherry-pick command and safe revision.
+        Валидира каноничната Git cherry-pick команда и безопасната ревизия.
 
-        Example (valid): ["cherry-pick", "--no-gpg-sign", "abc123"].
-        Example (invalid): ["cherry-pick", "abc123"].
-        Result: ValueError because the command structure is unsupported.
+        Пример (валиден): ["cherry-pick", "--no-gpg-sign", "abc123"].
+        Пример (невалиден): ["cherry-pick", "abc123"].
+        Резултат: ValueError, защото структурата на командата не се поддържа.
         """
         if len(command) != 3 or command[:2] != ["cherry-pick", "--no-gpg-sign"]:
             self._raise_invalid_command("cherry_pick")
@@ -494,11 +494,11 @@ class GitToolValidator:
 
     def _validate_restore_command(self, command: list[str]) -> None:
         """
-        Validate the canonical staged Git restore command and safe paths.
+        Валидира каноничната staged Git restore команда и безопасните пътища.
 
-        Example (valid): ["restore", "--staged", "--", "README.md"].
-        Example (invalid): ["restore", "README.md"].
-        Result: ValueError because the command structure is unsupported.
+        Пример (валиден): ["restore", "--staged", "--", "README.md"].
+        Пример (невалиден): ["restore", "README.md"].
+        Резултат: ValueError, защото структурата на командата не се поддържа.
         """
         if len(command) < 4 or command[:3] != ["restore", "--staged", "--"]:
             self._raise_invalid_command("restore")
@@ -511,11 +511,11 @@ class GitToolValidator:
 
     def _validate_reset_command(self, command: list[str]) -> None:
         """
-        Validate a safe Git reset command with allowed mode and revision.
+        Валидира безопасна Git reset команда с разрешени режим и ревизия.
 
-        Example (valid): ["reset", "--soft", "HEAD~1"].
-        Example (invalid): ["reset", "--hard", "HEAD"].
-        Result: ValueError because the mode or command structure is unsupported.
+        Пример (валиден): ["reset", "--soft", "HEAD~1"].
+        Пример (невалиден): ["reset", "--hard", "HEAD"].
+        Резултат: ValueError, защото режимът или структурата на командата не се поддържа.
         """
         if len(command) != 3 or not command[1].startswith("--"):
             self._raise_invalid_command("reset")
@@ -529,11 +529,11 @@ class GitToolValidator:
 
     def _validate_stash_command(self, command: list[str]) -> None:
         """
-        Validate the canonical Git stash-push command and optional safe values.
+        Валидира каноничната Git stash-push команда и незадължителните безопасни стойности.
 
-        Example (valid): ["stash", "push", "--message", "Work", "--"].
-        Example (invalid): ["stash", "push"].
-        Result: ValueError because the command structure is unsupported.
+        Пример (валиден): ["stash", "push", "--message", "Работа", "--"].
+        Пример (невалиден): ["stash", "push"].
+        Резултат: ValueError, защото структурата на командата не се поддържа.
         """
         if command[:2] != ["stash", "push"]:
             self._raise_invalid_command("stash")
@@ -556,11 +556,11 @@ class GitToolValidator:
 
     def _validate_stash_pop_command(self, command: list[str]) -> None:
         """
-        Validate the canonical Git stash-pop command and bounded stash index.
+        Валидира каноничната Git stash-pop команда и ограничения stash индекс.
 
-        Example (valid): ["stash", "pop", "stash@{0}"].
-        Example (invalid): ["stash", "pop", "0"].
-        Result: ValueError because the stash reference is unsupported.
+        Пример (валиден): ["stash", "pop", "stash@{0}"].
+        Пример (невалиден): ["stash", "pop", "0"].
+        Резултат: ValueError, защото референцията към stash не се поддържа.
         """
         if len(command) != 3 or command[:2] != ["stash", "pop"]:
             self._raise_invalid_command("stash_pop")
@@ -576,11 +576,11 @@ class GitToolValidator:
 
     def _validate_tag_create_command(self, command: list[str]) -> None:
         """
-        Validate the canonical command for creating a safe Git tag.
+        Валидира каноничната команда за създаване на безопасен Git tag.
 
-        Example (valid): ["tag", "v1.0.0", "HEAD"].
-        Example (invalid): ["tag", "v1.0.0"].
-        Result: ValueError because the command structure is unsupported.
+        Пример (валиден): ["tag", "v1.0.0", "HEAD"].
+        Пример (невалиден): ["tag", "v1.0.0"].
+        Резултат: ValueError, защото структурата на командата не се поддържа.
         """
         if len(command) != 3 or command[0] != "tag":
             self._raise_invalid_command("tag_create")
@@ -594,11 +594,11 @@ class GitToolValidator:
 
     def _validate_tag_delete_command(self, command: list[str]) -> None:
         """
-        Validate the canonical command for deleting a safe Git tag.
+        Валидира каноничната команда за изтриване на безопасен Git tag.
 
-        Example (valid): ["tag", "-d", "v1.0.0"].
-        Example (invalid): ["tag", "--delete", "v1.0.0"].
-        Result: ValueError because the command structure is unsupported.
+        Пример (валиден): ["tag", "-d", "v1.0.0"].
+        Пример (невалиден): ["tag", "--delete", "v1.0.0"].
+        Резултат: ValueError, защото структурата на командата не се поддържа.
         """
         if len(command) != 3 or command[:2] != ["tag", "-d"]:
             self._raise_invalid_command("tag_delete")
@@ -611,11 +611,11 @@ class GitToolValidator:
 
     def _validate_fetch_command(self, command: list[str]) -> None:
         """
-        Validate the canonical Git fetch command and known remote name.
+        Валидира каноничната Git fetch команда и познатото име на remote.
 
-        Example (valid): ["fetch", "--no-tags", "origin"].
-        Example (invalid): ["fetch", "origin"].
-        Result: ValueError because the command structure is unsupported.
+        Пример (валиден): ["fetch", "--no-tags", "origin"].
+        Пример (невалиден): ["fetch", "origin"].
+        Резултат: ValueError, защото структурата на командата не се поддържа.
         """
         if len(command) != 3 or command[:2] != ["fetch", "--no-tags"]:
             self._raise_invalid_command("fetch")
@@ -628,11 +628,11 @@ class GitToolValidator:
 
     def _validate_pull_command(self, command: list[str]) -> None:
         """
-        Validate the canonical Git pull command, remote, and branch.
+        Валидира каноничната Git pull команда, remote и клон.
 
-        Example (valid): ["pull", "--ff-only", "--no-rebase", "origin", "main"].
-        Example (invalid): ["pull", "origin", "main"].
-        Result: ValueError because the command structure is unsupported.
+        Пример (валиден): ["pull", "--ff-only", "--no-rebase", "origin", "main"].
+        Пример (невалиден): ["pull", "origin", "main"].
+        Резултат: ValueError, защото структурата на командата не се поддържа.
         """
         if len(command) != 5 or command[:3] != [
             "pull",
@@ -650,11 +650,11 @@ class GitToolValidator:
 
     def _validate_push_command(self, command: list[str]) -> None:
         """
-        Validate the canonical Git push command and matching branch refspec.
+        Валидира каноничната Git push команда и съответстващия refspec на клона.
 
-        Example (valid): ["push", "--porcelain", "--no-verify", "origin", "refs/heads/main:refs/heads/main"].
-        Example (invalid): a refspec with different source and destination branches.
-        Result: ValueError because the refspec or command structure is unsupported.
+        Пример (валиден): ["push", "--porcelain", "--no-verify", "origin", "refs/heads/main:refs/heads/main"].
+        Пример (невалиден): refspec с различни изходен и целеви клон.
+        Резултат: ValueError, защото refspec или структурата на командата не се поддържа.
         """
         if len(command) != 5 or command[:3] != [
             "push",
@@ -688,11 +688,11 @@ class GitToolValidator:
         operation: str,
     ) -> None:
         """
-        Validate an operation's allowed and required argument names.
+        Валидира разрешените и задължителните имена на аргументи за операция.
 
-        Example (valid): all required arguments with no unsupported keys.
-        Example (invalid): an argument named "unknown".
-        Result: ValueError because the argument is unexpected or required data is missing.
+        Пример (валиден): всички задължителни аргументи без неподдържани ключове.
+        Пример (невалиден): аргумент с име "unknown".
+        Резултат: ValueError, защото аргументът е неочакван или липсват задължителни данни.
         """
         operation_definition = GIT_OPERATION_DEFINITIONS[operation]
         allowed = operation_definition["allowed_arguments"]
@@ -710,11 +710,11 @@ class GitToolValidator:
 
     def validate_path(self, value: Any, operation: str) -> str:
         """
-        Validate and normalize a path contained within the project repository.
+        Валидира и нормализира път, който остава в хранилището на проекта.
 
-        Example (valid): "src/main.py" -> "src/main.py".
-        Example (invalid): "../outside.txt".
-        Result: ValueError because the path escapes the repository.
+        Пример (валиден): "src/main.py" -> "src/main.py".
+        Пример (невалиден): "../outside.txt".
+        Резултат: ValueError, защото пътят излиза извън хранилището.
         """
         if not isinstance(value, str) or not value.strip():
             raise ValueError(f"git {operation} path must be a non-empty string.")
@@ -740,11 +740,11 @@ class GitToolValidator:
 
     def validate_file_path(self, value: Any, operation: str) -> str:
         """
-        Validate a repository path that identifies a file rather than its root.
+        Валидира път в хранилището, който сочи файл, а не неговия корен.
 
-        Example (valid): "README.md".
-        Example (invalid): ".".
-        Result: ValueError because the repository root is not a file path.
+        Пример (валиден): "README.md".
+        Пример (невалиден): ".".
+        Резултат: ValueError, защото коренът на хранилището не е път до файл.
         """
         path = self.validate_path(value, operation)
         if path == ".":
@@ -753,11 +753,11 @@ class GitToolValidator:
 
     def validate_paths(self, value: Any, operation: str) -> list[str]:
         """
-        Validate a non-empty bounded list of repository paths.
+        Валидира непразен ограничен списък с пътища в хранилището.
 
-        Example (valid): ["README.md", "src/main.py"].
-        Example (invalid): [].
-        Result: ValueError because at least one path is required.
+        Пример (валиден): ["README.md", "src/main.py"].
+        Пример (невалиден): [].
+        Резултат: ValueError, защото се изисква поне един път.
         """
         if not isinstance(value, list) or not value:
             raise ValueError(f"git {operation} args.paths must be a non-empty array.")
@@ -769,11 +769,11 @@ class GitToolValidator:
 
     def validate_max_count(self, value: Any, operation: str) -> int:
         """
-        Validate an integer result count within the configured bounds.
+        Валидира целочислен брой резултати в конфигурираните граници.
 
-        Example (valid): 10.
-        Example (invalid): 0.
-        Result: ValueError because the count is outside the allowed range.
+        Пример (валиден): 10.
+        Пример (невалиден): 0.
+        Резултат: ValueError, защото броят е извън разрешения диапазон.
         """
         if isinstance(value, bool) or not isinstance(value, int):
             raise ValueError(f"git {operation} args.max_count must be an integer.")
@@ -785,11 +785,11 @@ class GitToolValidator:
 
     def validate_revision(self, value: Any) -> str:
         """
-        Validate a non-empty Git revision matching the safe revision pattern.
+        Валидира непразна Git ревизия, съответстваща на безопасния шаблон.
 
-        Example (valid): "HEAD~1".
-        Example (invalid): "--help".
-        Result: ValueError because the revision is unsafe.
+        Пример (валиден): "HEAD~1".
+        Пример (невалиден): "--help".
+        Резултат: ValueError, защото ревизията е опасна.
         """
         if not isinstance(value, str) or not re.fullmatch(
             SAFE_REVISION_PATTERN,
@@ -800,11 +800,11 @@ class GitToolValidator:
 
     def validate_branch_name(self, value: Any) -> str:
         """
-        Validate a non-empty branch name accepted by Git's ref checker.
+        Валидира непразно име на клон, приемано от Git проверката за ref.
 
-        Example (valid): "feature/docs".
-        Example (invalid): "-dangerous".
-        Result: ValueError because the branch name is unsafe or invalid.
+        Пример (валиден): "feature/docs".
+        Пример (невалиден): "-dangerous".
+        Резултат: ValueError, защото името на клона е опасно или невалидно.
         """
         if not isinstance(value, str) or not value.strip() or value.startswith("-"):
             raise ValueError("Git branch name must be a non-empty safe string.")
@@ -820,11 +820,11 @@ class GitToolValidator:
 
     def validate_tag_name(self, value: Any) -> str:
         """
-        Validate a non-empty tag name accepted by Git's ref checker.
+        Валидира непразно име на tag, приемано от Git проверката за ref.
 
-        Example (valid): "v1.0.0".
-        Example (invalid): "-dangerous".
-        Result: ValueError because the tag name is unsafe or invalid.
+        Пример (валиден): "v1.0.0".
+        Пример (невалиден): "-dangerous".
+        Резултат: ValueError, защото името на tag е опасно или невалидно.
         """
         if not isinstance(value, str) or not value.strip() or value.startswith("-"):
             raise ValueError("Git tag name must be a non-empty safe string.")
@@ -840,11 +840,11 @@ class GitToolValidator:
 
     def validate_remote_name(self, value: Any) -> str:
         """
-        Validate a safe remote name that exists in the repository.
+        Валидира безопасно име на remote, което съществува в хранилището.
 
-        Example (valid): "origin" when that remote exists.
-        Example (invalid): "unknown" when no such remote exists.
-        Result: ValueError because the remote name is unsafe or unknown.
+        Пример (валиден): "origin", когато този remote съществува.
+        Пример (невалиден): "unknown", когато такъв remote не съществува.
+        Резултат: ValueError, защото името на remote е опасно или неизвестно.
         """
         if not isinstance(value, str) or not re.fullmatch(
             SAFE_REMOTE_NAME_PATTERN,
@@ -859,11 +859,11 @@ class GitToolValidator:
 
     def validate_diff_staged(self, value: Any) -> bool:
         """
-        Validate that the Git diff staged flag is boolean.
+        Валидира, че staged флагът на Git diff е булев.
 
-        Example (valid): True.
-        Example (invalid): "true".
-        Result: ValueError because the flag is not boolean.
+        Пример (валиден): True.
+        Пример (невалиден): "true".
+        Резултат: ValueError, защото флагът не е булев.
         """
         if not isinstance(value, bool):
             raise ValueError("git diff args.staged must be a boolean.")
@@ -871,11 +871,11 @@ class GitToolValidator:
 
     def validate_stash_include_untracked(self, value: Any) -> bool:
         """
-        Validate that the stash include-untracked flag is boolean.
+        Валидира, че флагът include-untracked на stash е булев.
 
-        Example (valid): False.
-        Example (invalid): 1.
-        Result: ValueError because the flag is not boolean.
+        Пример (валиден): False.
+        Пример (невалиден): 1.
+        Резултат: ValueError, защото флагът не е булев.
         """
         if not isinstance(value, bool):
             raise ValueError("git stash args.include_untracked must be a boolean.")
@@ -883,11 +883,11 @@ class GitToolValidator:
 
     def validate_message(self, value: Any, operation: str) -> str:
         """
-        Validate a non-empty Git message within the configured length limit.
+        Валидира непразно Git съобщение в конфигурираното ограничение за дължина.
 
-        Example (valid): "Update documentation".
-        Example (invalid): "   ".
-        Result: ValueError because the message is empty or too long.
+        Пример (валиден): "Актуализиране на документацията".
+        Пример (невалиден): "   ".
+        Резултат: ValueError, защото съобщението е празно или твърде дълго.
         """
         if not isinstance(value, str) or not value.strip():
             raise ValueError(
@@ -902,22 +902,22 @@ class GitToolValidator:
 
     def validate_restore_staged(self, value: Any) -> None:
         """
-        Validate that restore uses only the safe staged=true variant.
+        Валидира, че restore използва само безопасния вариант staged=true.
 
-        Example (valid): True.
-        Example (invalid): False.
-        Result: ValueError because unstaged restore is unsupported.
+        Пример (валиден): True.
+        Пример (невалиден): False.
+        Резултат: ValueError, защото restore без staged не се поддържа.
         """
         if value is not True:
             raise ValueError("git restore only supports the safe staged=true variant.")
 
     def validate_reset_mode(self, value: Any) -> str:
         """
-        Validate that reset mode is limited to soft or mixed.
+        Валидира, че режимът за reset е ограничен до soft или mixed.
 
-        Example (valid): "soft".
-        Example (invalid): "hard".
-        Result: ValueError because the reset mode is unsafe.
+        Пример (валиден): "soft".
+        Пример (невалиден): "hard".
+        Резултат: ValueError, защото режимът за reset е опасен.
         """
         if value not in RESET_MODE_VALUES:
             raise ValueError("git reset args.mode must be 'soft' or 'mixed'.")
@@ -925,11 +925,11 @@ class GitToolValidator:
 
     def validate_stash_index(self, value: Any) -> int:
         """
-        Validate an integer stash index within the configured bounds.
+        Валидира целочислен stash индекс в конфигурираните граници.
 
-        Example (valid): 0.
-        Example (invalid): -1.
-        Result: ValueError because the stash index is outside the allowed range.
+        Пример (валиден): 0.
+        Пример (невалиден): -1.
+        Резултат: ValueError, защото индексът на stash е извън разрешения диапазон.
         """
         if (
             isinstance(value, bool)
@@ -944,11 +944,11 @@ class GitToolValidator:
 
     def _validate_count_option(self, token: str, operation: str) -> int:
         """
-        Validate and parse a canonical --max-count option token.
+        Валидира и разборира каноничен токен на опцията --max-count.
 
-        Example (valid): "--max-count=10" -> 10.
-        Example (invalid): "--max-count=all".
-        Result: ValueError because the option is malformed or out of range.
+        Пример (валиден): "--max-count=10" -> 10.
+        Пример (невалиден): "--max-count=all".
+        Резултат: ValueError, защото опцията е неправилно форматирана или извън диапазона.
         """
         prefix = "--max-count="
         if not token.startswith(prefix) or not token.removeprefix(prefix).isdigit():
@@ -963,11 +963,11 @@ class GitToolValidator:
         expected: list[str],
     ) -> None:
         """
-        Validate that a Git command exactly matches its canonical token list.
+        Валидира, че Git командата съвпада точно с каноничния си списък от токени.
 
-        Example (valid): command == expected.
-        Example (invalid): command contains an extra token.
-        Result: ValueError because the command structure differs.
+        Пример (валиден): command == expected.
+        Пример (невалиден): командата съдържа допълнителен токен.
+        Резултат: ValueError, защото структурата на командата се различава.
         """
         if command != expected:
             raise ValueError(
@@ -977,11 +977,11 @@ class GitToolValidator:
     @staticmethod
     def _raise_invalid_command(operation: str) -> None:
         """
-        Reject an unsupported Git command structure for an operation.
+        Отхвърля неподдържана структура на Git команда за операция.
 
-        Example (valid): canonical commands do not invoke this method.
-        Example (invalid): an unsupported command reaches this method.
-        Result: ValueError describing the required supported structure.
+        Пример (валиден): каноничните команди не извикват този метод.
+        Пример (невалиден): неподдържана команда достига до този метод.
+        Резултат: ValueError, описващ изискваната поддържана структура.
         """
         raise ValueError(
             f"git {operation} command does not match the supported structure."
@@ -989,11 +989,11 @@ class GitToolValidator:
 
     def _ensure_project_repository(self) -> None:
         """
-        Validate that the working directory is the root of a Git repository.
+        Валидира, че работната директория е коренът на Git хранилище.
 
-        Example (valid): a configured path equal to git rev-parse --show-toplevel.
-        Example (invalid): a missing directory or nested repository path.
-        Result: ValueError, or the service's repository error when Git lookup fails.
+        Пример (валиден): конфигуриран път, равен на git rev-parse --show-toplevel.
+        Пример (невалиден): липсваща директория или вложен път в хранилището.
+        Резултат: ValueError или грешката на услугата за хранилището при неуспешна Git проверка.
         """
         if not self._working_directory.is_dir():
             raise ValueError(

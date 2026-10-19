@@ -5,13 +5,13 @@ class ToolsValidator:
     @staticmethod
     def validate(tools: list[ToolSchema]) -> None:
         """
-        Validate that Harness tool definitions have unique names.
+        Валидира, че дефинициите на Harness инструменти имат уникални имена.
 
-        Example (valid): [{"name": "read_file"}].
-        Example (invalid): two definitions named "read_file".
-        Result: ValueError because duplicate tool names are not allowed.
+        Пример (валиден): [{"name": "read_file"}].
+        Пример (невалиден): две дефиниции с име "read_file".
+        Резултат: ValueError, защото дублирани имена на инструменти не са разрешени.
         """
-        # Extract the names of all tools
+        # Извличаме имената на всички инструменти
         tool_names = [tool["name"] for tool in tools]
 
         if len(tool_names) != len(set(tool_names)):
@@ -20,11 +20,11 @@ class ToolsValidator:
     @staticmethod
     def validate_groq_tool_call(tool_call, available_tool_names: set[str]) -> None:
         """
-        Validate that Groq returned an available function tool call.
+        Валидира, че Groq е върнал извикване на наличен функционален инструмент.
 
-        Example (valid): type="function", function.name="read_file".
-        Example (invalid): function.name="unknown".
-        Result: ValueError because the tool is unavailable.
+        Пример (валиден): type="function", function.name="read_file".
+        Пример (невалиден): function.name="unknown".
+        Резултат: ValueError, защото инструментът не е наличен.
         """
         if tool_call.type != "function" or tool_call.function.name not in available_tool_names:
             raise ValueError("Groq returned an unavailable tool")
@@ -32,11 +32,11 @@ class ToolsValidator:
     @staticmethod
     def validate_groq_tool_arguments(arguments) -> None:
         """
-        Validate that Groq tool arguments are encoded as a JSON string.
+        Валидира, че аргументите на Groq инструмента са кодирани като JSON низ.
 
-        Example (valid): '{"path": "README.md"}'.
-        Example (invalid): {"path": "README.md"}.
-        Result: ValueError because the arguments are not a string.
+        Пример (валиден): '{"path": "README.md"}'.
+        Пример (невалиден): {"path": "README.md"}.
+        Резултат: ValueError, защото аргументите не са низ.
         """
         if not isinstance(arguments, str):
             raise ValueError("Groq tool arguments must be a JSON string")

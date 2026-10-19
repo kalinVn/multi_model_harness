@@ -17,7 +17,7 @@ class CommandLoader:
         if not description:
             raise ValueError("Command must contain a '# Description' section.")
 
-        # Extract all sections except "Name" and "Description".
+        # Извличаме всички секции с изключение на "Name" и "Description".
         extra_sections = {
             key: value
             for key, value in file_command_sections.items()
@@ -30,12 +30,12 @@ class CommandLoader:
         self,
         content: str,
     ) -> dict[str, str]:
-        """TODO: Add support for nested Markdown sections.
+        """TODO: Добавяне на поддръжка за вложени Markdown секции.
 
-        Currently, only "# " creates a new section.
-        Headings like "## " and "### " are treated as plain content.
-        In the future, support hierarchical sections based on heading levels,
-        while preserving the parent-child relationships.
+        В момента само "# " създава нова секция.
+        Заглавия като "## " и "### " се третират като обикновено съдържание.
+        В бъдеще да се поддържат йерархични секции според нивата на заглавията,
+        като се запазват връзките родител–дете.
         """
         return self._parse_sections(content)
 
@@ -46,26 +46,26 @@ class CommandLoader:
         sections: dict[str, list[str]] = {}
         current_section: str | None = None
 
-        # Split the text into individual lines with splitlines().
-        # Example:
-        # content = "apple\nbanana"
-        # content.splitlines() -> ["apple", "banana"]
+        # Разделяме текста на отделни редове чрез splitlines().
+        # Пример:
+        # content = "ябълка\nбанан"
+        # content.splitlines() -> ["ябълка", "банан"]
         file_lines = content.splitlines()
 
-        # Remove empty or whitespace-only strings from the list. For example,
-        # ["apple", "", "banana", "  "] becomes ["apple", "banana"].
+        # Премахваме празните низове и низовете само с интервали от списъка. Например
+        # ["ябълка", "", "банан", "  "] става ["ябълка", "банан"].
         file_lines = [line for line in file_lines if line.strip()]
 
         for line in file_lines:
-            # A line beginning with "# ", such as "# name", starts a new
-            # section named "name".
+            # Ред, започващ с "# ", например "# name", започва нова
+            # секция с име "name".
             if line.startswith("# "):
                 current_section = line[2:].strip()
                 sections[current_section] = []
                 continue
 
-            # If a line does not begin with "# ", append it to the current
-            # section. For example, if current_section = "name":
+            # Ако редът не започва с "# ", го добавяме към текущата
+            # секция. Например, ако current_section = "name":
             # sections['name'].append('test-write-file')
             if current_section is not None:
                 sections[current_section].append(line)

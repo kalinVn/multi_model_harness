@@ -2,15 +2,15 @@ import json
 
 
 class CommandResponseValidator:
-    """Validate the structured response returned for a command."""
+    """Валидира структурирания отговор, върнат за команда."""
 
     def validate(self, response_text: str) -> bool:
         """
-        Validate that command JSON has string answer and non-empty summary fields.
+        Валидира, че JSON на командата има поле answer от тип низ и непразно поле summary.
 
-        Example (valid): '{"answer": "Done", "command_summary": "Updated file"}'.
-        Example (invalid): '{"answer": "Done", "command_summary": ""}'.
-        Result: False for invalid data; this method does not raise validation errors.
+        Пример (валиден): '{"answer": "Готово", "command_summary": "Файлът е актуализиран"}'.
+        Пример (невалиден): '{"answer": "Готово", "command_summary": ""}'.
+        Резултат: False при невалидни данни; този метод не генерира грешки при валидация.
         """
         try:
             payload = json.loads(response_text)

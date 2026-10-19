@@ -41,5 +41,5 @@ Rules:
 """.strip()
 
 
-# Compatibility name for callers using the previous instruction constant.
+# Име за съвместимост за извикващ код, който използва предишната константа за инструкции.
 TOOL_CALL_INSTRUCTION = MODEL_RESPONSE_INSTRUCTION
