@@ -91,14 +91,78 @@ def prepare_groq_messages(
         for message in model_messages
     ]
 
-    groq_messages.append(
-        {"role": "system", "content": GROQ_RESPONSE_INSTRUCTION}
-    )
+    groq_messages.append({"role": "system", "content": GROQ_RESPONSE_INSTRUCTION})
 
     return groq_messages
 
 
+def _get_tool_call_response_json(tool_call) -> str:
+    """
+    Build the model-response JSON string for a native Groq tool call.
+
+    Parameters:
+        tool_call: A Groq tool call containing a function name and JSON arguments.
+    Example input:
+        function.name = "bash"
+        function.arguments = '{"command":"ls -la"}'
+    Example output:
+        '{"text":"","tool_calls":[{"tool":"bash","arguments":{"command":"ls -la"}}],"tool_result_summaries":[]}'
+    Returns:
+        The complete tool-call response JSON string.
+    """
+    return (
+        '{"text":"","tool_calls":[{"tool":'
+        + json.dumps(tool_call.function.name)
+        + ',"arguments":' + tool_call.function.arguments
+        + '}],"tool_result_summaries":[]}'
+    )
+
+
 def prepare_groq_response(message, tools: list[GroqToolType]) -> ModelResponse:
+    """
+    Convert Groq message content and native tool calls into a ModelResponse.
+
+    Description:
+        Parse structured text content, validate native Groq tool calls, and combine
+        both sources into the provider-independent response model.
+    Example input:
+        message = SimpleNamespace(
+            content='{"text":"Hello","tool_calls":[],"tool_result_summaries":[]}',
+            tool_calls=None,
+        )
+        tools = []
+    Example output:
+        ModelResponse(
+            text="Hello",
+            tool_calls=[],
+            tool_result_summaries=[],
+            tool_result_output_requests=[],
+        )
+    Native tool-call example input:
+        message.tool_calls = [
+            SimpleNamespace(
+                type="function",
+                function=SimpleNamespace(
+                    name="bash",
+                    arguments='{"command":"ls -la"}',
+                ),
+            )
+        ]
+        tools = [
+            {"type": "function", "function": {"name": "bash"}}
+        ]
+    Native tool-call example output:
+        ModelResponse(
+            text="",
+            tool_calls=[ToolCall(name="bash", arguments={"command": "ls -la"})],
+            tool_result_summaries=[],
+            tool_result_output_requests=[],
+        )
+    Returns:
+        A ModelResponse containing parsed text, tool calls, and result metadata.
+    Raises:
+        ValueError: If the message content or native tool calls are invalid.
+    """
 
     tool_calls = message.tool_calls or []
 
@@ -119,21 +183,11 @@ def prepare_groq_response(message, tools: list[GroqToolType]) -> ModelResponse:
         ToolsValidator.validate_groq_tool_call(tool_call, available_tool_names)
         ToolsValidator.validate_groq_tool_arguments(tool_call.function.arguments)
         
-        raw = (
-            '{"text":"","tool_calls":[{"tool":'
-            + json.dumps(tool_call.function.name)
-            + ',"arguments":' + tool_call.function.arguments
-            + '}],"tool_result_summaries":[]}'
-        )
+        tool_call_response_json = _get_tool_call_response_json(tool_call)
 
-        prepared_tool_call_response = prepare_model_response(raw)
+        prepared_tool_call_response = prepare_model_response(tool_call_response_json)
 
-        if (
-            len(prepared_tool_call_response.tool_calls) != 1
-            or prepared_tool_call_response.tool_calls[0].name
-            != tool_call.function.name
-        ):
-            raise ValueError("Groq tool arguments contain an invalid call envelope")
+        ToolsValidator.validate_groq_tool_call_response(prepared_tool_call_response, tool_call.function.name)
         
         prepared_tool_calls.extend(prepared_tool_call_response.tool_calls)
 

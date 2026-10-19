@@ -1,7 +1,124 @@
 import math
 
+from harness.parser.command_response_parser import parse_command_response
+
 
 class ModelResponseValidator:
+    @staticmethod
+    def is_plain_text_response(
+        command_response_required,
+        native_tool_calls,
+        response_text,
+    ) -> bool:
+        """
+        Check whether an invalid structured response can be accepted as plain text.
+
+        Parameters:
+            command_response_required: Whether a structured command response is required.
+            native_tool_calls: Native tool calls included in the Groq response.
+            response_text: The response content to evaluate.
+        Example input: (False, None, "Hello")
+        Example output: True
+        Returns: True only for nonempty, non-JSON plain text without native tool calls.
+        """
+        return bool(
+            not command_response_required
+            and not native_tool_calls
+            and isinstance(response_text, str)
+            and response_text.strip()
+            and not response_text.lstrip().startswith(("{", "[", "```"))
+        )
+
+    @staticmethod
+    def is_valid_command_response(
+        command_response_required,
+        native_tool_calls,
+        response_text,
+    ) -> bool:
+        """
+        Check whether the content is a valid required command response.
+
+        Parameters:
+            command_response_required: Whether a structured command response is required.
+            native_tool_calls: Native tool calls included in the Groq response.
+            response_text: The command response content to evaluate.
+        Example input: (True, None, '{"answer":"Done","command_summary":"Complete"}')
+        Example output: True
+        Returns: True when a required command response parses successfully without tool calls.
+        """
+        return (
+            command_response_required
+            and not native_tool_calls
+            and parse_command_response(response_text) is not None
+        )
+
+    @staticmethod
+    def is_acceptable_text_response(
+        command_response_required,
+        native_tool_calls,
+        response_text,
+    ) -> bool:
+        """
+        Check whether response text is acceptable as plain text or command JSON.
+
+        Parameters:
+            command_response_required: Whether a structured command response is required.
+            native_tool_calls: Native tool calls included in the Groq response.
+            response_text: The response content to evaluate.
+        Example input: (False, None, "Hello")
+        Example output: True
+        Returns: True when either supported text-response validation succeeds.
+        """
+        return (
+            ModelResponseValidator.is_plain_text_response(
+                command_response_required,
+                native_tool_calls,
+                response_text,
+            )
+            or ModelResponseValidator.is_valid_command_response(
+                command_response_required,
+                native_tool_calls,
+                response_text,
+            )
+        )
+
+    @staticmethod
+    def has_exhausted_retries(retry_attempt, maximum_retries) -> bool:
+        """
+        Check whether the current retry attempt reached the allowed limit.
+
+        Parameters:
+            retry_attempt: The zero-based current retry attempt.
+            maximum_retries: The maximum number of allowed retries.
+        Example input: (2, 2)
+        Example output: True
+        Returns: True when retry_attempt is greater than or equal to maximum_retries.
+        """
+        return retry_attempt >= maximum_retries
+
+    @staticmethod
+    def validate_retry_limit(retry_attempt, maximum_retries, error) -> None:
+        """
+        Validate that another invalid-response retry is still allowed.
+
+        Parameters:
+            retry_attempt: The zero-based current retry attempt.
+            maximum_retries: The maximum number of allowed retries.
+            error: The validation error raised for the invalid model response.
+        Example input: (1, 2, ValueError("invalid response"))
+        Example output: None
+        Returns: None while the retry limit has not been reached.
+        Raises: ValueError with the original error chained when the limit is reached.
+        """
+        if ModelResponseValidator.has_exhausted_retries(
+            retry_attempt,
+            maximum_retries,
+        ):
+            raise ValueError(
+                "Groq returned an invalid model response after "
+                f"{maximum_retries} retries: {error}"
+            ) from error
+
     @staticmethod
     def validate_json_object_pairs(pairs):
         """

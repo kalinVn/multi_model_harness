@@ -40,3 +40,30 @@ class ToolsValidator:
         """
         if not isinstance(arguments, str):
             raise ValueError("Groq tool arguments must be a JSON string")
+
+    @staticmethod
+    def validate_groq_tool_call_response(
+        prepared_tool_call_response,
+        expected_tool_name,
+    ) -> None:
+        """
+        Validate that a parsed Groq response contains the expected single tool call.
+
+        Parameters:
+            prepared_tool_call_response: The parsed ModelResponse to validate.
+            expected_tool_name: The native Groq function name expected in the response.
+        Example input:
+            (ModelResponse(tool_calls=[ToolCall(name="bash")]), "bash")
+        Example output:
+            None
+        Returns:
+            None when exactly one tool call has the expected name.
+        Raises:
+            ValueError: If the parsed response has an invalid call envelope.
+        """
+        if (
+            len(prepared_tool_call_response.tool_calls) != 1
+            or prepared_tool_call_response.tool_calls[0].name
+            != expected_tool_name
+        ):
+            raise ValueError("Groq tool arguments contain an invalid call envelope")
