@@ -1,4 +1,4 @@
-"""Строго и независимо от доставчика декодиране на JSON отговор."""
+"""Strict provider-independent JSON response decoding."""
 import json
 
 from harness.domain.tool_call import ToolCall
@@ -58,31 +58,31 @@ def _get_output_requests(data):
 
 
 def prepare_model_response(text: str) -> ModelResponse:
-    """Декодира пълния отговор или генерира ValueError; никога не предполага изпълнение на инструмент.
+    """Decode the complete response or raise ValueError; never infer tool execution.
 
-    ID на резултатите от инструменти са непрозрачни и се запазват дословно. Runner ги проверява
-    спрямо изпълнените резултати. Схемите на аргументите на инструментите се валидират при изпълнение.
-      Разборира и валидира JSON отговор на модела.
+    Tool-result IDs are opaque and preserved verbatim. The runner checks them
+    against executed results. Tool argument schemas are validated at execution.
+      Parse and validate a JSON model response.
 
-    Аргументи:
-        text: JSON низ, съдържащ отговора на модела.
+    Args:
+        text: JSON string containing the model response.
 
-    Пример (вход):
-        '{"text": "Здравей", "tool_calls": [], "tool_result_summaries": []}'
+    Example (input):
+        '{"text": "Hello", "tool_calls": [], "tool_result_summaries": []}'
 
-    Пример (изход):
+    Example (output):
         ModelResponse(
-            text="Здравей",
+            text="Hello",
             tool_calls=[],
             tool_result_summaries=[],
             tool_result_output_requests=[]
         )
 
-    Връща:
-        ModelResponse: Разборираният и валидиран отговор на модела.
+    Returns:
+        ModelResponse: The parsed and validated model response.
 
-    Генерира:
-        ValueError: Ако JSON или данните на отговора са невалидни.
+    Raises:
+        ValueError: If the JSON or response data is invalid.
     """
 
     ModelResponseValidator.validate_prepare_model_response(text)

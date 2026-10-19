@@ -12,7 +12,7 @@ TOOLS_CONTEXT_HEADER = "Tool usage:"
 def build_tools_schema(
     tools: list[Tool],
 ) -> list[ToolSchema]:
-    """Изгражда независими от доставчика структурирани схеми за регистрираните инструменти."""
+    """Build provider-independent structured schemas for registered tools."""
     schemas: list[ToolSchema] = []
     names: set[str] = set()
 
@@ -70,7 +70,7 @@ def build_tools_schema(
 
 
 def build_tools_context(tools: list[Tool]) -> str:
-    """Изгражда независими от доставчика инструкции за използване на инструменти без схеми."""
+    """Build provider-independent tool usage instructions without schemas."""
     if not tools:
         return "No tools are currently available."
 
@@ -95,7 +95,7 @@ def build_tools_context(tools: list[Tool]) -> str:
 
 
 def build_text_tools_context(tool_schemas: list[ToolSchema]) -> str:
-    """Извежда структурирани схеми за съвместимост с доставчик само с текст."""
+    """Render structured schemas for text-only provider compatibility."""
     if not tool_schemas:
         return "No tools are currently available."
 

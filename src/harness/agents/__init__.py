@@ -1,1 +1,1 @@
-"""Координатори на агентите за Harness."""
+"""Agent coordinators for the harness."""

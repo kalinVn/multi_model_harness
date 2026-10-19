@@ -242,11 +242,11 @@ class ModelResponseValidator:
     @staticmethod
     def validate_json_object_pairs(pairs):
         """
-        Валидира двойките на JSON обект и отхвърля дублирани имена на полета.
+        Validate JSON object pairs and reject duplicate field names.
 
-        Пример (валиден): [("text", "Здравей")] -> {"text": "Здравей"}.
-        Пример (невалиден): [("text", "Здравей"), ("text", "Отново")].
-        Резултат: ValueError, защото "text" се дублира.
+        Example (valid): [("text", "Hello")] -> {"text": "Hello"}.
+        Example (invalid): [("text", "Hello"), ("text", "Again")].
+        Result: ValueError because "text" is duplicated.
         """
 
         result = {}
@@ -260,22 +260,22 @@ class ModelResponseValidator:
     @staticmethod
     def validate_json_constant(value):
         """
-        Валидира, че нестандартна числова JSON константа се отхвърля.
+        Validate that a non-standard JSON numeric constant is rejected.
 
-        Пример (валиден): 1 се разборира нормално, без да се извиква този hook.
-        Пример (невалиден): NaN.
-        Резултат: ValueError, защото NaN не е валидна JSON константа.
+        Example (valid): 1 is parsed normally without invoking this hook.
+        Example (invalid): NaN.
+        Result: ValueError because NaN is not a valid JSON constant.
         """
         raise ValueError(f"Invalid JSON constant: {value}")
 
     @staticmethod
     def validate_response_choice(response) -> None:
         """
-        Валидира, че Groq е върнал избор със завършена причина за приключване.
+        Validate that Groq returned a choice with a complete finish reason.
 
-        Пример (валиден): choices[0].finish_reason == "stop".
-        Пример (невалиден): choices == [] or finish_reason == "length".
-        Резултат: ValueError, защото няма наличен завършен избор на отговор.
+        Example (valid): choices[0].finish_reason == "stop".
+        Example (invalid): choices == [] or finish_reason == "length".
+        Result: ValueError because no complete response choice is available.
         """
         if not response.choices:
             raise ValueError("Groq returned no response choices")
@@ -288,11 +288,11 @@ class ModelResponseValidator:
     @staticmethod
     def validate(text: str) -> None:
         """
-        Валидира, че отговорът на модела е непразен низ.
+        Validate that the model response is a non-empty string.
 
-        Пример (валиден): "{}".
-        Пример (невалиден): "   ".
-        Резултат: ValueError, защото отговорът е празен след изчистване на интервалите.
+        Example (valid): "{}".
+        Example (invalid): "   ".
+        Result: ValueError because the response is empty after trimming.
         """
         if not isinstance(text, str):
             raise ValueError("Model response must be a JSON string")
@@ -304,11 +304,11 @@ class ModelResponseValidator:
     @staticmethod
     def validate_finite_numbers_data(value) -> None:
         """
-        Валидира, че всички вложени стойности с плаваща запетая са крайни.
+        Validate that all nested floating-point values are finite.
 
-        Пример (валиден): {"values": [1, 2.5]}.
-        Пример (невалиден): {"value": float("inf")}.
-        Резултат: ValueError, защото Infinity не е крайно число.
+        Example (valid): {"values": [1, 2.5]}.
+        Example (invalid): {"value": float("inf")}.
+        Result: ValueError because Infinity is not finite.
         """
         if isinstance(value, float) and not math.isfinite(value):
             raise ValueError("JSON numbers must be finite")
@@ -324,11 +324,11 @@ class ModelResponseValidator:
     @staticmethod
     def validate_response_fields(data) -> None:
         """
-        Валидира, че отговорът има точно задължителните и незадължителните полета.
+        Validate that a response has exactly the required and optional fields.
 
-        Пример (валиден): {"text": "Здравей", "tool_calls": [], "tool_result_summaries": []}.
-        Пример (невалиден): {"text": "Здравей", "tool_result_summaries": []}.
-        Резултат: ValueError, защото "tool_calls" липсва.
+        Example (valid): {"text": "Hello", "tool_calls": [], "tool_result_summaries": []}.
+        Example (invalid): {"text": "Hello", "tool_result_summaries": []}.
+        Result: ValueError because "tool_calls" is missing.
         """
         required_fields = {"text", "tool_calls", "tool_result_summaries"}
         allowed_fields = required_fields | {"tool_result_output_requests"}
@@ -346,11 +346,11 @@ class ModelResponseValidator:
     @staticmethod
     def validate_response_list_fields(data) -> None:
         """
-        Валидира, че tool_calls и tool_result_summaries са списъци.
+        Validate that tool_calls and tool_result_summaries are lists.
 
-        Пример (валиден): {"tool_calls": [], "tool_result_summaries": []}.
-        Пример (невалиден): {"tool_calls": "none", "tool_result_summaries": []}.
-        Резултат: ValueError, защото "tool_calls" не е масив.
+        Example (valid): {"tool_calls": [], "tool_result_summaries": []}.
+        Example (invalid): {"tool_calls": "none", "tool_result_summaries": []}.
+        Result: ValueError because "tool_calls" is not an array.
         """
         for field in ("tool_calls", "tool_result_summaries"):
             if not isinstance(data[field], list):
@@ -359,11 +359,11 @@ class ModelResponseValidator:
     @staticmethod
     def validate_call_arguments(arguments, path) -> None:
         """
-        Валидира, че аргументите на извикване на инструмент са JSON обект.
+        Validate that a tool call's arguments are a JSON object.
 
-        Пример (валиден): {"path": "README.md"}.
-        Пример (невалиден): ["README.md"].
-        Резултат: ValueError, защото аргументите не са обект.
+        Example (valid): {"path": "README.md"}.
+        Example (invalid): ["README.md"].
+        Result: ValueError because the arguments are not an object.
         """
         if not isinstance(arguments, dict):
             raise ValueError(f"{path}.arguments must be an object")
@@ -371,11 +371,11 @@ class ModelResponseValidator:
     @staticmethod
     def validate_output_request_data(output_request_data) -> None:
         """
-        Валидира, че заявките за изход от резултати на инструменти са подадени като списък.
+        Validate that tool result output requests are provided as a list.
 
-        Пример (валиден): ["result-1"].
-        Пример (невалиден): "result-1".
-        Резултат: ValueError, защото стойността не е масив.
+        Example (valid): ["result-1"].
+        Example (invalid): "result-1".
+        Result: ValueError because the value is not an array.
         """
         if not isinstance(output_request_data, list):
             raise ValueError("tool_result_output_requests must be an array")
@@ -383,11 +383,11 @@ class ModelResponseValidator:
     @staticmethod
     def validate_fields(value, expected, path) -> None:
         """
-        Валидира, че обектът съдържа точно очакваните полета.
+        Validate that an object contains exactly the expected fields.
 
-        Пример (валиден): {"tool": "read_file", "arguments": {}}.
-        Пример (невалиден): {"tool": "read_file"}.
-        Резултат: ValueError, защото липсва очаквано поле.
+        Example (valid): {"tool": "read_file", "arguments": {}}.
+        Example (invalid): {"tool": "read_file"}.
+        Result: ValueError because an expected field is missing.
         """
         if not isinstance(value, dict) or set(value) != set(expected):
             raise ValueError(f"{path} must be an object with exactly: {', '.join(expected)}")

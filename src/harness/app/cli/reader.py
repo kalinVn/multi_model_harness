@@ -1,5 +1,5 @@
 def read_input() -> str:
-    """Прочита едно съобщение от терминала."""
+    """Read one message from the terminal."""
 
     try:
         user_input = input("You > ")

@@ -258,30 +258,30 @@ class MainOrchestrator:
         parsed_command: ParsedCommand | None,
         state,
     ) -> str | list[Message]:
-        """Връща крайния отговор или контекста на модела за повторен опит.
+        """Return the final response or model context for a retry.
 
-        str: Крайният отговор към потребителя, например "Файлът беше прочетен
-        успешно."
-        list[Message]: Нов контекст с инструкция за коригиране на JSON;
-        изпраща се на модела при следващата итерация.
+        str: The final response to the user, such as "The file was read
+        successfully."
+        list[Message]: New context containing an instruction to fix the JSON;
+        it is sent to the model during the next iteration.
         """
-        # Ако няма разпозната команда, запазваме и връщаме текста на отговора
-        # без обработка, специфична за команда.
+        # If there is no parsed command, save and return the response text
+        # without any command-specific processing.
         if parsed_command is None:
             session.add_message(Message(role="assistant", content=response.text))
             return response.text
 
-        # Разборираме отговора и проверяваме дали има очакваната структура.
-        # Например, ако отговорът е JSON със status: "ok", проверяваме дали
-        # status е точно "ok", а не "error".
+        # Parse the response and verify that it has the expected structure.
+        # For example, if the response is JSON with status: "ok", verify that
+        # status is exactly "ok" rather than "error".
         parsed_response = parse_command_response(response.text)
 
-        # Разбориран отговор, различен от None, е валиден и може да се запази в сесията.
+        # A non-None parsed response is valid and can be saved to the session.
         if parsed_response is not None:
 
             answer, command_summary = parsed_response
 
-            # Запазваме command_summary като системно съобщение.
+            # Save command_summary as a system message.
             command_summary_message = (
                 self._command_service.prepare_command_summary_message(
                     parsed_command,
@@ -291,11 +291,11 @@ class MainOrchestrator:
             session.add_message(command_summary_message)
             session.add_message(Message(role="assistant", content=answer))
 
-            # Връщаме крайния текст, предназначен за потребителя.
+            # Return the final text intended for the user.
             return answer
 
-        # След изчерпване на всички опити за корекция на отговора запазваме съобщението
-        # за грешка в историята на сесията и го връщаме на потребителя.
+        # Once all response-correction attempts are exhausted, save the error
+        # message in the session history and return it to the user.
         if state.command_response_retries >= self.MAX_COMMAND_RESPONSE_RETRIES:
             message = (
                 "Command response remained invalid after "

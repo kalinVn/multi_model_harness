@@ -1,9 +1,9 @@
-# Използвайте нативно извикване на функция, когато заявката на потребителя изисква наличен инструмент.
-# Не описвайте извикването на функция в текст или JSON съдържание. Извикайте функцията.
-# При извикване на функция оставете съдържанието на съобщението празно.
+# Use native function calling when the user's request requires an available tool.
+# Do not describe a function call in text or JSON content. Invoke the function.
+# When invoking a function, leave message content empty.
 #
-# Пример:
-# Потребител: "Създай файл hello.txt със съдържание Здравей, свят."
+# Example:
+# User: "Create a file hello.txt containing Hello World."
 #
 # {
 #   "id": "chatcmpl-example123",
@@ -22,7 +22,7 @@
 #             "type": "function",
 #             "function": {
 #               "name": "write_file",
-#               "arguments": "{\"path\":\"hello.txt\",\"content\":\"Здравей, свят\"}"
+#               "arguments": "{\"path\":\"hello.txt\",\"content\":\"Hello World\"}"
 #             }
 #           }
 #         ]
@@ -36,70 +36,70 @@
 #     "total_tokens": 180
 #   }
 # }
-# Извикването на функция се връща в message.tool_calls,
-# а не като JSON текст в message.content.
+# The function call is returned in message.tool_calls,
+# not as JSON text in message.content.
 
 
 
 # ============================================================
-# Обяснение: tool_result_summaries
+# Explanation: tool_result_summaries
 # ============================================================
 #
-# Оригинална инструкция:
+# Original instruction:
 #
-# Масивът tool_result_summaries съдържа обекти с точно
-# id и summary, като и двете са низове.
+# The tool_result_summaries array contains objects with exactly
+# id and summary, both strings.
 #
-# Значение:
+# Meaning:
 #
-# Моделът трябва да обобщи резултатите от изпълнени по-рано инструменти.
+# The model must summarize results from previously executed tools.
 #
-# Всеки обект за обобщение трябва да съдържа точно две полета от тип низ:
+# Each summary object must contain exactly two string fields:
 #
-# - id: Оригиналният ID, зададен на резултата от изпълнения инструмент.
-# - summary: Кратко обобщение на изхода от този инструмент.
+# - id: The original ID assigned to the executed tool result.
+# - summary: A concise summary of that tool's output.
 #
-# Моделът никога не трябва да измисля ID на резултати.
-# Ако няма резултати за обобщаване, върнете празен масив.
+# The model must never invent result IDs.
+# If there are no results to summarize, return an empty array.
 #
 # ------------------------------------------------------------
-# Пример
+# Example
 # ------------------------------------------------------------
 #
-# Заявка на потребителя:
-# "Прочети config.py и обясни съдържанието му."
+# User request:
+# "Read config.py and explain its contents."
 #
-# Harness изпълнява:
+# The Harness executes:
 # read_file(path="config.py")
 #
-# Примерен резултат от инструмент:
+# Example tool result:
 #
-# ID на резултата от инструмента: result_123
-# Изход: Файлът съдържа настройки за конфигурацията на приложението.
+# Tool result ID: result_123
+# Output: The file contains application configuration settings.
 #
-# Очакван отговор на модела (message.content):
+# Expected model response (message.content):
 #
 # {
-#   "text": "Файлът config.py съдържа настройки за конфигурацията на приложението.",
+#   "text": "The file config.py contains application configuration settings.",
 #   "tool_calls": [],
 #   "tool_result_summaries": [
 #     {
 #       "id": "result_123",
-#       "summary": "config.py е прочетен успешно. Файлът съдържа настройки за конфигурацията на приложението."
+#       "summary": "Successfully read config.py. The file contains application configuration settings."
 #     }
 #   ]
 # }
 #
-# Важно:
+# Important:
 #
-# - "result_123" трябва да е действителен ID, предоставен от Harness.
-# - "summary" описва резултата от изпълнения по-рано инструмент.
-# - "tool_calls" е празно, защото не се заявява нов инструмент.
-# - Този JSON се връща в message.content, а не в message.tool_calls.
-# - Това е илюстративен пример, а не действителен отговор на модела.
+# - "result_123" must be an actual ID provided by the Harness.
+# - "summary" describes the previously executed tool result.
+# - "tool_calls" is empty because no new tool is being requested.
+# - This JSON is returned in message.content, not message.tool_calls.
+# - This is an illustrative example, not an actual model response.
 #
-# Коментарите са само документация за разработчици.
-# Те не трябва да се включват в GROQ_RESPONSE_INSTRUCTION.
+# The comments are developer documentation only.
+# They must not be included in GROQ_RESPONSE_INSTRUCTION.
 # ============================================================.
 
 

@@ -10,14 +10,14 @@ from harness.domain.tool_call import ToolCall
 from harness.models.response import ModelResponse
 from harness.models.response_instruction import (
     MODEL_RESPONSE_INSTRUCTION,
-    TOOL_CALL_INSTRUCTION,  # Местоположение за импорт с обратна съвместимост.
+    TOOL_CALL_INSTRUCTION,  # Backward-compatible import location.
 )
 from harness.models.tool_schema import ToolSchema
 from harness.parser.response_parser import prepare_model_response
 
 
 def map_tool_schemas(tool_schemas: list[ToolSchema]) -> list[types.Tool]:
-    """Преобразува споделените схеми във валидирани декларации на Gemini функции."""
+    """Convert shared schemas to validated Gemini function declarations."""
     names = [tool_schema["name"] for tool_schema in tool_schemas]
     if len(names) != len(set(names)):
         raise ValueError("Duplicate harness tool definitions for Gemini")
@@ -82,7 +82,7 @@ def map_messages(
 
 
 def get_response_text(response: types.GenerateContentResponse) -> str:
-    """Събира текстовите части, без да допуска, че нативното извикване има текст."""
+    """Collect text parts without assuming that a native call has text."""
     return "".join(
         part.text
         for candidate in response.candidates or []
@@ -103,7 +103,7 @@ def map_response(
     response: types.GenerateContentResponse,
     tool_schemas: list[ToolSchema] | None = None,
 ) -> ModelResponse:
-    """Преобразува Gemini текст и нативни извиквания на функции към споделения отговор."""
+    """Map Gemini text and native function calls to the shared response."""
     allowed_names = {
         tool_schema["name"]
         for tool_schema in tool_schemas or []

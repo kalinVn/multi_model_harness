@@ -29,7 +29,7 @@ class Session:
         self,
         summaries: list[ToolResultSummary],
     ) -> None:
-        """Прикрепя обобщения на резултатите, за да могат по-късно да заменят пълния изход."""
+        """Attach result summaries so they can replace full output later."""
         for summary in summaries:
             for message in self.messages:
                 for result in message.tool_results:

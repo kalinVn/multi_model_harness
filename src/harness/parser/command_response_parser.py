@@ -4,7 +4,7 @@ from harness.validators.command_response_validator import CommandResponseValidat
 
 
 def parse_command_response(response_text: str) -> tuple[str, str] | None:
-    """Разборира отговор на команда, след като премине валидация."""
+    """Parse a command response after it passes validation."""
     validator = CommandResponseValidator()
 
     if not validator.validate(response_text):
