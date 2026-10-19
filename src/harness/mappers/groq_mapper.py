@@ -9,6 +9,7 @@ from harness.models.groq_tool_type import GroqToolType
 from harness.models.response import ModelResponse
 from harness.models.tool_schema import ToolSchema
 from harness.parser.response_parser import prepare_model_response
+from harness.validators.model_response_validator import ModelResponseValidator
 from harness.validators.tools_validator import ToolsValidator
 # Groq API изисква специфичен формат на инструментите, затова преобразуваме
 # независимите от доставчика дефиниции на Harness инструменти в дефиниции на Groq функции.
@@ -118,6 +119,45 @@ def _get_tool_call_response_json(tool_call) -> str:
     )
 
 
+def _parse_groq_tool_calls(tool_calls, available_tool_names):
+    """
+    Validate and parse native Groq tool calls into Harness ToolCall objects.
+
+    Description:
+        Preserve each call's validation, JSON conversion, parsing, and collection order.
+    Parameters:
+        tool_calls: The native tool calls returned by Groq.
+        available_tool_names: The names of tools available to the model.
+    Example input:
+        ([SimpleNamespace(type="function", function=SimpleNamespace(
+            name="bash", arguments='{"command":"ls"}'))], {"bash"})
+    Example output:
+        [ToolCall(name="bash", arguments={"command": "ls"})]
+    Returns:
+        A list of parsed ToolCall objects in the original order.
+    Raises:
+        ValueError: If a tool name, arguments, JSON payload, or envelope is invalid.
+    """
+    prepared_tool_calls = []
+
+    for tool_call in tool_calls:
+        ToolsValidator.validate_groq_tool_call(tool_call, available_tool_names)
+        ToolsValidator.validate_groq_tool_arguments(tool_call.function.arguments)
+
+        tool_call_response_json = _get_tool_call_response_json(tool_call)
+
+        prepared_tool_call_response = prepare_model_response(tool_call_response_json)
+
+        ToolsValidator.validate_groq_tool_call_response(
+            prepared_tool_call_response,
+            tool_call.function.name,
+        )
+
+        prepared_tool_calls.extend(prepared_tool_call_response.tool_calls)
+
+    return prepared_tool_calls
+
+
 def prepare_groq_response(message, tools: list[GroqToolType]) -> ModelResponse:
     """
     Convert Groq message content and native tool calls into a ModelResponse.
@@ -166,30 +206,26 @@ def prepare_groq_response(message, tools: list[GroqToolType]) -> ModelResponse:
 
     tool_calls = message.tool_calls or []
 
-    if message.content and message.content.strip():
+    has_response_content = ModelResponseValidator.has_response_content(
+        message.content
+    )
+
+    if has_response_content:
         response = prepare_model_response(message.content)
-    elif tool_calls:
-        response = ModelResponse()
     else:
-        raise ValueError("Groq returned no response text or tool calls")
-    
-    if response.tool_calls:
-        raise ValueError("Groq must return tool calls as native function calls")
+        response = ModelResponse()
+
+    ModelResponseValidator.validate_prepare_groq_response(
+        message.content,
+        tool_calls,
+        response,
+    )
 
     available_tool_names = {tool["function"]["name"] for tool in tools}
-    prepared_tool_calls = []
-    
-    for tool_call in tool_calls:
-        ToolsValidator.validate_groq_tool_call(tool_call, available_tool_names)
-        ToolsValidator.validate_groq_tool_arguments(tool_call.function.arguments)
-        
-        tool_call_response_json = _get_tool_call_response_json(tool_call)
-
-        prepared_tool_call_response = prepare_model_response(tool_call_response_json)
-
-        ToolsValidator.validate_groq_tool_call_response(prepared_tool_call_response, tool_call.function.name)
-        
-        prepared_tool_calls.extend(prepared_tool_call_response.tool_calls)
+    prepared_tool_calls = _parse_groq_tool_calls(
+        tool_calls,
+        available_tool_names,
+    )
 
     return ModelResponse(
         text=response.text,

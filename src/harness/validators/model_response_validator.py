@@ -1,9 +1,65 @@
+import json
 import math
 
 from harness.parser.command_response_parser import parse_command_response
+from harness.validators.string_validator import StringValidator
 
 
 class ModelResponseValidator:
+    @staticmethod
+    def validate_prepare_model_response(text: str) -> None:
+        """
+        Validate JSON text before it is converted into a ModelResponse.
+
+        Description:
+            Decode the JSON securely and validate all response and nested fields.
+        Parameters:
+            text: The model response JSON string to validate.
+        Example input: '{"text":"Hello","tool_calls":[],"tool_result_summaries":[]}'
+        Example output: None
+        Returns: None when the complete model response is valid.
+        Raises: ValueError when the JSON or any response field is invalid.
+        """
+        ModelResponseValidator.validate(text)
+
+        try:
+            data = json.loads(
+                text,
+                object_pairs_hook=ModelResponseValidator.validate_json_object_pairs,
+                parse_constant=ModelResponseValidator.validate_json_constant,
+            )
+        except json.JSONDecodeError as error:
+            raise ValueError(
+                f"Malformed model response JSON: {error.msg} "
+                f"at line {error.lineno}, column {error.colno} (char {error.pos})"
+            ) from error
+
+        ModelResponseValidator.validate_finite_numbers_data(data)
+        ModelResponseValidator.validate_response_fields(data)
+        ModelResponseValidator.validate_response_list_fields(data)
+        StringValidator.validate_string(data["text"], "text")
+
+        for index, call in enumerate(data["tool_calls"]):
+            path = f"tool_calls[{index}]"
+            ModelResponseValidator.validate_fields(call, ("tool", "arguments"), path)
+            StringValidator.validate_string(call["tool"], f"{path}.tool", nonempty=True)
+            ModelResponseValidator.validate_call_arguments(call["arguments"], path)
+
+        for index, summary in enumerate(data["tool_result_summaries"]):
+            path = f"tool_result_summaries[{index}]"
+            ModelResponseValidator.validate_fields(summary, ("id", "summary"), path)
+            StringValidator.validate_string(summary["id"], f"{path}.id", nonempty=True)
+            StringValidator.validate_string(summary["summary"], f"{path}.summary")
+
+        output_requests_data = data.get("tool_result_output_requests", [])
+        ModelResponseValidator.validate_output_request_data(output_requests_data)
+        for index, result_id in enumerate(output_requests_data):
+            StringValidator.validate_string(
+                result_id,
+                f"tool_result_output_requests[{index}]",
+                nonempty=True,
+            )
+
     @staticmethod
     def is_plain_text_response(
         command_response_required,
@@ -118,6 +174,70 @@ class ModelResponseValidator:
                 "Groq returned an invalid model response after "
                 f"{maximum_retries} retries: {error}"
             ) from error
+
+    @staticmethod
+    def has_response_content(response_content) -> bool:
+        """
+        Check whether Groq response content contains nonempty text.
+
+        Description:
+            Treat missing, empty, and whitespace-only content as unavailable.
+        Parameters:
+            response_content: The text content returned by Groq.
+        Example input: "  Hello  "
+        Example output: True
+        Returns: True when response_content contains non-whitespace text.
+        """
+        return bool(
+            response_content
+            and response_content.strip()
+        )
+
+    @staticmethod
+    def validate_prepare_groq_response(
+        response_content,
+        native_tool_calls,
+        response,
+    ) -> None:
+        """
+        Validate that a Groq message contains text or native tool calls.
+
+        Description:
+            Reject an empty response and validate already parsed structured text.
+        Parameters:
+            response_content: The text content returned by Groq.
+            native_tool_calls: The native tool calls returned by Groq.
+            response: The already parsed ModelResponse.
+        Example input: ('{"text":"Hello"}', None, ModelResponse(text="Hello"))
+        Example output: None
+        Returns: None when the Groq response is valid.
+        Raises: ValueError when the response is missing or contains embedded tool calls.
+        """
+        has_response_content = ModelResponseValidator.has_response_content(
+            response_content
+        )
+        if not has_response_content and not native_tool_calls:
+            raise ValueError("Groq returned no response text or tool calls")
+
+        if has_response_content:
+            ModelResponseValidator.validate_groq_response(response)
+
+    @staticmethod
+    def validate_groq_response(response) -> None:
+        """
+        Validate that parsed Groq text does not contain embedded tool calls.
+
+        Description:
+            Require tool calls to use Groq's native function-call representation.
+        Parameters:
+            response: The already parsed ModelResponse.
+        Example input: ModelResponse(text="Hello", tool_calls=[])
+        Example output: None
+        Returns: None when the parsed response contains no tool calls.
+        Raises: ValueError when structured text contains tool calls.
+        """
+        if response.tool_calls:
+            raise ValueError("Groq must return tool calls as native function calls")
 
     @staticmethod
     def validate_json_object_pairs(pairs):
