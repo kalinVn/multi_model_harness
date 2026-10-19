@@ -33,6 +33,7 @@ class GroqClient:
             timeout=60.0,
             max_retries=2,
         )
+        
 
     def generate(
         self,
@@ -78,6 +79,7 @@ class GroqClient:
                 return parse_result
 
             request_messages, request_options = parse_result
+
 
     def _fetch_groq_response(
         self,
