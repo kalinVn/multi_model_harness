@@ -13,7 +13,7 @@ from harness.models.response_instruction import (
     TOOL_CALL_INSTRUCTION,  # Backward-compatible import location.
 )
 from harness.models.tool_schema import ToolSchema
-from harness.parser.response_parser import parse_model_response
+from harness.parser.response_parser import prepare_model_response
 
 
 def map_tool_schemas(tool_schemas: list[ToolSchema]) -> list[types.Tool]:
@@ -126,7 +126,7 @@ def map_response(
 
     response_text = get_response_text(response)
     if response_text.strip():
-        parsed_response = parse_model_response(response_text)
+        parsed_response = prepare_model_response(response_text)
     elif native_calls:
         parsed_response = ModelResponse()
     else:

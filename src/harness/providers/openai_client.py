@@ -5,7 +5,7 @@ from openai import OpenAI
 from harness.domain.message import Message
 from harness.models.response import ModelResponse
 from harness.models.tool_schema import ToolSchema
-from harness.parser.response_parser import parse_model_response
+from harness.parser.response_parser import prepare_model_response
 from harness.mappers.openai_mapper import (
     map_messages,
 )
@@ -33,4 +33,4 @@ class OpenAIClient:
             input=input_messages,
         )
 
-        return parse_model_response(response.output_text)
+        return prepare_model_response(response.output_text)

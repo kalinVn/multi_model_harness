@@ -9,7 +9,7 @@ from harness.models.request import Request
 from harness.domain.message import Message
 from harness.domain.tool_result import ToolResult
 from harness.parser.command_response_parser import parse_command_response
-from harness.parser.response_parser import parse_model_response
+from harness.parser.response_parser import prepare_model_response
 
 
 class SummaryIDRegressionTest(unittest.TestCase):
@@ -21,8 +21,8 @@ class SummaryIDRegressionTest(unittest.TestCase):
                                               dict(id="future-id", summary="invented"),
                                               dict(id=ids[0], summary="first")])
         client = Mock()
-        client.generate.side_effect = [parse_model_response(json.dumps(payload)),
-            parse_model_response(json.dumps(dict(text="Done", tool_calls=[], tool_result_summaries=[])))]
+        client.generate.side_effect = [prepare_model_response(json.dumps(payload)),
+            prepare_model_response(json.dumps(dict(text="Done", tool_calls=[], tool_result_summaries=[])))]
         with patch.object(SessionManager, "_load_system_prompt", return_value="Instructions"):
             runner = MainOrchestrator(client)
         session = runner._session_manager.current_session
@@ -44,7 +44,7 @@ class SummaryIDRegressionTest(unittest.TestCase):
 
     def test_command_json_stays_inside_text(self):
         inner = json.dumps(dict(answer="Done", command_summary="Reviewed files."))
-        response = parse_model_response(json.dumps(dict(text=inner, tool_calls=[], tool_result_summaries=[])))
+        response = prepare_model_response(json.dumps(dict(text=inner, tool_calls=[], tool_result_summaries=[])))
         self.assertEqual(
             parse_command_response(response.text),
             ("Done", "Reviewed files."),

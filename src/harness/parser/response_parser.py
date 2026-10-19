@@ -1,112 +1,157 @@
 """Strict provider-independent JSON response decoding."""
 import json
-import math
 
 from harness.domain.tool_call import ToolCall
 from harness.models.response import ModelResponse
 from harness.models.tool_result_summary import ToolResultSummary
+from harness.validators.model_response_validator import ModelResponseValidator
+from harness.validators.string_validator import StringValidator
 
 
-def _object(pairs):
-    result = {}
-    for key, value in pairs:
-        if key in result:
-            raise ValueError(f"Duplicate JSON field: {key}")
-        result[key] = value
-    return result
+def _parse_tool_calls(data) -> list[ToolCall]:
+    """
+    Parse and validate tool calls from the model response data.
+
+    Example (valid):
+        {"tool_calls": [{"tool": "bash", "arguments": {"command": "ls"}}]}
+
+    Example (invalid):
+        {"tool_calls": [{"tool": 123, "arguments": {}}]}
+
+    Returns:
+        A list of validated ToolCall objects.
+    """
+    tool_calls = []
+    for index, call in enumerate(data["tool_calls"]):
+        path = f"tool_calls[{index}]"
+        name = StringValidator.validate_string(call["tool"], f"{path}.tool", nonempty=True)
+        ModelResponseValidator.validate_fields(call, ("tool", "arguments"), path)
+        
+        ModelResponseValidator.validate_call_arguments(call["arguments"], path)
+        tool_calls.append(ToolCall(name=name, arguments=call["arguments"]))
+
+    return tool_calls
 
 
-def _reject_constant(value):
-    raise ValueError(f"Invalid JSON constant: {value}")
+def _parse_tool_result_summaries(data) -> list[ToolResultSummary]:
+    """
+    Parse and validate tool result summaries from the model response data.
+
+    Example (valid):
+        {"tool_result_summaries": [{"id": "call_1", "summary": "Command completed"}]}
+
+    Example (invalid):
+        {"tool_result_summaries": [{"id": 123, "summary": "Command completed"}]}
+
+    Returns:
+        A list of validated ToolResultSummary objects.
+    """
+    summaries = []
+    for index, summary in enumerate(data["tool_result_summaries"]):
+        path = f"tool_result_summaries[{index}]"
+        ModelResponseValidator.validate_fields(summary, ("id", "summary"), path)
+        summaries.append(ToolResultSummary(
+            id=StringValidator.validate_string(summary["id"], f"{path}.id", nonempty=True),
+            summary=StringValidator.validate_string(summary["summary"], f"{path}.summary"),
+        ))
+
+    return summaries
 
 
-def _finite_numbers(value):
-    if isinstance(value, float) and not math.isfinite(value):
-        raise ValueError("JSON numbers must be finite")
-    if isinstance(value, dict):
-        for item in value.values():
-            _finite_numbers(item)
-    elif isinstance(value, list):
-        for item in value:
-            _finite_numbers(item)
+def _get_output_requests(data):
+    """
+    Read and validate tool result output request IDs from model response data.
+
+    Example (valid):
+        {"tool_result_output_requests": ["result_1"]}
+
+    Example (invalid):
+        {"tool_result_output_requests": "result_1"}
+
+    Returns:
+        A list of validated result IDs.
+    """
+    output_requests_data = data.get("tool_result_output_requests", [])
+    ModelResponseValidator.validate_output_request_data(output_requests_data)
+
+    output_requests = [
+        StringValidator.validate_string(result_id, f"tool_result_output_requests[{index}]", nonempty=True)
+        for index, result_id in enumerate(output_requests_data)
+    ]
+
+    return output_requests
 
 
-def _fields(value, expected, path):
-    if not isinstance(value, dict) or set(value) != set(expected):
-        raise ValueError(f"{path} must be an object with exactly: {', '.join(expected)}")
-
-
-def _string(value, path, nonempty=False):
-    if not isinstance(value, str) or (nonempty and not value.strip()):
-        qualifier = "nonempty " if nonempty else ""
-        raise ValueError(f"{path} must be a {qualifier}string")
-    return value
-
-
-def parse_model_response(text: str) -> ModelResponse:
+def prepare_model_response(text: str) -> ModelResponse:
     """Decode the complete response or raise ValueError; never infer tool execution.
 
     Tool-result IDs are opaque and preserved verbatim. The runner checks them
     against executed results. Tool argument schemas are validated at execution.
+      Parse and validate a JSON model response.
+
+    Args:
+        text: JSON string containing the model response.
+
+    Example (input):
+        '{"text": "Hello", "tool_calls": [], "tool_result_summaries": []}'
+
+    Example (output):
+        ModelResponse(
+            text="Hello",
+            tool_calls=[],
+            tool_result_summaries=[],
+            tool_result_output_requests=[]
+        )
+
+    Returns:
+        ModelResponse: The parsed and validated model response.
+
+    Raises:
+        ValueError: If the JSON or response data is invalid.
     """
-    if not isinstance(text, str):
-        raise ValueError("Model response must be a JSON string")
-    if not text.strip():
-        raise ValueError("Model response is empty; expected a JSON object")
+
+    ModelResponseValidator.validate(text)
+
+    # Parse the JSON response into a Python object (dictionary).
+    #
+    # Example of valid JSON:
+    # {"text": "Hello", "tool_calls": [], "tool_result_summaries": []}
+    # Result: Python dictionary with accessible fields.
+    #
+    # Example of duplicate JSON fields:
+    # {"text": "Hello", "text": "World"}
+    # Result: ValueError("Duplicate JSON field: text")
+    #
+    # Example of invalid numeric constants:
+    # {"text": "Hello", "value": NaN}
+    # Result: ValueError("Invalid JSON constant: NaN")
+    #
+    # Reject duplicate fields and invalid numeric constants
+    # such as NaN, Infinity, and -Infinity.
+
     try:
-        data = json.loads(text, object_pairs_hook=_object, parse_constant=_reject_constant)
+        data = json.loads(text, object_pairs_hook=ModelResponseValidator.validate_json_object_pairs, parse_constant=ModelResponseValidator.validate_json_constant)
     except json.JSONDecodeError as error:
         raise ValueError(
             f"Malformed model response JSON: {error.msg} "
             f"at line {error.lineno}, column {error.colno} (char {error.pos})"
         ) from error
-    _finite_numbers(data)
-    required_fields = {"text", "tool_calls", "tool_result_summaries"}
-    allowed_fields = required_fields | {"tool_result_output_requests"}
-    if (
-        not isinstance(data, dict)
-        or not required_fields.issubset(data)
-        or not set(data).issubset(allowed_fields)
-    ):
-        raise ValueError(
-            "response must contain text, tool_calls, and "
-            "tool_result_summaries, with optional "
-            "tool_result_output_requests"
-        )
-    response_text = _string(data["text"], "text")
-    for field in ("tool_calls", "tool_result_summaries"):
-        if not isinstance(data[field], list):
-            raise ValueError(f"{field} must be an array")
+    
+    ModelResponseValidator.validate_finite_numbers_data(data)
+    ModelResponseValidator.validate_response_fields(data)
+    ModelResponseValidator.validate_response_list_fields(data)
+    StringValidator.validate_string(data["text"], "text")
+   
+    response_text = data["text"]
 
-    calls = []
-    for index, call in enumerate(data["tool_calls"]):
-        path = f"tool_calls[{index}]"
-        _fields(call, ("tool", "arguments"), path)
-        name = _string(call["tool"], f"{path}.tool", nonempty=True)
-        if not isinstance(call["arguments"], dict):
-            raise ValueError(f"{path}.arguments must be an object")
-        calls.append(ToolCall(name=name, arguments=call["arguments"]))
+    tool_calls = _parse_tool_calls(data)
+    summaries = _parse_tool_result_summaries(data)
 
-    summaries = []
-    for index, summary in enumerate(data["tool_result_summaries"]):
-        path = f"tool_result_summaries[{index}]"
-        _fields(summary, ("id", "summary"), path)
-        summaries.append(ToolResultSummary(
-            id=_string(summary["id"], f"{path}.id", nonempty=True),
-            summary=_string(summary["summary"], f"{path}.summary"),
-        ))
-    output_requests_data = data.get("tool_result_output_requests", [])
-    if not isinstance(output_requests_data, list):
-        raise ValueError("tool_result_output_requests must be an array")
-
-    output_requests = [
-        _string(result_id, f"tool_result_output_requests[{index}]", nonempty=True)
-        for index, result_id in enumerate(output_requests_data)
-    ]
+    output_requests = _get_output_requests(data)
 
     return ModelResponse(
         text=response_text,
-        tool_calls=calls,
+        tool_calls=tool_calls,
         tool_result_summaries=summaries,
-        tool_result_output_requests=output_requests,
+        tool_result_output_requests=output_requests
     )

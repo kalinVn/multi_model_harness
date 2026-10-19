@@ -5,13 +5,14 @@ import re
 from openai import APIConnectionError, APIStatusError, OpenAI, RateLimitError
 
 from harness.domain.message import Message
-from harness.mappers.groq_mapper import map_response, prepare_groq_tools, prepare_groq_messages
+from harness.mappers.groq_mapper import prepare_groq_response, prepare_groq_tools, prepare_groq_messages
 from harness.models.errors import ModelConnectionError, ModelRateLimitError
 from harness.models.groq_tool_type import GroqToolType
 from harness.models.response import ModelResponse
 from harness.models.tool_schema import ToolSchema
 from harness.parser.command_response_parser import parse_command_response
 from harness.validators.messages_validator import MessagesValidator
+from harness.validators.model_response_validator import ModelResponseValidator
 
 
 GroqResponseParseResult = ModelResponse | tuple[list[dict[str, str]], dict]
@@ -111,15 +112,9 @@ class GroqClient:
                 f"{size_guidance}"
             ) from error
 
-        if not response.choices:
-            raise ValueError("Groq returned no response choices")
+        ModelResponseValidator.validate_response_choice(response)
 
         choice = response.choices[0]
-        if choice.finish_reason not in {"stop", "tool_calls"}:
-            raise ValueError(
-                "Groq returned an incomplete response: "
-                f"{choice.finish_reason}"
-            )
 
         return choice
 
@@ -133,7 +128,7 @@ class GroqClient:
         groq_options: dict,
     ) -> GroqResponseParseResult:
         try:
-            return map_response(choice.message, tools_list)
+            return prepare_groq_response(choice.message, tools_list)
         except ValueError as error:
             response_text = choice.message.content
             if (

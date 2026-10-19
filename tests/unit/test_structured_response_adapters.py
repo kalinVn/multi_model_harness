@@ -8,7 +8,7 @@ from harness.builder.tools_schema_builder import build_tools_schema
 from harness.domain.message import Message
 from harness.domain.tool_call import ToolCall
 from harness.models.response_instruction import MODEL_RESPONSE_INSTRUCTION
-from harness.parser.response_parser import parse_model_response
+from harness.parser.response_parser import prepare_model_response
 from harness.providers.google_client import GeminiClient
 from harness.mappers.google_mapper import (
     map_messages as google_messages,
@@ -218,7 +218,7 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
                 else:
                     endpoint.return_value = Mock(output_text=raw)
                 self.assertEqual(client.generate([Message(role="user", content="Continue")]),
-                                 parse_model_response(raw))
+                                 prepare_model_response(raw))
                 if cls is GeminiClient:
                     endpoint.return_value = types.GenerateContentResponse(
                         candidates=[types.Candidate(content=types.Content(

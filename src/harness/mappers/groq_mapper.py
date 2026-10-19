@@ -8,7 +8,7 @@ from harness.domain.message import Message
 from harness.models.groq_tool_type import GroqToolType
 from harness.models.response import ModelResponse
 from harness.models.tool_schema import ToolSchema
-from harness.parser.response_parser import parse_model_response
+from harness.parser.response_parser import prepare_model_response
 from harness.validators.tools_validator import ToolsValidator
 # Groq API requires a specific tool format, so we convert our
 # provider-independent Harness tool definitions into Groq function definitions.
@@ -98,45 +98,48 @@ def prepare_groq_messages(
     return groq_messages
 
 
-def map_response(message, tools: list[GroqToolType]) -> ModelResponse:
+def prepare_groq_response(message, tools: list[GroqToolType]) -> ModelResponse:
 
-    native_calls = message.tool_calls or []
+    tool_calls = message.tool_calls or []
 
     if message.content and message.content.strip():
-        response = parse_model_response(message.content)
-    elif native_calls:
+        response = prepare_model_response(message.content)
+    elif tool_calls:
         response = ModelResponse()
     else:
         raise ValueError("Groq returned no response text or tool calls")
+    
     if response.tool_calls:
         raise ValueError("Groq must return tool calls as native function calls")
 
-    allowed = {tool["function"]["name"] for tool in tools}
-    calls = []
+    available_tool_names = {tool["function"]["name"] for tool in tools}
+    prepared_tool_calls = []
     
-    for call in native_calls:
-        if call.type != "function" or call.function.name not in allowed:
-            raise ValueError("Groq returned an unavailable tool")
+    for tool_call in tool_calls:
+        ToolsValidator.validate_groq_tool_call(tool_call, available_tool_names)
+        ToolsValidator.validate_groq_tool_arguments(tool_call.function.arguments)
         
-        # Pass raw argument JSON through the shared strict parser, preserving its
-        # duplicate-key/nonfinite-number checks instead of silently normalizing it.
-        if not isinstance(call.function.arguments, str):
-            raise ValueError("Groq tool arguments must be a JSON string")
         raw = (
             '{"text":"","tool_calls":[{"tool":'
-            + json.dumps(call.function.name)
-            + ',"arguments":' + call.function.arguments
+            + json.dumps(tool_call.function.name)
+            + ',"arguments":' + tool_call.function.arguments
             + '}],"tool_result_summaries":[]}'
         )
 
-        parsed = parse_model_response(raw)
-        if len(parsed.tool_calls) != 1 or parsed.tool_calls[0].name != call.function.name:
+        prepared_tool_call_response = prepare_model_response(raw)
+
+        if (
+            len(prepared_tool_call_response.tool_calls) != 1
+            or prepared_tool_call_response.tool_calls[0].name
+            != tool_call.function.name
+        ):
             raise ValueError("Groq tool arguments contain an invalid call envelope")
-        calls.extend(parsed.tool_calls)
+        
+        prepared_tool_calls.extend(prepared_tool_call_response.tool_calls)
 
     return ModelResponse(
         text=response.text,
-        tool_calls=calls,
+        tool_calls=prepared_tool_calls,
         tool_result_summaries=response.tool_result_summaries,
         tool_result_output_requests=response.tool_result_output_requests,
     )

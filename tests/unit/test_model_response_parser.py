@@ -4,7 +4,7 @@ import unittest
 from harness.domain.tool_call import ToolCall
 from harness.models.response import ModelResponse
 from harness.models.tool_result_summary import ToolResultSummary
-from harness.parser.response_parser import parse_model_response
+from harness.parser.response_parser import prepare_model_response
 
 IDS = ("bc950638-61a9-4662-a330-76c77c43225d", "99f97142-ae4f-404f-a0f5-81a998a42df6")
 
@@ -13,15 +13,15 @@ class ModelResponseParserTest(unittest.TestCase):
     def test_empty_response_has_specific_error(self):
         for raw in ("", " \n\t"):
             with self.subTest(raw=raw), self.assertRaisesRegex(ValueError, "response is empty"):
-                parse_model_response(raw)
+                prepare_model_response(raw)
 
     def test_final_response(self):
-        self.assertEqual(parse_model_response(json.dumps(dict(
+        self.assertEqual(prepare_model_response(json.dumps(dict(
             text="Finished.", tool_calls=[], tool_result_summaries=[]
         ))), ModelResponse(text="Finished."))
 
     def test_optional_tool_result_output_requests(self):
-        parsed = parse_model_response(json.dumps(dict(
+        parsed = prepare_model_response(json.dumps(dict(
             text="",
             tool_calls=[],
             tool_result_summaries=[],
@@ -36,7 +36,7 @@ class ModelResponseParserTest(unittest.TestCase):
         summaries = [dict(id=id_, summary=f"Result {i}") for i, id_ in enumerate(IDS)]
         for count in (1, 2):
             with self.subTest(count=count):
-                parsed = parse_model_response(json.dumps(dict(
+                parsed = prepare_model_response(json.dumps(dict(
                     text="", tool_calls=calls[:count], tool_result_summaries=summaries)))
                 self.assertEqual(parsed.text, "")
                 self.assertEqual(parsed.tool_calls, [ToolCall(c["tool"], c["arguments"]) for c in calls[:count]])
@@ -49,7 +49,7 @@ class ModelResponseParserTest(unittest.TestCase):
                     '{"text":"","tool_calls":[{"tool":"x","arguments":{"x":NaN}}],"tool_result_summaries":[]}',
                     '{"text":"","tool_calls":[{"tool":"x","arguments":{"x":1e999}}],"tool_result_summaries":[]}'):
             with self.subTest(raw=raw), self.assertRaises(ValueError):
-                parse_model_response(raw)
+                prepare_model_response(raw)
 
     def test_invalid_fields_and_nested_types_are_rejected(self):
         valid = dict(text="", tool_calls=[], tool_result_summaries=[])
@@ -73,6 +73,6 @@ class ModelResponseParserTest(unittest.TestCase):
             invalid.append({**valid, "tool_result_summaries": [summary]})
         for value in invalid:
             with self.subTest(value=value), self.assertRaises(ValueError):
-                parse_model_response(json.dumps(value))
+                prepare_model_response(json.dumps(value))
         with self.assertRaises(ValueError):
-            parse_model_response(None)
+            prepare_model_response(None)

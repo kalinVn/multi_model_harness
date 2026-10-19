@@ -5,6 +5,13 @@ class CommandResponseValidator:
     """Validate the structured response returned for a command."""
 
     def validate(self, response_text: str) -> bool:
+        """
+        Validate that command JSON has string answer and non-empty summary fields.
+
+        Example (valid): '{"answer": "Done", "command_summary": "Updated file"}'.
+        Example (invalid): '{"answer": "Done", "command_summary": ""}'.
+        Result: False for invalid data; this method does not raise validation errors.
+        """
         try:
             payload = json.loads(response_text)
         except (json.JSONDecodeError, TypeError):
