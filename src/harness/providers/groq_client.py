@@ -117,6 +117,8 @@ class GroqClient:
 
         return choice
 
+    
+
     def _parse_groq_response(
         self,
         choice,
@@ -150,6 +152,7 @@ class GroqClient:
             request_options = {**groq_options, "temperature": 0}
 
             return request_messages, request_options
+        
 
     def _get_expected_response(
         self,
@@ -187,6 +190,7 @@ class GroqClient:
             )
 
         return expected_response
+    
 
     def _get_request_messages(
         self,
@@ -233,6 +237,7 @@ class GroqClient:
                 ),
             }
         ]
+    
 
     @staticmethod
     def _format_api_error_details(error: APIStatusError) -> str:
@@ -255,6 +260,7 @@ class GroqClient:
         if len(details) > 2_000:
             details = details[:2_000] + "... [Groq error details truncated]"
         return details
+    
 
     @staticmethod
     def _redact_error_value(value):
