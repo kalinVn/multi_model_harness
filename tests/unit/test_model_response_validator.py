@@ -45,6 +45,30 @@ class ModelResponseValidatorTest(unittest.TestCase):
             )
         )
 
+    def test_command_plain_text_is_left_for_orchestrator_validation(self):
+        self.assertTrue(
+            ModelResponseValidator.is_plain_text_response(
+                True,
+                None,
+                "Command completed",
+            )
+        )
+
+    def test_complete_json_markdown_fence_is_unwrapped(self):
+        self.assertEqual(
+            ModelResponseValidator.unwrap_json_code_fence(
+                '```json\n{"text":"Hello"}\n```'
+            ),
+            '{"text":"Hello"}',
+        )
+
+    def test_non_fenced_or_empty_markdown_is_not_unwrapped(self):
+        for response_text in (None, "", '{"text":"Hello"}', "```json\n```"):
+            with self.subTest(response_text=response_text):
+                self.assertIsNone(
+                    ModelResponseValidator.unwrap_json_code_fence(response_text)
+                )
+
     def test_valid_command_response_is_accepted(self):
         response_text = json.dumps(
             {

@@ -248,14 +248,49 @@ class GroqProviderTest(unittest.TestCase):
 
         self.assertEqual(self.create.call_count, 3)
 
-    def test_plain_text_command_response_is_not_normalized(self):
+    def test_plain_text_command_response_is_deferred_to_orchestrator(self):
         self.messages.append(build_command_response_format_context())
         self.create.return_value = SimpleNamespace(choices=[SimpleNamespace(
             finish_reason='stop',
             message=SimpleNamespace(content='The file was created.', tool_calls=None),
         )])
 
-        with self.assertRaisesRegex(ValueError, 'invalid model response after 2 retries'):
+        response = self.client.generate(self.messages, self.tool_schemas)
+
+        self.assertEqual(response, ModelResponse(text='The file was created.'))
+        self.assertEqual(self.create.call_count, 1)
+
+    def test_markdown_fenced_outer_json_is_recovered_without_retry(self):
+        response = self.reply(
+            '```json\n' + envelope('Recovered response') + '\n```'
+        )
+
+        self.assertEqual(response, ModelResponse(text='Recovered response'))
+        self.assertEqual(self.create.call_count, 1)
+
+    def test_markdown_fenced_direct_command_json_is_recovered_without_retry(self):
+        self.messages.append(build_command_response_format_context())
+        inner = json.dumps({
+            'answer': 'Done',
+            'command_summary': 'The command completed.',
+        })
+
+        response = self.reply('```json\n' + inner + '\n```')
+
+        self.assertEqual(response, ModelResponse(text=inner))
+        self.assertEqual(self.create.call_count, 1)
+
+    def test_exhausted_retry_error_includes_response_preview(self):
+        malformed = '```not-json```'
+        self.create.return_value = SimpleNamespace(choices=[SimpleNamespace(
+            finish_reason='stop',
+            message=SimpleNamespace(content=malformed, tool_calls=None),
+        )])
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r"Response preview: '```not-json```'",
+        ):
             self.client.generate(self.messages, self.tool_schemas)
 
         self.assertEqual(self.create.call_count, 3)

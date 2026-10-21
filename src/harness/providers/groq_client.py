@@ -131,9 +131,33 @@ class GroqClient:
         groq_options: dict,
     ) -> GroqResponseParseResult:
         try:
-            return prepare_groq_response(choice.message, tools_list)
+            return prepare_groq_response(
+                choice.message.content,
+                choice.message.tool_calls,
+                tools_list,
+            )
         except ValueError as error:
             response_text = choice.message.content
+
+            unwrapped_response_text = (
+                ModelResponseValidator.unwrap_json_code_fence(response_text)
+            )
+
+            if unwrapped_response_text is not None:
+                try:
+                    return prepare_groq_response(
+                        unwrapped_response_text,
+                        choice.message.tool_calls,
+                        tools_list,
+                    )
+                except ValueError:
+                    if ModelResponseValidator.is_valid_command_response(
+                        command_response_required,
+                        choice.message.tool_calls,
+                        unwrapped_response_text,
+                    ):
+                        return ModelResponse(text=unwrapped_response_text)
+
             if ModelResponseValidator.is_acceptable_text_response(
                 command_response_required,
                 choice.message.tool_calls,
@@ -141,14 +165,20 @@ class GroqClient:
             ):
                 return ModelResponse(text=response_text)
 
-            ModelResponseValidator.validate_retry_limit(retry_attempt, self.MAX_INVALID_RESPONSE_RETRIES, error)
+            ModelResponseValidator.validate_retry_limit(
+                retry_attempt,
+                self.MAX_INVALID_RESPONSE_RETRIES,
+                error,
+                response_text,
+            )
 
             expected_response = self._get_expected_response(command_response_required)
 
             request_messages = self._get_request_messages(
                 groq_messages,
                 error,
-                expected_response
+                expected_response,
+                response_text,
             )
 
             request_options = {**groq_options, "temperature": 0}
@@ -199,6 +229,7 @@ class GroqClient:
         groq_messages,
         error,
         expected_response,
+        response_text,
     ):
         """
         Append the response-correction instruction to the original Groq messages.
@@ -225,7 +256,13 @@ class GroqClient:
         Returns:
             A new complete list containing the original and correction messages.
         """
-        return groq_messages + [
+        invalid_response_message = []
+        if isinstance(response_text, str) and response_text:
+            invalid_response_message.append(
+                {"role": "assistant", "content": response_text}
+            )
+
+        return groq_messages + invalid_response_message + [
             {
                 "role": "system",
                 "content": (

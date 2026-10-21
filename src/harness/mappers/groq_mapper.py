@@ -97,6 +97,14 @@ def prepare_groq_messages(
     return groq_messages
 
 
+def prepare_groq_request(
+    model_messages: list[Message],
+    tools: list[ToolSchema] | None = None,
+) -> tuple[list[dict[str, str]], list[GroqToolType]]:
+    """Convert provider-independent messages and tools for one Groq request."""
+    return prepare_groq_messages(model_messages), prepare_groq_tools(tools or [])
+
+
 def _get_tool_call_response_json(tool_call) -> str:
     """
     Build the model-response JSON string for a native Groq tool call.
@@ -129,8 +137,10 @@ def _parse_groq_tool_calls(tool_calls, available_tool_names):
         tool_calls: The native tool calls returned by Groq.
         available_tool_names: The names of tools available to the model.
     Example input:
-        ([SimpleNamespace(type="function", function=SimpleNamespace(
-            name="bash", arguments='{"command":"ls"}'))], {"bash"})
+        tool_calls[0].type = "function"
+        tool_calls[0].function.name = "bash"
+        tool_calls[0].function.arguments = '{"command":"ls"}'
+        available_tool_names = {"bash"}
     Example output:
         [ToolCall(name="bash", arguments={"command": "ls"})]
     Returns:
@@ -158,18 +168,24 @@ def _parse_groq_tool_calls(tool_calls, available_tool_names):
     return prepared_tool_calls
 
 
-def prepare_groq_response(message, tools: list[GroqToolType]) -> ModelResponse:
+def prepare_groq_response(
+    response_text: str | None,
+    native_tool_calls,
+    tools: list[GroqToolType],
+) -> ModelResponse:
     """
     Convert Groq message content and native tool calls into a ModelResponse.
 
     Description:
         Parse structured text content, validate native Groq tool calls, and combine
         both sources into the provider-independent response model.
+    Parameters:
+        response_text: Structured response content returned by Groq.
+        native_tool_calls: Optional native tool calls returned by Groq.
+        tools: Groq-formatted tool definitions available for validation.
     Example input:
-        message = SimpleNamespace(
-            content='{"text":"Hello","tool_calls":[],"tool_result_summaries":[]}',
-            tool_calls=None,
-        )
+        response_text = '{"text":"Hello","tool_calls":[],"tool_result_summaries":[]}'
+        native_tool_calls = None
         tools = []
     Example output:
         ModelResponse(
@@ -179,15 +195,9 @@ def prepare_groq_response(message, tools: list[GroqToolType]) -> ModelResponse:
             tool_result_output_requests=[],
         )
     Native tool-call example input:
-        message.tool_calls = [
-            SimpleNamespace(
-                type="function",
-                function=SimpleNamespace(
-                    name="bash",
-                    arguments='{"command":"ls -la"}',
-                ),
-            )
-        ]
+        native_tool_calls[0].type = "function"
+        native_tool_calls[0].function.name = "bash"
+        native_tool_calls[0].function.arguments = '{"command":"ls -la"}'
         tools = [
             {"type": "function", "function": {"name": "bash"}}
         ]
@@ -204,19 +214,19 @@ def prepare_groq_response(message, tools: list[GroqToolType]) -> ModelResponse:
         ValueError: If the message content or native tool calls are invalid.
     """
 
-    tool_calls = message.tool_calls or []
+    tool_calls = native_tool_calls or []
 
     has_response_content = ModelResponseValidator.has_response_content(
-        message.content
+        response_text
     )
 
     if has_response_content:
-        response = prepare_model_response(message.content)
+        response = prepare_model_response(response_text)
     else:
         response = ModelResponse()
 
     ModelResponseValidator.validate_prepare_groq_response(
-        message.content,
+        response_text,
         tool_calls,
         response,
     )

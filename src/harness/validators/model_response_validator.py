@@ -1,7 +1,9 @@
 import json
 import math
+import re
 
 from harness.parser.command_response_parser import parse_command_response
+from harness.models.errors import ModelResponseFormatError
 from harness.validators.string_validator import StringValidator
 
 
@@ -76,14 +78,34 @@ class ModelResponseValidator:
         Example input: (False, None, "Hello")
         Example output: True
         Returns: True only for nonempty, non-JSON plain text without native tool calls.
+
+        Command formatting belongs to the orchestrator. The provider accepts
+        plain text here so the orchestrator can request the command envelope
+        itself instead of failing inside the provider retry loop.
         """
         return bool(
-            not command_response_required
-            and not native_tool_calls
+            not native_tool_calls
             and isinstance(response_text, str)
             and response_text.strip()
             and not response_text.lstrip().startswith(("{", "[", "```"))
         )
+
+    @staticmethod
+    def unwrap_json_code_fence(response_text) -> str | None:
+        """Return JSON contained in one complete Markdown fence, if present."""
+        if not isinstance(response_text, str):
+            return None
+
+        match = re.fullmatch(
+            r"\s*```(?:json)?\s*(.*?)\s*```\s*",
+            response_text,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        if not match:
+            return None
+
+        unwrapped = match.group(1).strip()
+        return unwrapped or None
 
     @staticmethod
     def is_valid_command_response(
@@ -153,7 +175,12 @@ class ModelResponseValidator:
         return retry_attempt >= maximum_retries
 
     @staticmethod
-    def validate_retry_limit(retry_attempt, maximum_retries, error) -> None:
+    def validate_retry_limit(
+        retry_attempt,
+        maximum_retries,
+        error,
+        response_text=None,
+    ) -> None:
         """
         Validate that another invalid-response retry is still allowed.
 
@@ -164,15 +191,22 @@ class ModelResponseValidator:
         Example input: (1, 2, ValueError("invalid response"))
         Example output: None
         Returns: None while the retry limit has not been reached.
-        Raises: ValueError with the original error chained when the limit is reached.
+        Raises: ModelResponseFormatError with the original error chained when
+            the limit is reached.
         """
         if ModelResponseValidator.has_exhausted_retries(
             retry_attempt,
             maximum_retries,
         ):
-            raise ValueError(
+            if response_text is None:
+                response_preview = "<none>"
+            else:
+                response_preview = repr(str(response_text)[:300])
+
+            raise ModelResponseFormatError(
                 "Groq returned an invalid model response after "
-                f"{maximum_retries} retries: {error}"
+                f"{maximum_retries} retries: {error}. "
+                f"Response preview: {response_preview}"
             ) from error
 
     @staticmethod
