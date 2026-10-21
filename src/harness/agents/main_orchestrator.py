@@ -84,8 +84,10 @@ class MainOrchestrator:
         self._command_resolver = CommandResolver(commands_directory)
         self._command_loader = CommandLoader()
         self._tool_registry = ToolRegistry()
+        
         register_tools(self._tool_registry, working_directory=self._project_root)
         self._tool_schemas = build_tools_schema(self._tool_registry.list_tools())
+
         self._command_service = CommandService(
             command_resolver=self._command_resolver,
             command_loader=self._command_loader,

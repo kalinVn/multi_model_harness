@@ -116,9 +116,14 @@ When answering the user without a function call, return only this JSON object:
     "tool_result_summaries":[]
 }
 
+Always return a valid raw JSON object when a JSON response is required.
+Do not wrap JSON in Markdown code fences or use ```json or triple backticks.
+Do not include explanations, comments, prefixes, suffixes, or other text
+outside the JSON object. The response must begin with { and end with }.
+
 All three fields are required. The optional tool_result_output_requests field
 is an array of original tool result ID strings whose complete outputs you need.
-No other fields or Markdown fences are allowed.
+No other fields are allowed.
 
 The text field is a string. The tool_calls field in content is always empty.
 When no native function call is emitted, the text field must not be empty.

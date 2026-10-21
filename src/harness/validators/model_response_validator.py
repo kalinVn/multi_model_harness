@@ -92,7 +92,19 @@ class ModelResponseValidator:
 
     @staticmethod
     def unwrap_json_code_fence(response_text) -> str | None:
-        """Return JSON contained in one complete Markdown fence, if present."""
+        """
+            Return JSON contained in one complete Markdown fence, if present.
+                # Example input:
+                ```json
+                {"text": "Hello", "tool_calls": [], "tool_result_summaries": []}
+                ```
+
+                Example output:
+                {"text": "Hello", "tool_calls": [], "tool_result_summaries": []}
+
+                Removes the Markdown code fences without modifying or validating the JSON.
+        
+        """
         if not isinstance(response_text, str):
             return None
 

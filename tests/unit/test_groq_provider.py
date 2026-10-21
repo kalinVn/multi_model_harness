@@ -212,6 +212,54 @@ class GroqProviderTest(unittest.TestCase):
         self.assertEqual(self.create.call_args_list[1].kwargs['temperature'], 0)
         self.assertNotIn('response_format', self.create.call_args_list[1].kwargs)
 
+    def test_retry_preparation_coordinates_existing_helpers(self):
+        original_messages = [{'role': 'user', 'content': 'Hello'}]
+        original_options = {'tool_choice': 'auto'}
+        error = ValueError('invalid JSON')
+
+        with patch.object(
+            self.client,
+            '_get_expected_response',
+            return_value='Return the expected JSON.',
+        ) as get_expected_response, patch.object(
+            self.client,
+            '_get_request_messages',
+            return_value=[{'role': 'system', 'content': 'Correction'}],
+        ) as get_request_messages:
+            request_messages, request_options = self.client._prepare_retry_request(
+                0,
+                error,
+                '{',
+                False,
+                original_messages,
+                original_options,
+            )
+
+        get_expected_response.assert_called_once_with(False)
+        get_request_messages.assert_called_once_with(
+            original_messages,
+            error,
+            'Return the expected JSON.',
+            '{',
+        )
+        self.assertEqual(
+            request_messages,
+            [{'role': 'system', 'content': 'Correction'}],
+        )
+        self.assertEqual(
+            request_options,
+            {'tool_choice': 'auto', 'temperature': 0},
+        )
+        self.assertEqual(original_options, {'tool_choice': 'auto'})
+
+    def test_groq_instruction_requires_raw_json_without_markdown_fences(self):
+        self.reply(envelope('Hello'))
+
+        instruction = self.create.call_args.kwargs['messages'][-1]['content']
+        self.assertIn('valid raw JSON object', instruction)
+        self.assertIn('must begin with { and end with }', instruction)
+        self.assertIn('Do not wrap JSON in Markdown code fences', instruction)
+
     def test_plain_text_normal_response_is_normalized_without_retry(self):
         response = self.reply('Yes, I can help you.')
 

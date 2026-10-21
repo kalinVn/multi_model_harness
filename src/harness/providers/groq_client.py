@@ -139,9 +139,8 @@ class GroqClient:
         except ValueError as error:
             response_text = choice.message.content
 
-            unwrapped_response_text = (
-                ModelResponseValidator.unwrap_json_code_fence(response_text)
-            )
+            unwrapped_response_text = ModelResponseValidator.unwrap_json_code_fence(response_text)
+            
 
             if unwrapped_response_text is not None:
                 try:
@@ -165,25 +164,69 @@ class GroqClient:
             ):
                 return ModelResponse(text=response_text)
 
-            ModelResponseValidator.validate_retry_limit(
+            return self._prepare_retry_request(
                 retry_attempt,
-                self.MAX_INVALID_RESPONSE_RETRIES,
                 error,
                 response_text,
-            )
-
-            expected_response = self._get_expected_response(command_response_required)
-
-            request_messages = self._get_request_messages(
+                command_response_required,
                 groq_messages,
-                error,
-                expected_response,
-                response_text,
+                groq_options,
             )
 
-            request_options = {**groq_options, "temperature": 0}
+    def _prepare_retry_request(
+        self,
+        retry_attempt: int,
+        error: ValueError,
+        response_text: str | None,
+        command_response_required: bool,
+        groq_messages: list[dict[str, str]],
+        groq_options: dict,
+    ) -> tuple[list[dict[str, str]], dict]:
+        """Prepare the next request after an invalid Groq response.
 
-            return request_messages, request_options
+        Description:
+            Validate that another retry is allowed, build the response-format
+            correction messages, and force deterministic retry generation.
+            This method prepares request data only and does not contact Groq.
+        Parameters:
+            retry_attempt: The zero-based invalid-response attempt number.
+            error: The validation error raised for the invalid response.
+            response_text: The invalid response content returned by Groq.
+            command_response_required: Whether command response JSON is required.
+            groq_messages: The original Groq-compatible messages.
+            groq_options: The original Groq request options.
+        Example input:
+            retry_attempt=0, error=ValueError("invalid JSON"),
+            response_text="{", command_response_required=False,
+            groq_messages=[{"role": "user", "content": "Hello"}],
+            groq_options={"tools": []}
+        Example output:
+            ([..., {"role": "system", "content": "..."}],
+            {"tools": [], "temperature": 0})
+        Returns:
+            The correction messages and updated options for the next request.
+        Raises:
+            ModelResponseFormatError: If the retry limit has been reached.
+        """
+        ModelResponseValidator.validate_retry_limit(
+            retry_attempt,
+            self.MAX_INVALID_RESPONSE_RETRIES,
+            error,
+            response_text,
+        )
+
+        expected_response = self._get_expected_response(command_response_required)
+
+        request_messages = self._get_request_messages(
+            groq_messages,
+            error,
+            expected_response,
+            response_text,
+        )
+
+        request_options = {**groq_options, "temperature": 0}
+
+        return request_messages, request_options
         
 
     def _get_expected_response(

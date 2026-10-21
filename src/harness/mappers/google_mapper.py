@@ -24,10 +24,11 @@ def map_tool_schemas(tool_schemas: list[ToolSchema]) -> list[types.Tool]:
 
     declarations: list[types.FunctionDeclaration] = []
     for tool_schema in tool_schemas:
+        parameters_data = deepcopy(tool_schema["parameters"])
+        parameters_data.pop("additionalProperties", None)
+
         try:
-            parameters = types.Schema.model_validate(
-                deepcopy(tool_schema["parameters"])
-            )
+            parameters = types.Schema.model_validate(parameters_data)
         except ValueError as error:
             raise ValueError(
                 f"Gemini does not support the schema for tool "

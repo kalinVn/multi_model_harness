@@ -166,6 +166,10 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         declaration = config.tools[0].function_declarations[0]
         self.assertEqual(declaration.name, "example")
         self.assertEqual(declaration.parameters.required, ["mode", "paths"])
+        self.assertNotIn(
+            "additionalProperties",
+            declaration.parameters.model_dump(by_alias=True, exclude_none=True),
+        )
         self.assertEqual(
             declaration.parameters.properties["mode"].enum,
             ["safe", "fast"],
