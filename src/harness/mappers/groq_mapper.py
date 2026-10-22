@@ -1,7 +1,7 @@
 """Groq conversions at the existing text-only provider boundary."""
 import json
-from copy import deepcopy
 
+from harness.builder.groq_schema_builder import GroqSchemaBuilder
 from harness.config.response.groq_response_instruction import GROQ_RESPONSE_INSTRUCTION
 
 from harness.domain.message import Message
@@ -49,23 +49,7 @@ def prepare_groq_tools(tools: list[ToolSchema]) -> list[GroqToolType]:
             
     """
 
-    ToolsValidator.validate(tools)
-
-
-    formatted_grok_tools = [
-        {
-            "type": "function",
-            "function": {
-                "name": tool["name"],
-                "description": tool["description"],
-                "parameters": deepcopy(tool["parameters"]),
-            },
-        }
-        
-        for tool in tools
-    ]
-
-    return formatted_grok_tools
+    return GroqSchemaBuilder().build_schema(tools)
 
 
 

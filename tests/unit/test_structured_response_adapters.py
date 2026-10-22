@@ -4,6 +4,7 @@ from unittest.mock import Mock
 
 from google.genai import types
 
+from harness.builder.gemini_schema_builder import GeminiSchemaBuilder
 from harness.builder.tools_schema_builder import build_tools_schema
 from harness.domain.message import Message
 from harness.domain.tool_call import ToolCall
@@ -25,6 +26,7 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         client = GeminiClient.__new__(GeminiClient)
         client._client = Mock()
         client._model = "test-model"
+        client._schema_builder = GeminiSchemaBuilder()
         client._client.models.generate_content.return_value = types.GenerateContentResponse(
             candidates=[types.Candidate(content=types.Content(parts=[types.Part.from_text(
                 text='{"text":"Done","tool_calls":[],"tool_result_summaries":[]}'
@@ -44,6 +46,7 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         client = GeminiClient.__new__(GeminiClient)
         client._client = Mock()
         client._model = "test-model"
+        client._schema_builder = GeminiSchemaBuilder()
         cases = [
             (types.GenerateContentResponse(), "no response text"),
             (types.GenerateContentResponse(prompt_feedback={"block_reason": "SAFETY"}), "SAFETY"),
@@ -128,6 +131,7 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         client = GeminiClient.__new__(GeminiClient)
         client._client = Mock()
         client._model = "test-model"
+        client._schema_builder = GeminiSchemaBuilder()
         client._client.models.generate_content.return_value = (
             types.GenerateContentResponse(
                 candidates=[
@@ -211,6 +215,8 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
                 client = cls.__new__(cls)
                 client._client = Mock()
                 client._model = "test-model"
+                if cls is GeminiClient:
+                    client._schema_builder = GeminiSchemaBuilder()
                 endpoint = (client._client.models.generate_content if cls is GeminiClient
                             else client._client.responses.create)
                 if cls is GeminiClient:

@@ -5,6 +5,7 @@ from google import genai
 from google.genai import types
 from google.genai.errors import ClientError, ServerError
 
+from harness.builder.gemini_schema_builder import GeminiSchemaBuilder
 from harness.domain.message import Message
 from harness.models.errors import (
     ModelConnectionError,
@@ -17,12 +18,11 @@ from harness.mappers.google_mapper import (
     has_function_calls,
     map_messages,
     map_response,
-    map_tool_schemas,
 )
 
 
 class GeminiClient:
-    def __init__(self) -> None:
+    def __init__(self, schema_builder: GeminiSchemaBuilder | None = None) -> None:
         api_key = os.getenv("GEMINI_API_KEY")
 
         if not api_key:
@@ -46,13 +46,14 @@ class GeminiClient:
         )
 
         self._model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+        self._schema_builder = schema_builder or GeminiSchemaBuilder()
 
     def generate(
         self,
         messages: list[Message],
         tools: list[ToolSchema] | None = None,
     ) -> ModelResponse:
-        native_tools = map_tool_schemas(tools or [])
+        native_tools = self._schema_builder.build_schema(tools or [])
         contents, system_instruction = map_messages(
             messages,
             use_native_tools=bool(native_tools),

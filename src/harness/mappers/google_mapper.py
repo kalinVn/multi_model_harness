@@ -1,7 +1,6 @@
-from copy import deepcopy
-
 from google.genai import types
 
+from harness.builder.gemini_schema_builder import GeminiSchemaBuilder
 from harness.config.response.gemini_response_instruction import (
     GEMINI_RESPONSE_INSTRUCTION,
 )
@@ -18,34 +17,7 @@ from harness.parser.response_parser import prepare_model_response
 
 def map_tool_schemas(tool_schemas: list[ToolSchema]) -> list[types.Tool]:
     """Convert shared schemas to validated Gemini function declarations."""
-    names = [tool_schema["name"] for tool_schema in tool_schemas]
-    if len(names) != len(set(names)):
-        raise ValueError("Duplicate harness tool definitions for Gemini")
-
-    declarations: list[types.FunctionDeclaration] = []
-    for tool_schema in tool_schemas:
-        parameters_data = deepcopy(tool_schema["parameters"])
-        parameters_data.pop("additionalProperties", None)
-
-        try:
-            parameters = types.Schema.model_validate(parameters_data)
-        except ValueError as error:
-            raise ValueError(
-                f"Gemini does not support the schema for tool "
-                f"'{tool_schema['name']}': {error}"
-            ) from error
-
-        declarations.append(
-            types.FunctionDeclaration(
-                name=tool_schema["name"],
-                description=tool_schema["description"],
-                parameters=parameters,
-            )
-        )
-
-    if not declarations:
-        return []
-    return [types.Tool(function_declarations=declarations)]
+    return GeminiSchemaBuilder().build_schema(tool_schemas)
 
 
 def map_messages(

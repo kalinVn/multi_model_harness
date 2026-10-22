@@ -4,8 +4,9 @@ import re
 
 from openai import APIConnectionError, APIStatusError, OpenAI, RateLimitError
 
+from harness.builder.groq_schema_builder import GroqSchemaBuilder
 from harness.domain.message import Message
-from harness.mappers.groq_mapper import prepare_groq_response, prepare_groq_tools, prepare_groq_messages
+from harness.mappers.groq_mapper import prepare_groq_response, prepare_groq_messages
 from harness.models.errors import ModelConnectionError, ModelRateLimitError
 from harness.models.groq_tool_type import GroqToolType
 from harness.models.response import ModelResponse
@@ -20,7 +21,7 @@ GroqResponseParseResult = ModelResponse | tuple[list[dict[str, str]], dict]
 class GroqClient:
     MAX_INVALID_RESPONSE_RETRIES = 2
 
-    def __init__(self) -> None:
+    def __init__(self, schema_builder: GroqSchemaBuilder | None = None) -> None:
         api_key = os.getenv("GROQ_API_KEY", "").strip()
         if not api_key:
             raise ValueError("Missing GROQ_API_KEY")
@@ -33,6 +34,7 @@ class GroqClient:
             timeout=60.0,
             max_retries=2,
         )
+        self._schema_builder = schema_builder or GroqSchemaBuilder()
         
 
     def generate(
@@ -42,7 +44,7 @@ class GroqClient:
     ) -> ModelResponse:
         MessagesValidator.validate(model_messages)
 
-        tools_list = prepare_groq_tools(tools)
+        tools_list = self._schema_builder.build_schema(tools or [])
         groq_messages = prepare_groq_messages(model_messages)
 
         if tools_list:

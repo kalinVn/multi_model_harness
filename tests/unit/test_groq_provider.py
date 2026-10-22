@@ -409,9 +409,19 @@ class GroqProviderTest(unittest.TestCase):
         for name, target in (('groq', 'GroqClient'), ('gemini', 'GeminiClient'),
                              ('google', 'GeminiClient'), ('openai', 'OpenAIClient')):
             with patch.dict('os.environ', {'MODEL_PROVIDER': name}), \
-                 patch('harness.factory.model_client_factory.' + target) as provider:
+                 patch('harness.factory.model_client_factory.' + target) as provider, \
+                 patch(
+                     'harness.factory.model_client_factory.SchemaBuilderFactory.create'
+                 ) as create_schema_builder:
                 self.assertIs(create_model_client(), provider.return_value)
-                provider.assert_called_once_with()
+                if name in {'groq', 'gemini', 'google'}:
+                    create_schema_builder.assert_called_once_with(name)
+                    provider.assert_called_once_with(
+                        schema_builder=create_schema_builder.return_value,
+                    )
+                else:
+                    create_schema_builder.assert_not_called()
+                    provider.assert_called_once_with()
         for name in ('ollama', 'local_qwen2.5:1.5b'):
             with patch.dict('os.environ', {'MODEL_PROVIDER': name}), \
                  self.assertRaisesRegex(ValueError, 'Unsupported MODEL_PROVIDER'):
