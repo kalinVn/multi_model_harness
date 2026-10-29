@@ -30,7 +30,7 @@ caisa_harnes_project/
 │   │       └── reader.py
 │   ├── builder/
 │   │   ├── model_message_builder.py
-│   │   └── tools_schema_builder.py
+│   │   └── tool_parameters_builder.py
 │   ├── contracts/
 │   │   └── tool.py
 │   ├── domain/

@@ -3,13 +3,13 @@ from typing import Any
 
 from google.genai import types
 
-from harness.models.tool_schema import ToolSchema
+from harness.models.tool_definition import ToolDefinition
 
 
 class GeminiSchemaBuilder:
     """Build native Gemini declarations from shared tool schemas."""
 
-    def build_schema(self, tools: list[ToolSchema]) -> list[types.Tool]:
+    def build_schema(self, tools: list[ToolDefinition]) -> list[types.Tool]:
         names = [tool["name"] for tool in tools]
         if len(names) != len(set(names)):
             raise ValueError("Duplicate harness tool definitions for Gemini")

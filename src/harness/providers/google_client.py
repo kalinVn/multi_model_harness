@@ -12,7 +12,7 @@ from harness.models.errors import (
     ModelRateLimitError,
 )
 from harness.models.response import ModelResponse
-from harness.models.tool_schema import ToolSchema
+from harness.models.tool_definition import ToolDefinition
 from harness.mappers.google_mapper import (
     get_response_text,
     has_function_calls,
@@ -51,7 +51,7 @@ class GeminiClient:
     def generate(
         self,
         messages: list[Message],
-        tools: list[ToolSchema] | None = None,
+        tools: list[ToolDefinition] | None = None,
     ) -> ModelResponse:
         native_tools = self._schema_builder.build_schema(tools or [])
         contents, system_instruction = map_messages(messages)

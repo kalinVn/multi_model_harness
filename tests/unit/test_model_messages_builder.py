@@ -8,7 +8,7 @@ from harness.builder.tool_result_context_builder import (
     TOOL_RESULTS_CONTEXT_FOOTER,
     TOOL_RESULTS_CONTEXT_HEADER,
 )
-from harness.builder.tools_schema_builder import TOOLS_CONTEXT_HEADER
+from harness.builder.tool_parameters_builder import TOOLS_CONTEXT_HEADER
 from harness.domain.message import Message
 from harness.domain.tool_call import ToolCall
 from harness.domain.tool_result import ToolResult

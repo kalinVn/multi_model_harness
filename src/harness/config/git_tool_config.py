@@ -313,17 +313,24 @@ GIT_COMMAND_ARGUMENT_DESCRIPTION = (
     "refs/heads/BRANCH:refs/heads/BRANCH."
 )
 
-GIT_TOOL_ARGUMENTS_SCHEMA: dict[str, dict[str, Any]] = {
-    "command_name": {
-        "type": "string",
-        "enum": sorted(SUPPORTED_OPERATIONS),
-        "description": "The supported logical Git operation represented by command.",
+GIT_TOOL_PARAMETER_OBJECT: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "command_name": {
+            "type": "string",
+            "enum": sorted(SUPPORTED_OPERATIONS),
+            "description": (
+                "The supported logical Git operation represented by command."
+            ),
+        },
+        "command": {
+            "type": "array",
+            "items": {"type": "string"},
+            "minItems": 1,
+            "maxItems": MAX_COMMAND_TOKENS,
+            "description": GIT_COMMAND_ARGUMENT_DESCRIPTION,
+        },
     },
-    "command": {
-        "type": "array",
-        "items": {"type": "string"},
-        "minItems": 1,
-        "maxItems": MAX_COMMAND_TOKENS,
-        "description": GIT_COMMAND_ARGUMENT_DESCRIPTION,
-    },
+    "required": ["command_name", "command"],
+    "additionalProperties": False,
 }

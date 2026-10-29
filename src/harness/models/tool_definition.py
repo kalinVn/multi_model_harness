@@ -1,7 +1,7 @@
 from typing import Any, TypedDict
 
 
-class ToolSchema(TypedDict):
+class ToolDefinition(TypedDict):
     """Provider-independent structured definition of one Harness tool."""
 
     name: str

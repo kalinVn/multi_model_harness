@@ -9,13 +9,15 @@ from harness.config.response.gemini_response_instruction import (
 from harness.domain.message import Message
 from harness.domain.tool_call import ToolCall
 from harness.models.response import ModelResponse
-from harness.models.tool_schema import ToolSchema
+from harness.models.tool_definition import ToolDefinition
 from harness.parser.response_parser import prepare_model_response
 
 
-def map_tool_schemas(tool_schemas: list[ToolSchema]) -> list[types.Tool]:
-    """Convert shared schemas to validated Gemini function declarations."""
-    return GeminiSchemaBuilder().build_schema(tool_schemas)
+def map_tool_definitions(
+    tool_definitions: list[ToolDefinition],
+) -> list[types.Tool]:
+    """Convert shared definitions to validated Gemini declarations."""
+    return GeminiSchemaBuilder().build_schema(tool_definitions)
 
 
 def map_messages(
@@ -66,7 +68,7 @@ def has_function_calls(response: types.GenerateContentResponse) -> bool:
 
 def map_response(
     response: types.GenerateContentResponse,
-    tool_schemas: list[ToolSchema] | None = None,
+    tool_definitions: list[ToolDefinition] | None = None,
 ) -> ModelResponse:
     """Map user-facing Gemini text and native calls to the shared response.
 
@@ -75,8 +77,8 @@ def map_response(
     JSON answers and command-specific JSON as ordinary user-facing content.
     """
     allowed_names = {
-        tool_schema["name"]
-        for tool_schema in tool_schemas or []
+        tool_definition["name"]
+        for tool_definition in tool_definitions or []
     }
     native_calls: list[ToolCall] = []
 

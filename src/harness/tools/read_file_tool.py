@@ -11,10 +11,17 @@ class ReadFileTool:
     def description(self) -> str:
         return "Reads text content from a file."
 
-    @property
-    def arguments_schema(self) -> dict[str, str]:
+    def get_parameter_object(self) -> dict[str, Any]:
         return {
-            "path": "Path of the file to read.",
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Path of the file to read.",
+                },
+            },
+            "required": ["path"],
+            "additionalProperties": False,
         }
 
     def execute(

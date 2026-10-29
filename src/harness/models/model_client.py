@@ -2,7 +2,7 @@ from typing import Protocol
 
 from harness.domain.message import Message
 from harness.models.response import ModelResponse
-from harness.models.tool_schema import ToolSchema
+from harness.models.tool_definition import ToolDefinition
 
 
 class ModelClient(Protocol):
@@ -10,6 +10,6 @@ class ModelClient(Protocol):
     def generate(
         self,
         messages: list[Message],
-        tools: list[ToolSchema] | None = None,
+        tools: list[ToolDefinition] | None = None,
     ) -> ModelResponse:
         ...

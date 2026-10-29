@@ -4,7 +4,7 @@ from openai import OpenAI
 
 from harness.domain.message import Message
 from harness.models.response import ModelResponse
-from harness.models.tool_schema import ToolSchema
+from harness.models.tool_definition import ToolDefinition
 from harness.parser.response_parser import prepare_model_response
 from harness.mappers.openai_mapper import (
     map_messages,
@@ -20,7 +20,7 @@ class OpenAIClient:
     def generate(
         self,
         messages: list[Message],
-        tools: list[ToolSchema] | None = None,
+        tools: list[ToolDefinition] | None = None,
     ) -> ModelResponse:
 
         if not messages:

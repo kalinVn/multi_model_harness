@@ -27,10 +27,17 @@ class BashTool:
             "working directory."
         )
 
-    @property
-    def arguments_schema(self) -> dict[str, str]:
+    def get_parameter_object(self) -> dict[str, Any]:
         return {
-            "command": "Bash command to execute.",
+            "type": "object",
+            "properties": {
+                "command": {
+                    "type": "string",
+                    "description": "Bash command to execute.",
+                },
+            },
+            "required": ["command"],
+            "additionalProperties": False,
         }
 
     def execute(

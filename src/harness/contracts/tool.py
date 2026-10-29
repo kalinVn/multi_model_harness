@@ -10,8 +10,7 @@ class Tool(Protocol):
     def description(self) -> str:
         ...
 
-    @property
-    def arguments_schema(self) -> dict[str, str | dict[str, Any]]:
+    def get_parameter_object(self) -> dict[str, Any]:
         ...
 
     def execute(

@@ -5,7 +5,7 @@ from unittest.mock import Mock
 from google.genai import types
 
 from harness.builder.gemini_schema_builder import GeminiSchemaBuilder
-from harness.builder.tools_schema_builder import build_tools_schema
+from harness.builder.tool_parameters_builder import build_tool_parameters
 from harness.config.response.gemini_response_instruction import (
     GEMINI_RESPONSE_INSTRUCTION,
 )
@@ -17,7 +17,7 @@ from harness.parser.response_parser import prepare_model_response
 from harness.providers.google_client import GeminiClient
 from harness.mappers.google_mapper import (
     map_messages as google_messages,
-    map_tool_schemas as google_tools,
+    map_tool_definitions as google_tools,
 )
 from harness.providers.openai_client import OpenAIClient
 from harness.mappers.openai_mapper import map_messages as openai_messages
@@ -92,8 +92,13 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         tool = Mock()
         tool.name = "example"
         tool.description = "Example tool."
-        tool.arguments_schema = {}
-        schemas = build_tools_schema([tool])
+        tool.get_parameter_object.return_value = {
+            "type": "object",
+            "properties": {},
+            "required": [],
+            "additionalProperties": False,
+        }
+        schemas = build_tool_parameters([tool])
         client = GeminiClient.__new__(GeminiClient)
         client._client = Mock()
         client._model = "test-model"
@@ -194,22 +199,29 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "does not support"):
             google_tools(schemas)
 
-    def test_gemini_receives_structured_native_tool_schemas(self):
+    def test_gemini_receives_structured_native_tool_definitions(self):
         tool = Mock()
         tool.name = "example"
         tool.description = "Example tool."
-        tool.arguments_schema = {
-            "mode": {
-                "type": "string",
-                "enum": ["safe", "fast"],
+        tool.get_parameter_object.return_value = {
+            "type": "object",
+            "properties": {
+                "mode": {
+                    "type": "string",
+                    "description": "Execution mode.",
+                    "enum": ["safe", "fast"],
+                },
+                "paths": {
+                    "type": "array",
+                    "description": "Paths to process.",
+                    "items": {"type": "string"},
+                    "minItems": 1,
+                },
             },
-            "paths": {
-                "type": "array",
-                "items": {"type": "string"},
-                "minItems": 1,
-            },
+            "required": ["mode", "paths"],
+            "additionalProperties": False,
         }
-        schemas = build_tools_schema([tool])
+        schemas = build_tool_parameters([tool])
         client = GeminiClient.__new__(GeminiClient)
         client._client = Mock()
         client._model = "test-model"
@@ -268,7 +280,7 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
     def test_gemini_maps_all_registered_tools_and_complete_git_schema(self):
         registry = ToolRegistry()
         register_tools(registry)
-        schemas = build_tools_schema(registry.list_tools())
+        schemas = build_tool_parameters(registry.list_tools())
 
         native_tools = google_tools(schemas)
 

@@ -5,7 +5,7 @@ from harness.domain.session import Session
 from harness.tools.tool_registry import (
     ToolRegistry,
 )
-from harness.builder.tools_schema_builder import (
+from harness.builder.tool_parameters_builder import (
     build_tools_context,
 )
 

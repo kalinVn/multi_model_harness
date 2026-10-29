@@ -8,7 +8,7 @@ from harness.builder.tool_result_context_builder import (
     build_tool_results_context,
     has_tool_result_summary,
 )
-from harness.builder.tools_schema_builder import TOOLS_CONTEXT_HEADER
+from harness.builder.tool_parameters_builder import TOOLS_CONTEXT_HEADER
 from harness.domain.message import Message
 from harness.parser.command_parser import ParsedCommand
 from harness.service.command_service import CommandService

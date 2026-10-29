@@ -3,7 +3,7 @@ from copy import deepcopy
 from unittest.mock import Mock
 
 from harness.builder.gemini_schema_builder import GeminiSchemaBuilder
-from harness.builder.tools_schema_builder import build_tools_schema
+from harness.builder.tool_parameters_builder import build_tool_parameters
 
 
 class GeminiSchemaBuilderTest(unittest.TestCase):
@@ -11,26 +11,32 @@ class GeminiSchemaBuilderTest(unittest.TestCase):
         tool = Mock()
         tool.name = "example"
         tool.description = "Example tool."
-        tool.arguments_schema = {
-            "mode": {
-                "type": "string",
-                "enum": ["safe", "fast"],
-            },
-            "items": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "name": {"type": "string"},
-                    },
-                    "required": ["name"],
-                    "additionalProperties": False,
+        tool.get_parameter_object.return_value = {
+            "type": "object",
+            "properties": {
+                "mode": {
+                    "type": "string",
+                    "description": "Execution mode.",
+                    "enum": ["safe", "fast"],
                 },
-                "minItems": 1,
-                "x-required": False,
+                "items": {
+                    "type": "array",
+                    "description": "Items to process.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                        },
+                        "required": ["name"],
+                        "additionalProperties": False,
+                    },
+                    "minItems": 1,
+                },
             },
+            "required": ["mode"],
+            "additionalProperties": False,
         }
-        self.schemas = build_tools_schema([tool])
+        self.schemas = build_tool_parameters([tool])
 
     def test_gemini_builder_preserves_semantics_and_removes_unsupported_fields(self):
         original = deepcopy(self.schemas)

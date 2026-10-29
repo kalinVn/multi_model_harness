@@ -6,7 +6,7 @@ from harness.config.git_tool_config import (
     DEFAULT_ALLOW_REMOTE_OPERATIONS,
     DEFAULT_ALLOW_WRITE_OPERATIONS,
     DEFAULT_TIMEOUT_SECONDS,
-    GIT_TOOL_ARGUMENTS_SCHEMA,
+    GIT_TOOL_PARAMETER_OBJECT,
     GIT_TOOL_DESCRIPTION,
     GIT_TOOL_NAME,
     READ_OPERATIONS,
@@ -51,9 +51,8 @@ class GitTool:
     def description(self) -> str:
         return GIT_TOOL_DESCRIPTION
 
-    @property
-    def arguments_schema(self) -> dict[str, str | dict[str, Any]]:
-        return deepcopy(GIT_TOOL_ARGUMENTS_SCHEMA)
+    def get_parameter_object(self) -> dict[str, Any]:
+        return deepcopy(GIT_TOOL_PARAMETER_OBJECT)
 
     def execute(self, arguments: dict[str, Any]) -> str:
         self._validator.validate(arguments)

@@ -11,11 +11,21 @@ class WriteFileTool:
     def description(self) -> str:
         return "Writes text content to a file."
 
-    @property
-    def arguments_schema(self) -> dict[str, str]:
+    def get_parameter_object(self) -> dict[str, Any]:
         return {
-            "path": "Path of the file to create or overwrite.",
-            "content": "Text content to write into the file.",
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Path of the file to create or overwrite.",
+                },
+                "content": {
+                    "type": "string",
+                    "description": "Text content to write into the file.",
+                },
+            },
+            "required": ["path", "content"],
+            "additionalProperties": False,
         }
 
     def execute(

@@ -11,7 +11,7 @@ from harness.config.git_tool_config import (
     GIT_ALLOWED_ENVIRONMENT_VARIABLES,
     GIT_ENVIRONMENT_OVERRIDES,
     GIT_OPERATION_DEFINITIONS,
-    GIT_TOOL_ARGUMENTS_SCHEMA,
+    GIT_TOOL_PARAMETER_OBJECT,
     GIT_TOOL_DESCRIPTION,
     READ_OPERATIONS,
     REMOTE_OPERATIONS,
@@ -137,14 +137,15 @@ class GitToolTest(unittest.TestCase):
 
     def test_uses_shared_git_tool_configuration(self):
         self.assertEqual(self.read_tool.description, GIT_TOOL_DESCRIPTION)
-        self.assertEqual(self.read_tool.arguments_schema, GIT_TOOL_ARGUMENTS_SCHEMA)
-        self.assertIsNot(self.read_tool.arguments_schema, GIT_TOOL_ARGUMENTS_SCHEMA)
+        parameter_object = self.read_tool.get_parameter_object()
+        self.assertEqual(parameter_object, GIT_TOOL_PARAMETER_OBJECT)
+        self.assertIsNot(parameter_object, GIT_TOOL_PARAMETER_OBJECT)
         self.assertIs(GitTool.READ_OPERATIONS, READ_OPERATIONS)
         self.assertIs(GitTool.WRITE_OPERATIONS, WRITE_OPERATIONS)
         self.assertIs(GitTool.REMOTE_OPERATIONS, REMOTE_OPERATIONS)
         self.assertIs(GitTool.OPERATIONS, SUPPORTED_OPERATIONS)
         self.assertEqual(
-            set(self.read_tool.arguments_schema),
+            set(parameter_object["properties"]),
             {"command_name", "command"},
         )
 
