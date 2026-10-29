@@ -6,8 +6,12 @@ from google.genai import types
 
 from harness.builder.gemini_schema_builder import GeminiSchemaBuilder
 from harness.builder.tools_schema_builder import build_tools_schema
+from harness.config.response.gemini_response_instruction import (
+    GEMINI_RESPONSE_INSTRUCTION,
+)
 from harness.domain.message import Message
 from harness.domain.tool_call import ToolCall
+from harness.models.response import ModelResponse
 from harness.models.response_instruction import MODEL_RESPONSE_INSTRUCTION
 from harness.parser.response_parser import prepare_model_response
 from harness.providers.google_client import GeminiClient
@@ -22,25 +26,30 @@ from harness.tools.tool_registry import ToolRegistry
 
 
 class StructuredResponseAdaptersTest(unittest.TestCase):
-    def test_gemini_requests_json_and_preserves_system_instruction(self):
+    @staticmethod
+    def gemini_response(text):
+        return types.GenerateContentResponse(
+            candidates=[types.Candidate(content=types.Content(
+                parts=[types.Part.from_text(text=text)]
+            ))]
+        )
+
+    def test_gemini_requests_plain_text_and_preserves_system_instruction(self):
         client = GeminiClient.__new__(GeminiClient)
         client._client = Mock()
         client._model = "test-model"
         client._schema_builder = GeminiSchemaBuilder()
-        client._client.models.generate_content.return_value = types.GenerateContentResponse(
-            candidates=[types.Candidate(content=types.Content(parts=[types.Part.from_text(
-                text='{"text":"Done","tool_calls":[],"tool_result_summaries":[]}'
-            )]))]
-        )
+        client._client.models.generate_content.return_value = self.gemini_response("Done")
         self.assertEqual(client.generate([
             Message(role="system", content="Project instructions"),
             Message(role="user", content="Continue"),
         ]).text, "Done")
         config = client._client.models.generate_content.call_args.kwargs["config"]
-        self.assertEqual(config.response_mime_type, "application/json")
+        self.assertIsNone(config.response_mime_type)
         self.assertIsNone(config.tools)
         self.assertIn("Project instructions", config.system_instruction)
-        self.assertIn(MODEL_RESPONSE_INSTRUCTION, config.system_instruction)
+        self.assertIn(GEMINI_RESPONSE_INSTRUCTION, config.system_instruction)
+        self.assertIn("respond with only the user-facing", config.system_instruction)
 
     def test_gemini_empty_response_reports_provider_reason(self):
         client = GeminiClient.__new__(GeminiClient)
@@ -63,13 +72,86 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, reason):
                     client.generate([Message(role="user", content="Continue")])
 
+    def test_gemini_accepts_plain_text_answer(self):
+        client = GeminiClient.__new__(GeminiClient)
+        client._client = Mock()
+        client._model = "test-model"
+        client._schema_builder = GeminiSchemaBuilder()
+        client._client.models.generate_content.return_value = self.gemini_response(
+            "136."
+        )
+
+        response = client.generate([
+            Message(role="user", content="Колко е 17 по 8? Не използвай инструменти."),
+        ])
+
+        self.assertEqual(response, ModelResponse(text="136."))
+        client._client.models.generate_content.assert_called_once()
+
+    def test_gemini_returns_plain_text_for_hi_while_tools_remain_available(self):
+        tool = Mock()
+        tool.name = "example"
+        tool.description = "Example tool."
+        tool.arguments_schema = {}
+        schemas = build_tools_schema([tool])
+        client = GeminiClient.__new__(GeminiClient)
+        client._client = Mock()
+        client._model = "test-model"
+        client._schema_builder = GeminiSchemaBuilder()
+        client._client.models.generate_content.return_value = self.gemini_response(
+            "Hi! How can I help?"
+        )
+
+        response = client.generate([Message(role="user", content="hi")], schemas)
+
+        self.assertEqual(response, ModelResponse(text="Hi! How can I help?"))
+        config = client._client.models.generate_content.call_args.kwargs["config"]
+        self.assertIsNone(config.response_mime_type)
+        self.assertIsNotNone(config.tools)
+
+    def test_gemini_preserves_command_specific_json_without_outer_envelope(self):
+        client = GeminiClient.__new__(GeminiClient)
+        client._client = Mock()
+        client._model = "test-model"
+        client._schema_builder = GeminiSchemaBuilder()
+        command_response = '{"answer":"Done","command_summary":"Completed."}'
+        client._client.models.generate_content.return_value = self.gemini_response(
+            command_response
+        )
+
+        response = client.generate([Message(role="user", content="Run command")])
+
+        self.assertEqual(response, ModelResponse(text=command_response))
+        client._client.models.generate_content.assert_called_once()
+
+    def test_gemini_hides_metadata_envelope_when_tool_calls_is_omitted(self):
+        client = GeminiClient.__new__(GeminiClient)
+        client._client = Mock()
+        client._model = "test-model"
+        client._schema_builder = GeminiSchemaBuilder()
+        raw = json.dumps({
+            "text": "Файлът беше прочетен успешно.",
+            "tool_result_summaries": [
+                {"id": "result-1", "summary": "Прочетен е файлът."},
+            ],
+        })
+        client._client.models.generate_content.return_value = (
+            self.gemini_response(raw)
+        )
+
+        response = client.generate([Message(role="user", content="Read file")])
+
+        self.assertEqual(response.text, "Файлът беше прочетен успешно.")
+        self.assertEqual(response.tool_calls, [])
+        self.assertEqual(response.tool_result_summaries[0].id, "result-1")
+
     def test_mappers_preserve_history_and_add_one_instruction(self):
         messages = [Message(role="system", content="Project instructions"),
                     Message(role="user", content="Read file"),
                     Message(role="assistant", content='Raw tool calls:\n[{"tool":"read_file"}]'),
                     Message(role="user", content="Tool result ID: original-id\nOutput:\ncontents")]
         contents, instruction = google_messages(messages)
-        self.assertEqual(instruction.count(MODEL_RESPONSE_INSTRUCTION), 1)
+        self.assertEqual(instruction.count(GEMINI_RESPONSE_INSTRUCTION), 1)
         self.assertIn("Project instructions", instruction)
         self.assertEqual([c.role for c in contents], ["user", "model", "user"])
         self.assertEqual([c.parts[0].text for c in contents], [m.content for m in messages[1:]])
@@ -207,8 +289,7 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         self.assertGreater(command.max_items, 1)
 
     def test_adapters_return_contract_and_propagate_invalid_responses(self):
-        raw = json.dumps(dict(text="", tool_calls=[dict(tool="read_file", arguments={"path": "a"}),
-                                                   dict(tool="read_file", arguments={"path": "b"})],
+        raw = json.dumps(dict(text="Done", tool_calls=[],
                               tool_result_summaries=[dict(id="original-id", summary="Read previous file.")]))
         for cls in (GeminiClient, OpenAIClient):
             with self.subTest(provider=cls.__name__):
@@ -237,8 +318,14 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
                     )
                 else:
                     endpoint.return_value = Mock(output_text="invalid")
-                with self.assertRaises(ValueError):
-                    client.generate([Message(role="user", content="Continue")])
+                if cls is GeminiClient:
+                    self.assertEqual(
+                        client.generate([Message(role="user", content="Continue")]),
+                        ModelResponse(text="invalid"),
+                    )
+                else:
+                    with self.assertRaises(ValueError):
+                        client.generate([Message(role="user", content="Continue")])
                 endpoint.reset_mock()
                 with self.assertRaises(ValueError):
                     client.generate([])

@@ -32,7 +32,6 @@ class BashToolTest(unittest.TestCase):
             "VIRTUAL_ENV": "/project/.venv",
             "OPENAI_API_KEY": "openai-secret-value",
             "GEMINI_API_KEY": "gemini-secret-value",
-            "GROQ_API_KEY": "groq-secret-value",
             "SERVICE_TOKEN": "service-secret-value",
             "DATABASE_PASSWORD": "database-secret-value",
             "UNRELATED_SETTING": "unrelated-value",
@@ -68,7 +67,6 @@ class BashToolTest(unittest.TestCase):
         for name in (
             "OPENAI_API_KEY",
             "GEMINI_API_KEY",
-            "GROQ_API_KEY",
             "SERVICE_TOKEN",
             "DATABASE_PASSWORD",
             "UNRELATED_SETTING",

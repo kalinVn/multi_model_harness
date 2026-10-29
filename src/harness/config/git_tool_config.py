@@ -9,7 +9,7 @@ from harness.config.sensitive_data_redaction_config import (
 GIT_TOOL_NAME = "git"
 GIT_TOOL_DESCRIPTION = (
     "Runs allowlisted Git operations in the project repository. "
-    "Provide the supported logical command_name and the complete canonical "
+    "Provide the supported logical command_name and a supported safe "
     "Git argument array in command, excluding the git executable. "
     "Read, local write, and remote operations are separately restricted. "
     "Destructive and force variants are unavailable."
@@ -291,7 +291,8 @@ GIT_ARGUMENT_PROPERTIES: dict[str, dict[str, Any]] = {
 }
 
 GIT_COMMAND_ARGUMENT_DESCRIPTION = (
-    "Complete canonical Git argument array, excluding the git executable. "
+    "Safe Git argument array, excluding the git executable. Familiar add and "
+    "commit syntax is accepted and normalized to the canonical form. "
     "Use exactly one supported form: status --short --branch "
     "--untracked-files=all; diff --no-ext-diff --no-textconv --no-color "
     "[--cached] -- [path]; log --oneline --no-decorate --max-count=N; "
@@ -300,7 +301,8 @@ GIT_COMMAND_ARGUMENT_DESCRIPTION = (
     "REVISION:PATH; tag --list --sort=refname; remote; blame --date=short "
     "REVISION -- PATH; rev-parse --verify --end-of-options REVISION^{object}; "
     "reflog --oneline --max-count=N; ls-files -- [path]; stash list; "
-    "add -- PATH...; commit --no-verify --no-gpg-sign -m MESSAGE; "
+    "add [--] PATH...; commit (-m|--message) MESSAGE or commit "
+    "--no-verify --no-gpg-sign -m MESSAGE; "
     "branch --no-track NAME; branch -m OLD NEW; branch -d NAME; "
     "switch --no-guess BRANCH; merge --no-edit --no-gpg-sign BRANCH; "
     "cherry-pick --no-gpg-sign REVISION; restore --staged -- PATH...; "

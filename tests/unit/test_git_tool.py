@@ -344,6 +344,21 @@ class GitToolTest(unittest.TestCase):
 
         self.assertIn("A  new.txt", self._git("status", "--short"))
 
+    def test_add_accepts_standard_git_path_syntax(self):
+        (self.repository / "first.txt").write_text("first\n", encoding="utf-8")
+        (self.repository / "second.txt").write_text("second\n", encoding="utf-8")
+
+        self.write_tool.execute(
+            {
+                "command_name": "add",
+                "command": ["add", "first.txt", "second.txt"],
+            }
+        )
+
+        status = self._git("status", "--short")
+        self.assertIn("A  first.txt", status)
+        self.assertIn("A  second.txt", status)
+
     def test_commit_creates_local_commit(self):
         (self.repository / "new.txt").write_text("new\n", encoding="utf-8")
         self.write_tool.execute(
@@ -365,6 +380,25 @@ class GitToolTest(unittest.TestCase):
 
         self.assertIn("Add new file", output)
         self.assertEqual(self._git("log", "-1", "--pretty=%s"), "Add new file")
+
+    def test_commit_accepts_standard_message_syntax(self):
+        (self.repository / "standard.txt").write_text("new\n", encoding="utf-8")
+        self.write_tool.execute(
+            {"command_name": "add", "command": ["add", "standard.txt"]}
+        )
+
+        output = self.write_tool.execute(
+            {
+                "command_name": "commit",
+                "command": ["commit", "-m", "Use standard syntax"],
+            }
+        )
+
+        self.assertIn("Use standard syntax", output)
+        self.assertEqual(
+            self._git("log", "-1", "--pretty=%s"),
+            "Use standard syntax",
+        )
 
     def test_branch_create_and_switch(self):
         self.write_tool.execute(
@@ -893,7 +927,6 @@ class GitToolTest(unittest.TestCase):
             "XDG_CONFIG_HOME": "/home/harness/.config",
             "OPENAI_API_KEY": "openai-secret-value",
             "GEMINI_API_KEY": "gemini-secret-value",
-            "GROQ_API_KEY": "groq-secret-value",
             "SERVICE_PASSWORD": "service-secret-value",
             "UNRELATED_SETTING": "unrelated-value",
         }
@@ -933,7 +966,6 @@ class GitToolTest(unittest.TestCase):
         for name in (
             "OPENAI_API_KEY",
             "GEMINI_API_KEY",
-            "GROQ_API_KEY",
             "SERVICE_PASSWORD",
             "UNRELATED_SETTING",
         ):
@@ -947,14 +979,14 @@ class GitToolTest(unittest.TestCase):
             stdout="",
             stderr=(
                 "failed for https://user:password@example.test/ and "
-                "environment-secret, groq-secret-value, and tiny"
+                "environment-secret, provider-secret-value, and tiny"
             ),
         )
         with (
             patch.dict(
                 "os.environ",
                 {
-                    "GROQ_API_KEY": "groq-secret-value",
+                    "PROVIDER_API_KEY": "provider-secret-value",
                     "SERVICE_TOKEN": "environment-secret",
                     "SHORT_TOKEN": "tiny",
                 },
@@ -971,10 +1003,10 @@ class GitToolTest(unittest.TestCase):
         message = str(caught.exception)
         self.assertNotIn("password", message)
         self.assertNotIn("environment-secret", message)
-        self.assertNotIn("groq-secret-value", message)
+        self.assertNotIn("provider-secret-value", message)
         self.assertNotIn("tiny", message)
         self.assertIn("<redacted>", message)
-        self.assertNotIn("GROQ_API_KEY", run_git.call_args.kwargs["env"])
+        self.assertNotIn("PROVIDER_API_KEY", run_git.call_args.kwargs["env"])
         self.assertNotIn("SERVICE_TOKEN", run_git.call_args.kwargs["env"])
         self.assertNotIn("SHORT_TOKEN", run_git.call_args.kwargs["env"])
 

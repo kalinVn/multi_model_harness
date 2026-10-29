@@ -4,7 +4,6 @@ from unittest.mock import patch
 
 from harness.app.cli.main import display_tool_result, main
 from harness.domain.tool_result import ToolResult
-from harness.models.errors import ModelResponseFormatError
 
 
 class CliMainTest(unittest.TestCase):
@@ -96,26 +95,6 @@ class CliMainTest(unittest.TestCase):
         self.assertEqual(output.count(first), 1)
         self.assertEqual(output.count(second), 1)
         self.assertLess(output.index(first), output.index(second))
-
-    def test_main_displays_model_format_error_and_keeps_running(self) -> None:
-        with (
-            patch("harness.app.cli.main.load_dotenv"),
-            patch("harness.app.cli.main.create_model_client"),
-            patch("harness.app.cli.main.MainOrchestrator") as runner,
-            patch(
-                "harness.app.cli.main.read_input",
-                side_effect=["hello", "exit"],
-            ),
-            patch("sys.stdout", new_callable=io.StringIO) as stdout,
-        ):
-            runner.return_value.handle.side_effect = ModelResponseFormatError(
-                "invalid Groq response"
-            )
-            main()
-
-        self.assertIn("Harness > invalid Groq response", stdout.getvalue())
-        self.assertIn("AI Harness stopped.", stdout.getvalue())
-
 
 if __name__ == "__main__":
     unittest.main()

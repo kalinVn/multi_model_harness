@@ -3,12 +3,10 @@ from copy import deepcopy
 from unittest.mock import Mock
 
 from harness.builder.gemini_schema_builder import GeminiSchemaBuilder
-from harness.builder.groq_schema_builder import GroqSchemaBuilder
 from harness.builder.tools_schema_builder import build_tools_schema
-from harness.factory.schema_builder_factory import SchemaBuilderFactory
 
 
-class SchemaBuilderFactoryTest(unittest.TestCase):
+class GeminiSchemaBuilderTest(unittest.TestCase):
     def setUp(self) -> None:
         tool = Mock()
         tool.name = "example"
@@ -33,42 +31,6 @@ class SchemaBuilderFactoryTest(unittest.TestCase):
             },
         }
         self.schemas = build_tools_schema([tool])
-
-    def test_factory_selects_groq_builder(self):
-        self.assertIsInstance(
-            SchemaBuilderFactory.create("groq"),
-            GroqSchemaBuilder,
-        )
-
-    def test_factory_selects_gemini_builder_aliases(self):
-        for provider in ("google", "gemini", "GEMINI"):
-            with self.subTest(provider=provider):
-                self.assertIsInstance(
-                    SchemaBuilderFactory.create(provider),
-                    GeminiSchemaBuilder,
-                )
-
-    def test_factory_rejects_unsupported_provider(self):
-        with self.assertRaisesRegex(
-            ValueError,
-            "Unsupported schema provider: openai",
-        ):
-            SchemaBuilderFactory.create("openai")
-
-    def test_groq_builder_preserves_complete_shared_schema(self):
-        original = deepcopy(self.schemas)
-
-        tools = GroqSchemaBuilder().build_schema(self.schemas)
-
-        self.assertEqual(self.schemas, original)
-        parameters = tools[0]["function"]["parameters"]
-        self.assertEqual(tools[0]["type"], "function")
-        self.assertEqual(parameters["required"], ["mode"])
-        self.assertFalse(parameters["additionalProperties"])
-        self.assertFalse(
-            parameters["properties"]["items"]["items"]
-            ["additionalProperties"]
-        )
 
     def test_gemini_builder_preserves_semantics_and_removes_unsupported_fields(self):
         original = deepcopy(self.schemas)

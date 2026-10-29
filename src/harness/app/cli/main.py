@@ -7,7 +7,6 @@ from harness.factory.model_client_factory import create_model_client
 from harness.models.errors import (
     ModelConnectionError,
     ModelRateLimitError,
-    ModelResponseFormatError,
 )
 from harness.models.request import Request
 
@@ -43,7 +42,6 @@ def main() -> None:
         except (
             ModelConnectionError,
             ModelRateLimitError,
-            ModelResponseFormatError,
         ) as error:
             print(f"\nHarness > {error}\n")
             continue

@@ -4,7 +4,3 @@ class ModelRateLimitError(RuntimeError):
 
 class ModelConnectionError(RuntimeError):
     """Raised when a model provider cannot be reached."""
-
-
-class ModelResponseFormatError(ValueError):
-    """Raised when a provider repeatedly returns an unusable response."""

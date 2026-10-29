@@ -54,22 +54,42 @@ class GeminiClient:
         tools: list[ToolSchema] | None = None,
     ) -> ModelResponse:
         native_tools = self._schema_builder.build_schema(tools or [])
-        contents, system_instruction = map_messages(
-            messages,
-            use_native_tools=bool(native_tools),
-        )
+        contents, system_instruction = map_messages(messages)
 
         if not contents:
             raise ValueError("Cannot generate response with empty conversation.")
 
         config = types.GenerateContentConfig(
             system_instruction=system_instruction,
-            response_mime_type="application/json",
             tools=native_tools or None,
         )
+        response = self._fetch_response(contents, config)
+        response_text = get_response_text(response)
+
+        if not response_text.strip() and not has_function_calls(response):
+            details = []
+            if response.prompt_feedback and response.prompt_feedback.block_reason:
+                details.append(f"block_reason={response.prompt_feedback.block_reason}")
+            for candidate in response.candidates or []:
+                if candidate.finish_reason:
+                    details.append(f"finish_reason={candidate.finish_reason}")
+            suffix = f" ({', '.join(details)})" if details else ""
+            raise ValueError(f"Gemini returned no response text{suffix}")
 
         try:
-            response = self._client.models.generate_content(
+            return map_response(response, tools)
+        except ValueError as error:
+            raise ValueError(
+                f"Gemini returned an invalid model response: {error}"
+            ) from error
+
+    def _fetch_response(
+        self,
+        contents: list[types.Content],
+        config: types.GenerateContentConfig,
+    ) -> types.GenerateContentResponse:
+        try:
+            return self._client.models.generate_content(
                 model=self._model,
                 contents=contents,
                 config=config,
@@ -99,20 +119,3 @@ class GeminiClient:
                 "Gemini could not be reached. "
                 "Check the internet connection and try again."
             ) from error
-
-        response_text = get_response_text(response)
-
-        if not response_text.strip() and not has_function_calls(response):
-            details = []
-            if response.prompt_feedback and response.prompt_feedback.block_reason:
-                details.append(f"block_reason={response.prompt_feedback.block_reason}")
-            for candidate in response.candidates or []:
-                if candidate.finish_reason:
-                    details.append(f"finish_reason={candidate.finish_reason}")
-            suffix = f" ({', '.join(details)})" if details else ""
-            raise ValueError(f"Gemini returned no response text{suffix}")
-
-        try:
-            return map_response(response, tools)
-        except ValueError as error:
-            raise ValueError(f"Gemini returned an invalid model response: {error}") from error

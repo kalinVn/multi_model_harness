@@ -57,7 +57,10 @@ class GitTool:
 
     def execute(self, arguments: dict[str, Any]) -> str:
         self._validator.validate(arguments)
-        command = arguments["command"]
+        command = self._validator.normalize_safe_command(
+            arguments["command_name"],
+            arguments["command"],
+        )
         return self._service.run(command)
 
 

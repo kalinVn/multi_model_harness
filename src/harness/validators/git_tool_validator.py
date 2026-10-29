@@ -96,9 +96,32 @@ class GitToolValidator:
         if any("\0" in token for token in command):
             raise ValueError("git command tokens cannot contain NUL bytes.")
 
+        command = self.normalize_safe_command(command_name, command)
         self._validate_operation_permission(command_name)
         validator = getattr(self, f"_validate_{command_name}_command")
         validator(command)
+
+    @staticmethod
+    def normalize_safe_command(
+        command_name: str,
+        command: list[str],
+    ) -> list[str]:
+        """Convert familiar safe Git syntax to the canonical internal form."""
+        if command_name == "add" and command[0] == "add":
+            if len(command) >= 2 and command[1] != "--":
+                return ["add", "--", *command[1:]]
+
+        if command_name == "commit" and command[0] == "commit":
+            if len(command) == 3 and command[1] in {"-m", "--message"}:
+                return [
+                    "commit",
+                    "--no-verify",
+                    "--no-gpg-sign",
+                    "-m",
+                    command[2],
+                ]
+
+        return command
 
     def _validate_operation_permission(self, command_name: str) -> None:
         """
@@ -355,8 +378,8 @@ class GitToolValidator:
         Validate the canonical Git add command with one or more safe paths.
 
         Example (valid): ["add", "--", "README.md"].
-        Example (invalid): ["add", "README.md"].
-        Result: ValueError because the command structure is unsupported.
+        The standard ["add", "README.md"] form is normalized before this
+        canonical validation step.
         """
         if len(command) < 3 or command[:2] != ["add", "--"]:
             self._raise_invalid_command("add")
