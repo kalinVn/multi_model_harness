@@ -40,16 +40,18 @@ class ToolConvertersTest(unittest.TestCase):
         }
         self.tools = build_tool_parameters([tool])
 
-    def test_gemini_conversion_preserves_supported_schema_fields(self):
+    def test_gemini_conversion_preserves_json_schema_unchanged(self):
         original = deepcopy(self.tools)
 
         converted = GeminiToolConverter().convert_tools(self.tools)
 
         self.assertEqual(self.tools, original)
         declaration = converted[0]["function_declarations"][0]
-        parameters = declaration["parameters"]
+        parameters = declaration["parameters_json_schema"]
         self.assertEqual(declaration["name"], "example")
         self.assertEqual(declaration["description"], "Example tool.")
+        self.assertNotIn("parameters", declaration)
+        self.assertIs(parameters, self.tools[0]["parameters"])
         self.assertEqual(parameters["required"], ["mode"])
         self.assertEqual(
             parameters["properties"]["mode"]["enum"],
@@ -60,8 +62,12 @@ class ToolConvertersTest(unittest.TestCase):
             parameters["properties"]["items"]["items"]["required"],
             ["name"],
         )
-        self.assertNotIn("additionalProperties", str(converted))
-        self.assertNotIn("additional_properties", str(converted))
+        self.assertFalse(parameters["additionalProperties"])
+        self.assertFalse(
+            parameters["properties"]["items"]["items"][
+                "additionalProperties"
+            ]
+        )
 
     def test_openai_conversion_uses_text_tool_catalog(self):
         original = deepcopy(self.tools)

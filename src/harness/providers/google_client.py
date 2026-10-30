@@ -57,23 +57,19 @@ class GeminiClient:
         tools: list[ToolDefinition] | None = None,
     ) -> ModelResponse:
         native_tools = self._tool_converter.convert_tools("gemini", tools or [])
+
         contents, system_instruction = map_messages(messages)
 
         if not contents:
             raise ValueError("Cannot generate response with empty conversation.")
 
-        try:
-            config = types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                tools=native_tools or None,
-            )
-        except ValueError as error:
-            tool_names = ", ".join(tool["name"] for tool in tools or [])
-            raise ValueError(
-                "Gemini does not support one or more tool schemas"
-                f" ({tool_names}): {error}"
-            ) from error
+        config: dict[str, object] = {
+            "system_instruction": system_instruction,
+            "tools": native_tools or None,
+        }
+
         response = self._fetch_response(contents, config)
+
         response_text = get_response_text(response)
 
         if not response_text.strip() and not has_function_calls(response):
@@ -96,7 +92,7 @@ class GeminiClient:
     def _fetch_response(
         self,
         contents: list[types.Content],
-        config: types.GenerateContentConfig,
+        config: dict[str, object],
     ) -> types.GenerateContentResponse:
         try:
             return self._client.models.generate_content(

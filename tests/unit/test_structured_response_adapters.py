@@ -45,11 +45,14 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
             Message(role="user", content="Continue"),
         ]).text, "Done")
         config = client._client.models.generate_content.call_args.kwargs["config"]
-        self.assertIsNone(config.response_mime_type)
-        self.assertIsNone(config.tools)
-        self.assertIn("Project instructions", config.system_instruction)
-        self.assertIn(GEMINI_RESPONSE_INSTRUCTION, config.system_instruction)
-        self.assertIn("respond with only the user-facing", config.system_instruction)
+        self.assertNotIn("response_mime_type", config)
+        self.assertIsNone(config["tools"])
+        self.assertIn("Project instructions", config["system_instruction"])
+        self.assertIn(GEMINI_RESPONSE_INSTRUCTION, config["system_instruction"])
+        self.assertIn(
+            "respond with only the user-facing",
+            config["system_instruction"],
+        )
 
     def test_gemini_empty_response_reports_provider_reason(self):
         client = GeminiClient.__new__(GeminiClient)
@@ -111,8 +114,8 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
 
         self.assertEqual(response, ModelResponse(text="Hi! How can I help?"))
         config = client._client.models.generate_content.call_args.kwargs["config"]
-        self.assertIsNone(config.response_mime_type)
-        self.assertIsNotNone(config.tools)
+        self.assertNotIn("response_mime_type", config)
+        self.assertIsNotNone(config["tools"])
 
     def test_gemini_preserves_command_specific_json_without_outer_envelope(self):
         client = GeminiClient.__new__(GeminiClient)
@@ -179,7 +182,7 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         self.assertIn(catalog_text, instruction)
         self.assertEqual(contents[0].parts[0].text, "Continue")
 
-    def test_gemini_rejects_unsupported_schema_constraints_explicitly(self):
+    def test_gemini_passes_json_schema_keywords_to_sdk(self):
         schemas = [{
             "name": "unsupported",
             "description": "Unsupported schema example.",
@@ -199,13 +202,22 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         client._client = Mock()
         client._model = "test-model"
         client._tool_converter = ToolConverterFacade()
+        client._client.models.generate_content.return_value = self.gemini_response(
+            "Done"
+        )
 
-        with self.assertRaisesRegex(ValueError, "does not support"):
-            client.generate(
-                [Message(role="user", content="Use the unsupported tool")],
-                schemas,
-            )
-        client._client.models.generate_content.assert_not_called()
+        client.generate(
+            [Message(role="user", content="Use the unsupported tool")],
+            schemas,
+        )
+
+        config = client._client.models.generate_content.call_args.kwargs["config"]
+        schema = config["tools"][0]["function_declarations"][0][
+            "parameters_json_schema"
+        ]
+        self.assertTrue(
+            schema["properties"]["value"]["unsupportedKeyword"]
+        )
 
     def test_gemini_receives_structured_native_tool_definitions(self):
         tool = Mock()
@@ -222,7 +234,14 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
                 "paths": {
                     "type": "array",
                     "description": "Paths to process.",
-                    "items": {"type": "string"},
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string"},
+                        },
+                        "required": ["path"],
+                        "additionalProperties": False,
+                    },
                     "minItems": 1,
                 },
             },
@@ -244,7 +263,10 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
                                 types.Part(
                                     function_call=types.FunctionCall(
                                         name="example",
-                                        args={"mode": "safe", "paths": ["a"]},
+                                        args={
+                                            "mode": "safe",
+                                            "paths": [{"path": "a"}],
+                                        },
                                     )
                                 )
                             ],
@@ -264,24 +286,29 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
             [
                 ToolCall(
                     "example",
-                    {"mode": "safe", "paths": ["a"]},
+                    {"mode": "safe", "paths": [{"path": "a"}]},
                 )
             ],
         )
         config = client._client.models.generate_content.call_args.kwargs["config"]
-        declaration = config.tools[0].function_declarations[0]
-        self.assertEqual(declaration.name, "example")
-        self.assertEqual(declaration.parameters.required, ["mode", "paths"])
-        self.assertNotIn(
-            "additionalProperties",
-            declaration.parameters.model_dump(by_alias=True, exclude_none=True),
-        )
+        declaration = config["tools"][0]["function_declarations"][0]
+        self.assertEqual(declaration["name"], "example")
+        self.assertNotIn("parameters", declaration)
         self.assertEqual(
-            declaration.parameters.properties["mode"].enum,
+            declaration["parameters_json_schema"],
+            schemas[0]["parameters"],
+        )
+        self.assertFalse(declaration["parameters_json_schema"]["additionalProperties"])
+        nested_items = declaration["parameters_json_schema"]["properties"][
+            "paths"
+        ]["items"]
+        self.assertFalse(nested_items["additionalProperties"])
+        self.assertEqual(
+            declaration["parameters_json_schema"]["properties"]["mode"]["enum"],
             ["safe", "fast"],
         )
         self.assertEqual(
-            declaration.parameters.properties["paths"].min_items,
+            declaration["parameters_json_schema"]["properties"]["paths"]["minItems"],
             1,
         )
 
@@ -302,8 +329,9 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
             for declaration in declarations
             if declaration["name"] == "git"
         )
-        command_name = git_declaration["parameters"]["properties"]["command_name"]
-        command = git_declaration["parameters"]["properties"]["command"]
+        parameters = git_declaration["parameters_json_schema"]
+        command_name = parameters["properties"]["command_name"]
+        command = parameters["properties"]["command"]
         self.assertIn("commit", command_name["enum"])
         self.assertEqual(command["items"]["type"], "string")
         self.assertGreater(command["maxItems"], 1)
