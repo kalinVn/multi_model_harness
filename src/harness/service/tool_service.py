@@ -1,6 +1,7 @@
 from collections.abc import Callable
 
 from harness.builder.model_message_builder import ModelMessageBuilder
+from harness.builder.tool_parameters_builder import TOOLS_CONTEXT_HEADER
 from harness.builder.tool_call_context_builder import build_tool_calls_context
 from harness.builder.tool_result_context_builder import build_tool_results_context
 from harness.domain.message import Message
@@ -8,6 +9,7 @@ from harness.domain.session import Session
 from harness.domain.tool_call import ToolCall
 from harness.domain.tool_result import ToolResult
 from harness.models.response import ModelResponse
+from harness.models.tool_definition import ToolDefinition
 from harness.tools.tool_registry import ToolRegistry
 
 
@@ -23,6 +25,21 @@ class ToolService:
         self._tool_registry = tool_registry
         self._model_message_builder = model_message_builder
         self._on_tool_result = on_tool_result
+
+    def get_available_tools(
+        self,
+        tool_parameters: list[ToolDefinition],
+        model_messages: list[Message],
+    ) -> list[ToolDefinition]:
+        """Return tool parameters when the model context enables tools."""
+        if any(
+            message.role == "system"
+            and message.content.startswith(TOOLS_CONTEXT_HEADER)
+            for message in model_messages
+        ):
+            return tool_parameters
+
+        return []
 
     def execute_tool_calls(
         self,

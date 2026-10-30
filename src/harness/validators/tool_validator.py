@@ -2,6 +2,7 @@ import re
 from typing import Any
 
 from harness.contracts.tool import Tool
+from harness.models.tool_definition import ToolDefinition
 
 
 class ToolValidator:
@@ -14,13 +15,10 @@ class ToolValidator:
         if not isinstance(tools, list):
             raise ValueError("Tools must be provided as a list.")
 
-        names: set[str] = set()
+        cls._validate_names([getattr(tool, "name", None) for tool in tools])
+
         for tool in tools:
-            name = getattr(tool, "name", None)
-            cls._validate_tool_name(name)
-            if name in names:
-                raise ValueError(f"Duplicate tool schema: {name}")
-            names.add(name)
+            name = tool.name
 
             description = getattr(tool, "description", None)
             if not isinstance(description, str):
@@ -31,6 +29,19 @@ class ToolValidator:
                 raise ValueError(
                     f"Tool must define get_parameter_object(): {name}"
                 )
+
+    @classmethod
+    def validate_tool_names(cls, tools: list[ToolDefinition]) -> None:
+        cls._validate_names([tool["name"] for tool in tools])
+
+    @classmethod
+    def _validate_names(cls, names: list[Any]) -> None:
+        seen_names: set[str] = set()
+        for name in names:
+            cls._validate_tool_name(name)
+            if name in seen_names:
+                raise ValueError(f"Duplicate tool schema: {name}")
+            seen_names.add(name)
 
     @classmethod
     def validate_parameter_object(

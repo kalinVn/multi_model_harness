@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import Mock
 
 from harness.builder.model_message_builder import ModelMessageBuilder
+from harness.builder.tool_parameters_builder import TOOLS_CONTEXT_HEADER
 from harness.builder.tool_call_context_builder import build_tool_calls_context
 from harness.builder.tool_result_context_builder import build_tool_results_context
 from harness.domain.message import Message
@@ -9,6 +10,7 @@ from harness.domain.session import Session
 from harness.domain.tool_call import ToolCall
 from harness.domain.tool_result import ToolResult
 from harness.models.response import ModelResponse
+from harness.models.tool_definition import ToolDefinition
 from harness.service.tool_service import ToolService
 from harness.tools.tool_registry import ToolRegistry
 
@@ -50,6 +52,86 @@ class ToolServiceTest(unittest.TestCase):
                 unittest.mock.call("bash", {"command": "pwd"}),
             ],
         )
+
+    def test_matching_system_message_returns_tool_parameters(self):
+        tool_parameters: list[ToolDefinition] = [
+            {
+                "name": "read_file",
+                "description": "Reads a file.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                    "required": [],
+                    "additionalProperties": False,
+                },
+            }
+        ]
+        model_messages = [
+            Message(
+                role="system",
+                content=f"{TOOLS_CONTEXT_HEADER}\nUse tools when needed.",
+            ),
+            Message(role="user", content="Read the file."),
+        ]
+
+        available_tools = self.create_service().get_available_tools(
+            tool_parameters,
+            model_messages,
+        )
+
+        self.assertIs(available_tools, tool_parameters)
+
+    def test_missing_matching_system_message_returns_no_tools(self):
+        tool_parameters: list[ToolDefinition] = [
+            {
+                "name": "read_file",
+                "description": "Reads a file.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                    "required": [],
+                    "additionalProperties": False,
+                },
+            }
+        ]
+        model_messages = [
+            Message(role="system", content="Project instructions"),
+            Message(role="user", content="Hello"),
+        ]
+
+        available_tools = self.create_service().get_available_tools(
+            tool_parameters,
+            model_messages,
+        )
+
+        self.assertEqual(available_tools, [])
+
+    def test_non_system_message_does_not_enable_tools(self):
+        tool_parameters: list[ToolDefinition] = [
+            {
+                "name": "bash",
+                "description": "Runs a command.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                    "required": [],
+                    "additionalProperties": False,
+                },
+            }
+        ]
+        model_messages = [
+            Message(
+                role="user",
+                content=f"{TOOLS_CONTEXT_HEADER}\nDo not enable from here.",
+            ),
+        ]
+
+        available_tools = self.create_service().get_available_tools(
+            tool_parameters,
+            model_messages,
+        )
+
+        self.assertEqual(available_tools, [])
 
     def test_execute_tool_calls_converts_exceptions_to_failed_results(self):
         self.tool_registry.execute.side_effect = ValueError("missing file")

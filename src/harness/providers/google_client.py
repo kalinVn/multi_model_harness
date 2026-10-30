@@ -5,7 +5,7 @@ from google import genai
 from google.genai import types
 from google.genai.errors import ClientError, ServerError
 
-from harness.builder.gemini_schema_builder import GeminiSchemaBuilder
+from harness.converter.tool_converter_facade import ToolConverterFacade
 from harness.domain.message import Message
 from harness.models.errors import (
     ModelConnectionError,
@@ -22,7 +22,10 @@ from harness.mappers.google_mapper import (
 
 
 class GeminiClient:
-    def __init__(self, schema_builder: GeminiSchemaBuilder | None = None) -> None:
+    def __init__(
+        self,
+        tool_converter: ToolConverterFacade | None = None,
+    ) -> None:
         api_key = os.getenv("GEMINI_API_KEY")
 
         if not api_key:
@@ -46,23 +49,30 @@ class GeminiClient:
         )
 
         self._model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-        self._schema_builder = schema_builder or GeminiSchemaBuilder()
+        self._tool_converter = tool_converter or ToolConverterFacade()
 
     def generate(
         self,
         messages: list[Message],
         tools: list[ToolDefinition] | None = None,
     ) -> ModelResponse:
-        native_tools = self._schema_builder.build_schema(tools or [])
+        native_tools = self._tool_converter.convert_tools("gemini", tools or [])
         contents, system_instruction = map_messages(messages)
 
         if not contents:
             raise ValueError("Cannot generate response with empty conversation.")
 
-        config = types.GenerateContentConfig(
-            system_instruction=system_instruction,
-            tools=native_tools or None,
-        )
+        try:
+            config = types.GenerateContentConfig(
+                system_instruction=system_instruction,
+                tools=native_tools or None,
+            )
+        except ValueError as error:
+            tool_names = ", ".join(tool["name"] for tool in tools or [])
+            raise ValueError(
+                "Gemini does not support one or more tool schemas"
+                f" ({tool_names}): {error}"
+            ) from error
         response = self._fetch_response(contents, config)
         response_text = get_response_text(response)
 

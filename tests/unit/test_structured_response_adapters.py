@@ -4,11 +4,11 @@ from unittest.mock import Mock
 
 from google.genai import types
 
-from harness.builder.gemini_schema_builder import GeminiSchemaBuilder
 from harness.builder.tool_parameters_builder import build_tool_parameters
 from harness.config.response.gemini_response_instruction import (
     GEMINI_RESPONSE_INSTRUCTION,
 )
+from harness.converter.tool_converter_facade import ToolConverterFacade
 from harness.domain.message import Message
 from harness.domain.tool_call import ToolCall
 from harness.models.response import ModelResponse
@@ -38,7 +38,7 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         client = GeminiClient.__new__(GeminiClient)
         client._client = Mock()
         client._model = "test-model"
-        client._schema_builder = GeminiSchemaBuilder()
+        client._tool_converter = ToolConverterFacade()
         client._client.models.generate_content.return_value = self.gemini_response("Done")
         self.assertEqual(client.generate([
             Message(role="system", content="Project instructions"),
@@ -55,7 +55,7 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         client = GeminiClient.__new__(GeminiClient)
         client._client = Mock()
         client._model = "test-model"
-        client._schema_builder = GeminiSchemaBuilder()
+        client._tool_converter = ToolConverterFacade()
         cases = [
             (types.GenerateContentResponse(), "no response text"),
             (types.GenerateContentResponse(prompt_feedback={"block_reason": "SAFETY"}), "SAFETY"),
@@ -76,7 +76,7 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         client = GeminiClient.__new__(GeminiClient)
         client._client = Mock()
         client._model = "test-model"
-        client._schema_builder = GeminiSchemaBuilder()
+        client._tool_converter = ToolConverterFacade()
         client._client.models.generate_content.return_value = self.gemini_response(
             "136."
         )
@@ -102,7 +102,7 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         client = GeminiClient.__new__(GeminiClient)
         client._client = Mock()
         client._model = "test-model"
-        client._schema_builder = GeminiSchemaBuilder()
+        client._tool_converter = ToolConverterFacade()
         client._client.models.generate_content.return_value = self.gemini_response(
             "Hi! How can I help?"
         )
@@ -118,7 +118,7 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         client = GeminiClient.__new__(GeminiClient)
         client._client = Mock()
         client._model = "test-model"
-        client._schema_builder = GeminiSchemaBuilder()
+        client._tool_converter = ToolConverterFacade()
         command_response = '{"answer":"Done","command_summary":"Completed."}'
         client._client.models.generate_content.return_value = self.gemini_response(
             command_response
@@ -133,7 +133,7 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         client = GeminiClient.__new__(GeminiClient)
         client._client = Mock()
         client._model = "test-model"
-        client._schema_builder = GeminiSchemaBuilder()
+        client._tool_converter = ToolConverterFacade()
         raw = json.dumps({
             "text": "Файлът беше прочетен успешно.",
             "tool_result_summaries": [
@@ -195,9 +195,17 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
                 "additionalProperties": False,
             },
         }]
+        client = GeminiClient.__new__(GeminiClient)
+        client._client = Mock()
+        client._model = "test-model"
+        client._tool_converter = ToolConverterFacade()
 
         with self.assertRaisesRegex(ValueError, "does not support"):
-            google_tools(schemas)
+            client.generate(
+                [Message(role="user", content="Use the unsupported tool")],
+                schemas,
+            )
+        client._client.models.generate_content.assert_not_called()
 
     def test_gemini_receives_structured_native_tool_definitions(self):
         tool = Mock()
@@ -225,7 +233,7 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         client = GeminiClient.__new__(GeminiClient)
         client._client = Mock()
         client._model = "test-model"
-        client._schema_builder = GeminiSchemaBuilder()
+        client._tool_converter = ToolConverterFacade()
         client._client.models.generate_content.return_value = (
             types.GenerateContentResponse(
                 candidates=[
@@ -284,21 +292,21 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
 
         native_tools = google_tools(schemas)
 
-        declarations = native_tools[0].function_declarations
+        declarations = native_tools[0]["function_declarations"]
         self.assertEqual(
-            [declaration.name for declaration in declarations],
+            [declaration["name"] for declaration in declarations],
             [schema["name"] for schema in schemas],
         )
         git_declaration = next(
             declaration
             for declaration in declarations
-            if declaration.name == "git"
+            if declaration["name"] == "git"
         )
-        command_name = git_declaration.parameters.properties["command_name"]
-        command = git_declaration.parameters.properties["command"]
-        self.assertIn("commit", command_name.enum)
-        self.assertEqual(command.items.type, types.Type.STRING)
-        self.assertGreater(command.max_items, 1)
+        command_name = git_declaration["parameters"]["properties"]["command_name"]
+        command = git_declaration["parameters"]["properties"]["command"]
+        self.assertIn("commit", command_name["enum"])
+        self.assertEqual(command["items"]["type"], "string")
+        self.assertGreater(command["maxItems"], 1)
 
     def test_adapters_return_contract_and_propagate_invalid_responses(self):
         raw = json.dumps(dict(text="Done", tool_calls=[],
@@ -309,7 +317,7 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
                 client._client = Mock()
                 client._model = "test-model"
                 if cls is GeminiClient:
-                    client._schema_builder = GeminiSchemaBuilder()
+                    client._tool_converter = ToolConverterFacade()
                 endpoint = (client._client.models.generate_content if cls is GeminiClient
                             else client._client.responses.create)
                 if cls is GeminiClient:

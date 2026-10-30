@@ -1,11 +1,12 @@
 import json
+from typing import Any
 
 from google.genai import types
 
-from harness.builder.gemini_schema_builder import GeminiSchemaBuilder
 from harness.config.response.gemini_response_instruction import (
     GEMINI_RESPONSE_INSTRUCTION,
 )
+from harness.converter.tool_converter_facade import ToolConverterFacade
 from harness.domain.message import Message
 from harness.domain.tool_call import ToolCall
 from harness.models.response import ModelResponse
@@ -15,9 +16,12 @@ from harness.parser.response_parser import prepare_model_response
 
 def map_tool_definitions(
     tool_definitions: list[ToolDefinition],
-) -> list[types.Tool]:
-    """Convert shared definitions to validated Gemini declarations."""
-    return GeminiSchemaBuilder().build_schema(tool_definitions)
+) -> list[dict[str, Any]]:
+    """Convert shared definitions to Gemini declaration dictionaries."""
+    return ToolConverterFacade().convert_tools(
+        "gemini",
+        tool_definitions,
+    )
 
 
 def map_messages(
