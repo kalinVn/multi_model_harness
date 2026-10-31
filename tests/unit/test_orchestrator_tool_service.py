@@ -82,8 +82,8 @@ class MainOrchestratorToolServiceIntegrationTest(unittest.TestCase):
         client.generate.side_effect = [
             ModelResponse(
                 tool_calls=[
-                    ToolCall("read_file", {"path": "first.txt"}),
-                    ToolCall("bash", {"command": "pwd"}),
+                    ToolCall("read_file", {"paths": ["first.txt"]}),
+                    ToolCall("bash", {"commands": ["pwd"]}),
                 ]
             ),
             ModelResponse(text="Done"),

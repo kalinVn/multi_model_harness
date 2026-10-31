@@ -1,3 +1,4 @@
+import json
 import subprocess
 import tempfile
 import unittest
@@ -6,6 +7,7 @@ from unittest.mock import patch
 
 from harness.config.bash_tool_config import BASH_ALLOWED_ENVIRONMENT_VARIABLES
 from harness.tools.bash_tool import BashTool
+from harness.tools.tool_registry import ToolRegistry
 
 
 class BashToolTest(unittest.TestCase):
@@ -44,9 +46,12 @@ class BashToolTest(unittest.TestCase):
                 return_value=completed_process,
             ) as run_bash,
         ):
-            output = self.tool.execute({"command": "printf safe"})
+            output = json.loads(
+                self.tool.execute({"commands": ["printf safe"]})
+            )
 
-        self.assertIn("Output:\nsafe", output)
+        self.assertEqual(output["results"][0]["stdout"], "safe")
+        self.assertTrue(output["results"][0]["success"])
         child_environment = run_bash.call_args.kwargs["env"]
         self.assertEqual(
             set(child_environment),
@@ -75,9 +80,44 @@ class BashToolTest(unittest.TestCase):
                 self.assertNotIn(name, child_environment)
 
     def test_execute_retains_shell_functionality(self):
-        output = self.tool.execute({"command": "printf '%s' \"$PWD\""})
+        output = json.loads(
+            self.tool.execute({"commands": ["printf '%s' \"$PWD\""]})
+        )
 
-        self.assertIn(f"Output:\n{self.working_directory}", output)
+        self.assertEqual(
+            output["results"][0]["stdout"],
+            str(self.working_directory),
+        )
+
+    def test_executes_multiple_commands_and_continues_after_failure(self):
+        output = json.loads(
+            self.tool.execute(
+                {
+                    "commands": [
+                        "printf first",
+                        "printf failure >&2; exit 7",
+                        "printf third",
+                    ]
+                }
+            )
+        )
+
+        results = output["results"]
+        self.assertFalse(output["success"])
+        self.assertEqual([result["stdout"] for result in results], ["first", "", "third"])
+        self.assertEqual([result["success"] for result in results], [True, False, True])
+        self.assertEqual(results[1]["exit_code"], 7)
+        self.assertEqual(results[1]["stderr"], "failure")
+
+    def test_rejects_undeclared_arguments(self):
+        registry = ToolRegistry()
+        registry.register(self.tool)
+
+        with self.assertRaisesRegex(ValueError, "undeclared parameters: shell"):
+            registry.execute(
+                "bash",
+                {"commands": ["pwd"], "shell": "/bin/sh"}
+            )
 
 
 if __name__ == "__main__":

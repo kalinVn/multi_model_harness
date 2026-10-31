@@ -30,13 +30,11 @@ class ToolConvertersTest(unittest.TestCase):
                             "name": {"type": "string"},
                         },
                         "required": ["name"],
-                        "additionalProperties": False,
                     },
                     "minItems": 1,
                 },
             },
             "required": ["mode"],
-            "additionalProperties": False,
         }
         self.tools = build_tool_parameters([tool])
 
@@ -62,11 +60,10 @@ class ToolConvertersTest(unittest.TestCase):
             parameters["properties"]["items"]["items"]["required"],
             ["name"],
         )
-        self.assertFalse(parameters["additionalProperties"])
-        self.assertFalse(
-            parameters["properties"]["items"]["items"][
-                "additionalProperties"
-            ]
+        self.assertNotIn("additionalProperties", parameters)
+        self.assertNotIn(
+            "additionalProperties",
+            parameters["properties"]["items"]["items"],
         )
 
     def test_openai_conversion_uses_text_tool_catalog(self):
@@ -80,6 +77,7 @@ class ToolConvertersTest(unittest.TestCase):
         self.assertIn("Description: Example tool.", converted)
         self.assertIn("Arguments:", converted)
         self.assertIn('"enum":["safe","fast"]', converted)
+        self.assertIn("Additional arguments: allowed.", converted)
 
     def test_facade_selects_provider_converter(self):
         facade = ToolConverterFacade()

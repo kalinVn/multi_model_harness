@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -23,20 +24,23 @@ class BashTool:
     @property
     def description(self) -> str:
         return (
-            "Executes a Bash command in the project "
-            "working directory."
+            "Executes one or more Bash commands sequentially in the project "
+            "working directory. Returns one result per command and continues "
+            "after command failures."
         )
 
     def get_parameter_object(self) -> dict[str, Any]:
         return {
             "type": "object",
             "properties": {
-                "command": {
-                    "type": "string",
-                    "description": "Bash command to execute.",
+                "commands": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "minItems": 1,
+                    "description": "Bash commands to execute in order.",
                 },
             },
-            "required": ["command"],
+            "required": ["commands"],
             "additionalProperties": False,
         }
 
@@ -44,13 +48,10 @@ class BashTool:
         self,
         arguments: dict[str, Any],
     ) -> str:
-        command = arguments.get("command")
+        commands = arguments["commands"]
 
-        if not isinstance(command, str):
-            raise ValueError("bash requires a string 'command'.")
-
-        if not command.strip():
-            raise ValueError("bash requires a non-empty 'command'.")
+        if any(not command.strip() for command in commands):
+            raise ValueError("bash commands must be non-empty.")
 
         environment = {
             name: os.environ[name]
@@ -58,39 +59,45 @@ class BashTool:
             if name in os.environ
         }
 
-        try:
-            completed_process = subprocess.run(
-                command,
-                cwd=self._working_directory,
-                env=environment,
-                shell=True,
-                executable="/bin/bash",
-                capture_output=True,
-                text=True,
-                timeout=self._timeout_seconds,
-                check=False,
-            )
+        results: list[dict[str, Any]] = []
+        for command in commands:
+            result: dict[str, Any] = {"command": command}
 
-        except subprocess.TimeoutExpired as error:
-            raise RuntimeError(
-                "Bash command timed out after "
-                f"{self._timeout_seconds} seconds."
-            ) from error
+            try:
+                completed_process = subprocess.run(
+                    command,
+                    cwd=self._working_directory,
+                    env=environment,
+                    shell=True,
+                    executable="/bin/bash",
+                    capture_output=True,
+                    text=True,
+                    timeout=self._timeout_seconds,
+                    check=False,
+                )
+                result.update(
+                    success=completed_process.returncode == 0,
+                    exit_code=completed_process.returncode,
+                    stdout=completed_process.stdout.strip(),
+                    stderr=completed_process.stderr.strip(),
+                )
+            except subprocess.TimeoutExpired:
+                result.update(
+                    success=False,
+                    error=(
+                        "Bash command timed out after "
+                        f"{self._timeout_seconds} seconds."
+                    ),
+                )
+            except Exception as error:
+                result.update(success=False, error=str(error))
 
-        parts = [
-            f"Exit code: {completed_process.returncode}"
-        ]
+            results.append(result)
 
-        stdout = completed_process.stdout.strip()
-        stderr = completed_process.stderr.strip()
-
-        if stdout:
-            parts.append(f"Output:\n{stdout}")
-
-        if stderr:
-            parts.append(f"Errors:\n{stderr}")
-
-        if not stdout and not stderr:
-            parts.append("No output.")
-
-        return "\n\n".join(parts)
+        return json.dumps(
+            {
+                "success": all(result["success"] for result in results),
+                "results": results,
+            },
+            ensure_ascii=False,
+        )

@@ -324,7 +324,7 @@ class ModelMessageBuilderTest(unittest.TestCase):
             with self.subTest(success=success):
                 client = Mock()
                 client.generate.side_effect = [
-                    ModelResponse(tool_calls=[ToolCall("read_file", {"path": "config.py"})]),
+                    ModelResponse(tool_calls=[ToolCall("read_file", {"paths": ["config.py"]})]),
                     ModelResponse(text="Done"),
                     ModelResponse(text="Next answer"),
                 ]
@@ -346,7 +346,10 @@ class ModelMessageBuilderTest(unittest.TestCase):
                 self.assertIn(raw_output, stored.content)
                 self.assertTrue(any("Raw tool calls:" in message.content for message in session.messages))
                 self.assertEqual(session.messages[-1], Message(role="assistant", content="Done"))
-                runner._tool_registry.execute.assert_called_once_with("read_file", {"path": "config.py"})
+                runner._tool_registry.execute.assert_called_once_with(
+                    "read_file",
+                    {"paths": ["config.py"]},
+                )
 
                 self.assertEqual(runner.handle(Request.create("Continue")), "Next answer")
                 for call in client.generate.call_args_list[1:]:
@@ -460,7 +463,7 @@ class ModelMessageBuilderTest(unittest.TestCase):
         client = Mock()
         client.generate.side_effect = [
             ModelResponse(
-                tool_calls=[ToolCall("read_file", {"path": "next.py"})],
+                tool_calls=[ToolCall("read_file", {"paths": ["next.py"]})],
                 tool_result_output_requests=[previous.id],
             ),
             ModelResponse(text="Done"),
@@ -500,7 +503,7 @@ class ModelMessageBuilderTest(unittest.TestCase):
         )
         runner._tool_registry.execute.assert_called_once_with(
             "read_file",
-            {"path": "next.py"},
+            {"paths": ["next.py"]},
         )
 
     def test_runner_publishes_multiple_tool_results_once_in_execution_order(self):
@@ -508,8 +511,8 @@ class ModelMessageBuilderTest(unittest.TestCase):
         client.generate.side_effect = [
             ModelResponse(
                 tool_calls=[
-                    ToolCall("bash", {"command": "printf 'first\\nsecond\\n'"}),
-                    ToolCall("read_file", {"path": "missing.txt"}),
+                    ToolCall("bash", {"commands": ["printf 'first\\nsecond\\n'"]}),
+                    ToolCall("read_file", {"paths": ["missing.txt"]}),
                 ]
             ),
             ModelResponse(text="Done"),
@@ -543,8 +546,8 @@ class ModelMessageBuilderTest(unittest.TestCase):
         client.generate.side_effect = [
             ModelResponse(
                 tool_calls=[
-                    ToolCall("bash", {"command": "first"}),
-                    ToolCall("bash", {"command": "second"}),
+                    ToolCall("bash", {"commands": ["first"]}),
+                    ToolCall("bash", {"commands": ["second"]}),
                 ]
             ),
             ModelResponse(text="Done"),
@@ -554,10 +557,11 @@ class ModelMessageBuilderTest(unittest.TestCase):
             runner = MainOrchestrator(client, on_tool_result=listener)
 
         def execute(_name, arguments):
-            if arguments["command"] == "second":
+            command = arguments["commands"][0]
+            if command == "second":
                 self.assertEqual(listener.call_count, 1)
                 self.assertEqual(listener.call_args.args[0].output, "first output")
-            return f"{arguments['command']} output"
+            return f"{command} output"
 
         runner._tool_registry.execute = Mock(side_effect=execute)
 
@@ -567,7 +571,7 @@ class ModelMessageBuilderTest(unittest.TestCase):
     def test_command_context_and_final_response_are_preserved(self):
         client = Mock()
         client.generate.side_effect = [
-            ModelResponse(tool_calls=[ToolCall("read_file", {"path": "config.py"})]),
+            ModelResponse(tool_calls=[ToolCall("read_file", {"paths": ["config.py"]})]),
             ModelResponse(text='{"answer": "Done", "command_summary": "Read configuration."}'),
         ]
         command_context = Message(role="system", content="Command instructions")
@@ -638,7 +642,10 @@ class ModelMessageBuilderTest(unittest.TestCase):
     def test_summary_only_command_response_is_retried_for_final_answer(self):
         client = Mock()
         client.generate.side_effect = [
-            ModelResponse(tool_calls=[ToolCall("write_file", {"path": "result.txt"})]),
+            ModelResponse(tool_calls=[ToolCall(
+                "write_file",
+                {"files": [{"path": "result.txt", "content": "result"}]},
+            )]),
             ModelResponse(
                 tool_result_summaries=[
                     ToolResultSummary("result-id", "The file was created.")

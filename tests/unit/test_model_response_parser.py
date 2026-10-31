@@ -31,8 +31,8 @@ class ModelResponseParserTest(unittest.TestCase):
         self.assertEqual(parsed.tool_result_output_requests, list(IDS))
 
     def test_one_and_multiple_calls_with_empty_text_and_summaries(self):
-        calls = [dict(tool="read_file", arguments={"path": "a.py"}),
-                 dict(tool="bash", arguments={"command": "pwd", "nested": [None, True, {"x": 1}]})]
+        calls = [dict(tool="read_file", arguments={"paths": ["a.py"]}),
+                 dict(tool="bash", arguments={"commands": ["pwd"], "nested": [None, True, {"x": 1}]})]
         summaries = [dict(id=id_, summary=f"Result {i}") for i, id_ in enumerate(IDS)]
         for count in (1, 2):
             with self.subTest(count=count):

@@ -8,11 +8,12 @@ from harness.config.sensitive_data_redaction_config import (
 
 GIT_TOOL_NAME = "git"
 GIT_TOOL_DESCRIPTION = (
-    "Runs allowlisted Git operations in the project repository. "
-    "Provide the supported logical command_name and a supported safe "
-    "Git argument array in command, excluding the git executable. "
+    "Runs one or more allowlisted Git commands sequentially in the project "
+    "repository. Provide each command as a shell-style string without the "
+    "git executable. "
     "Read, local write, and remote operations are separately restricted. "
-    "Destructive and force variants are unavailable."
+    "Destructive and force variants are unavailable. All commands are "
+    "validated before execution; runtime failures do not stop later commands."
 )
 
 GIT_WRITE_OPERATIONS_ENVIRONMENT_VARIABLE = (
@@ -249,7 +250,7 @@ REMOTE_OPERATIONS = {
     if definition["type"] == REMOTE_OPERATION_TYPE
 }
 SUPPORTED_OPERATIONS = set(GIT_OPERATION_DEFINITIONS)
-TOP_LEVEL_ARGUMENTS = frozenset({"command_name", "command"})
+TOP_LEVEL_ARGUMENTS = frozenset({"commands"})
 
 DEFAULT_REVISION = "HEAD"
 DEFAULT_MAX_COUNT = 20
@@ -259,6 +260,7 @@ MAX_MESSAGE_LENGTH = 1000
 DEFAULT_STASH_INDEX = 0
 MAX_STASH_INDEX = 1000
 MAX_COMMAND_TOKENS = MAX_PATHS + 3
+MAX_COMMANDS = 20
 RESET_MODES = ("soft", "mixed")
 RESET_MODE_VALUES = frozenset(RESET_MODES)
 
@@ -291,8 +293,9 @@ GIT_ARGUMENT_PROPERTIES: dict[str, dict[str, Any]] = {
 }
 
 GIT_COMMAND_ARGUMENT_DESCRIPTION = (
-    "Safe Git argument array, excluding the git executable. Familiar add and "
-    "commit syntax is accepted and normalized to the canonical form. "
+    "Safe Git command string, excluding the git executable. Shell quoting is "
+    "parsed into arguments, but the command is never executed through a shell. "
+    "Familiar add and commit syntax is accepted and normalized. "
     "Use exactly one supported form: status --short --branch "
     "--untracked-files=all; diff --no-ext-diff --no-textconv --no-color "
     "[--cached] -- [path]; log --oneline --no-decorate --max-count=N; "
@@ -316,21 +319,17 @@ GIT_COMMAND_ARGUMENT_DESCRIPTION = (
 GIT_TOOL_PARAMETER_OBJECT: dict[str, Any] = {
     "type": "object",
     "properties": {
-        "command_name": {
-            "type": "string",
-            "enum": sorted(SUPPORTED_OPERATIONS),
-            "description": (
-                "The supported logical Git operation represented by command."
-            ),
-        },
-        "command": {
+        "commands": {
             "type": "array",
             "items": {"type": "string"},
             "minItems": 1,
-            "maxItems": MAX_COMMAND_TOKENS,
-            "description": GIT_COMMAND_ARGUMENT_DESCRIPTION,
+            "maxItems": MAX_COMMANDS,
+            "description": (
+                "Git commands to execute in order. Each item must match one "
+                f"supported safe form. {GIT_COMMAND_ARGUMENT_DESCRIPTION}"
+            ),
         },
     },
-    "required": ["command_name", "command"],
+    "required": ["commands"],
     "additionalProperties": False,
 }

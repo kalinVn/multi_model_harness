@@ -1,3 +1,5 @@
+import json
+
 from harness.builder.command_context_builder import create_context_from_command_obj
 from harness.domain.message import Message
 from harness.loader.command_loader import CommandLoader
@@ -18,11 +20,15 @@ def get_command_message_obj(
     command_path = command_resolver.resolve(command_name)
 
     args = {
-        "path": str(command_path),
+        "paths": [str(command_path)],
     }
 
     # Read the command Markdown file, such as test_write_file.md.
-    read_file_content = tool_registry.execute("read_file", args)
+    output = json.loads(tool_registry.execute("read_file", args))
+    result = output["results"][0]
+    if not result["success"]:
+        raise RuntimeError(result["error"])
+    read_file_content = result["content"]
 
     command_obj = command_loader.get_command_object(read_file_content)
 

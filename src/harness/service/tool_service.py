@@ -1,3 +1,4 @@
+import json
 from collections.abc import Callable
 
 from harness.builder.model_message_builder import ModelMessageBuilder
@@ -54,7 +55,11 @@ class ToolService:
                     tool_call.name,
                     tool_call.arguments,
                 )
-                tool_result = ToolResult(name=tool_call.name, output=output)
+                tool_result = ToolResult(
+                    name=tool_call.name,
+                    output=output,
+                    success=self._get_output_success(output),
+                )
             except Exception as error:
                 tool_result = ToolResult(
                     name=tool_call.name,
@@ -67,6 +72,17 @@ class ToolService:
                 self._on_tool_result(tool_result)
 
         return tool_results
+
+    @staticmethod
+    def _get_output_success(output: str) -> bool:
+        try:
+            payload = json.loads(output)
+        except (TypeError, json.JSONDecodeError):
+            return True
+
+        if isinstance(payload, dict) and isinstance(payload.get("success"), bool):
+            return payload["success"]
+        return True
 
     def get_requested_tool_result_ids(
         self,

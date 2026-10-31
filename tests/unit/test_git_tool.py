@@ -1,4 +1,5 @@
 import json
+import shlex
 import subprocess
 import tempfile
 import unittest
@@ -75,13 +76,35 @@ class GitToolTest(unittest.TestCase):
         self._git("commit", "-m", message)
         return self._git("rev-parse", "HEAD")
 
+    def _execute(self, tool: GitTool, arguments: dict) -> str:
+        """Run one command through the batch API for focused behavior tests."""
+        batch_arguments = dict(arguments)
+        command = batch_arguments.pop("tokens", None)
+        batch_arguments.pop("expected_operation", None)
+
+        if command is not None:
+            if isinstance(command, list) and all(
+                isinstance(token, str) for token in command
+            ):
+                batch_arguments["commands"] = (
+                    [shlex.join(command)] if command else []
+                )
+            else:
+                batch_arguments["commands"] = command
+
+        output = json.loads(tool.execute(batch_arguments))
+        result = output["results"][0]
+        if not result["success"]:
+            raise RuntimeError(result["error"])
+        return result["output"]
+
     def test_status_reports_repository_changes(self):
         (self.repository / "untracked.txt").write_text("new\n", encoding="utf-8")
 
-        output = self.read_tool.execute(
+        output = self._execute(self.read_tool,
             {
-                "command_name": "status",
-                "command": [
+                "expected_operation": "status",
+                "tokens": [
                     "status",
                     "--short",
                     "--branch",
@@ -93,30 +116,73 @@ class GitToolTest(unittest.TestCase):
         self.assertIn("## main", output)
         self.assertIn("?? untracked.txt", output)
 
+    def test_executes_multiple_commands_and_continues_after_failure(self):
+        output = json.loads(
+            self.write_tool.execute(
+                {
+                    "commands": [
+                        "status --short --branch --untracked-files=all",
+                        "branch -d missing-branch",
+                        "log --oneline --no-decorate --max-count=1",
+                    ]
+                }
+            )
+        )
+
+        results = output["results"]
+        self.assertFalse(output["success"])
+        self.assertEqual(
+            [result["operation"] for result in results],
+            ["status", "branch_delete", "log"],
+        )
+        self.assertEqual(
+            [result["success"] for result in results],
+            [True, False, True],
+        )
+        self.assertIn("Initial commit", results[2]["output"])
+
+    def test_validates_every_command_before_executing_batch(self):
+        new_file = self.repository / "new.txt"
+        new_file.write_text("new\n", encoding="utf-8")
+
+        with self.assertRaises(ValueError):
+            self.write_tool.execute(
+                {
+                    "commands": [
+                        "add -- new.txt",
+                        "reset --hard HEAD",
+                    ]
+                }
+            )
+
+        self.assertEqual(self._git("diff", "--cached", "--name-only"), "")
+
     def test_execute_delegates_validation_to_git_tool_validator(self):
         command = ["status", "--short", "--branch", "--untracked-files=all"]
-        arguments = {"command_name": "status", "command": command}
+        command_text = shlex.join(command)
+        arguments = {"commands": [command_text]}
         with (
             patch.object(
                 self.read_tool._validator,
-                "validate",
-            ) as validate,
+                "prepare_commands",
+                return_value=[(command_text, "status", command)],
+            ) as prepare_commands,
             patch.object(
                 self.read_tool._service,
                 "run",
                 return_value="status output",
             ) as run_git,
         ):
-            output = self.read_tool.execute(arguments)
+            output = self._execute(self.read_tool, arguments)
 
         self.assertEqual(output, "status output")
-        validate.assert_called_once_with(arguments)
+        prepare_commands.assert_called_once_with(arguments)
         run_git.assert_called_once_with(command)
 
     def test_validator_methods_return_none_for_valid_commands(self):
         arguments = {
-            "command_name": "status",
-            "command": [
+            "expected_operation": "status",
+            "tokens": [
                 "status",
                 "--short",
                 "--branch",
@@ -126,11 +192,12 @@ class GitToolTest(unittest.TestCase):
 
         self.assertIsNone(
             self.read_tool._validator.validate_command(
-                arguments["command_name"],
-                arguments["command"],
+                arguments["expected_operation"],
+                arguments["tokens"],
             )
         )
-        self.assertIsNone(self.read_tool._validator.validate(arguments))
+        batch_arguments = {"commands": [shlex.join(arguments["tokens"])]}
+        self.assertIsNone(self.read_tool._validator.validate(batch_arguments))
 
     def test_validator_uses_git_tool_service(self):
         self.assertIs(self.read_tool._validator._service, self.read_tool._service)
@@ -146,8 +213,9 @@ class GitToolTest(unittest.TestCase):
         self.assertIs(GitTool.OPERATIONS, SUPPORTED_OPERATIONS)
         self.assertEqual(
             set(parameter_object["properties"]),
-            {"command_name", "command"},
+            {"commands"},
         )
+        self.assertFalse(parameter_object["additionalProperties"])
 
         self.assertEqual(set(GIT_OPERATION_DEFINITIONS), SUPPORTED_OPERATIONS)
         for operation, definition in GIT_OPERATION_DEFINITIONS.items():
@@ -187,10 +255,10 @@ class GitToolTest(unittest.TestCase):
     def test_diff_supports_worktree_and_staged_changes(self):
         (self.repository / "tracked.txt").write_text("changed\n", encoding="utf-8")
 
-        worktree_output = self.read_tool.execute(
+        worktree_output = self._execute(self.read_tool,
             {
-                "command_name": "diff",
-                "command": [
+                "expected_operation": "diff",
+                "tokens": [
                     "diff",
                     "--no-ext-diff",
                     "--no-textconv",
@@ -203,10 +271,10 @@ class GitToolTest(unittest.TestCase):
         self.assertIn("+changed", worktree_output)
 
         self._git("add", "tracked.txt")
-        staged_output = self.read_tool.execute(
+        staged_output = self._execute(self.read_tool,
             {
-                "command_name": "diff",
-                "command": [
+                "expected_operation": "diff",
+                "tokens": [
                     "diff",
                     "--no-ext-diff",
                     "--no-textconv",
@@ -219,10 +287,10 @@ class GitToolTest(unittest.TestCase):
         self.assertIn("+changed", staged_output)
 
     def test_log_limits_results(self):
-        output = self.read_tool.execute(
+        output = self._execute(self.read_tool,
             {
-                "command_name": "log",
-                "command": ["log", "--oneline", "--no-decorate", "--max-count=1"],
+                "expected_operation": "log",
+                "tokens": ["log", "--oneline", "--no-decorate", "--max-count=1"],
             }
         )
 
@@ -230,20 +298,20 @@ class GitToolTest(unittest.TestCase):
         self.assertEqual(len(output.splitlines()), 1)
 
     def test_branch_list_marks_current_branch(self):
-        output = self.read_tool.execute(
+        output = self._execute(self.read_tool,
             {
-                "command_name": "branch_list",
-                "command": ["branch", "--list", "--no-color"],
+                "expected_operation": "branch_list",
+                "tokens": ["branch", "--list", "--no-color"],
             }
         )
 
         self.assertIn("* main", output)
 
     def test_show_returns_commit_and_file_content(self):
-        commit_output = self.read_tool.execute(
+        commit_output = self._execute(self.read_tool,
             {
-                "command_name": "show",
-                "command": [
+                "expected_operation": "show",
+                "tokens": [
                     "show",
                     "--no-ext-diff",
                     "--no-textconv",
@@ -254,10 +322,10 @@ class GitToolTest(unittest.TestCase):
                 ],
             }
         )
-        file_output = self.read_tool.execute(
+        file_output = self._execute(self.read_tool,
             {
-                "command_name": "show",
-                "command": [
+                "expected_operation": "show",
+                "tokens": [
                     "show",
                     "--no-ext-diff",
                     "--no-textconv",
@@ -273,10 +341,10 @@ class GitToolTest(unittest.TestCase):
     def test_tag_list_reports_local_tags(self):
         self._git("tag", "v1.0.0")
 
-        output = self.read_tool.execute(
+        output = self._execute(self.read_tool,
             {
-                "command_name": "tag_list",
-                "command": ["tag", "--list", "--sort=refname"],
+                "expected_operation": "tag_list",
+                "tokens": ["tag", "--list", "--sort=refname"],
             }
         )
 
@@ -285,18 +353,18 @@ class GitToolTest(unittest.TestCase):
     def test_remote_list_reports_names_without_urls(self):
         remote = self._create_bare_remote()
 
-        output = self.read_tool.execute(
-            {"command_name": "remote_list", "command": ["remote"]}
+        output = self._execute(self.read_tool,
+            {"expected_operation": "remote_list", "tokens": ["remote"]}
         )
 
         self.assertEqual(output, "origin")
         self.assertNotIn(str(remote), output)
 
     def test_blame_reports_file_history(self):
-        output = self.read_tool.execute(
+        output = self._execute(self.read_tool,
             {
-                "command_name": "blame",
-                "command": ["blame", "--date=short", "HEAD", "--", "tracked.txt"],
+                "expected_operation": "blame",
+                "tokens": ["blame", "--date=short", "HEAD", "--", "tracked.txt"],
             }
         )
 
@@ -304,10 +372,10 @@ class GitToolTest(unittest.TestCase):
         self.assertIn("initial", output)
 
     def test_rev_parse_resolves_revision(self):
-        output = self.read_tool.execute(
+        output = self._execute(self.read_tool,
             {
-                "command_name": "rev_parse",
-                "command": [
+                "expected_operation": "rev_parse",
+                "tokens": [
                     "rev-parse",
                     "--verify",
                     "--end-of-options",
@@ -319,10 +387,10 @@ class GitToolTest(unittest.TestCase):
         self.assertEqual(output, self._git("rev-parse", "HEAD"))
 
     def test_reflog_limits_results(self):
-        output = self.read_tool.execute(
+        output = self._execute(self.read_tool,
             {
-                "command_name": "reflog",
-                "command": ["reflog", "--oneline", "--max-count=1"],
+                "expected_operation": "reflog",
+                "tokens": ["reflog", "--oneline", "--max-count=1"],
             }
         )
 
@@ -330,8 +398,8 @@ class GitToolTest(unittest.TestCase):
         self.assertEqual(len(output.splitlines()), 1)
 
     def test_ls_files_lists_tracked_paths(self):
-        output = self.read_tool.execute(
-            {"command_name": "ls_files", "command": ["ls-files", "--"]}
+        output = self._execute(self.read_tool,
+            {"expected_operation": "ls_files", "tokens": ["ls-files", "--"]}
         )
 
         self.assertEqual(output, "tracked.txt")
@@ -339,8 +407,8 @@ class GitToolTest(unittest.TestCase):
     def test_add_stages_only_valid_repository_paths(self):
         (self.repository / "new.txt").write_text("new\n", encoding="utf-8")
 
-        self.write_tool.execute(
-            {"command_name": "add", "command": ["add", "--", "new.txt"]}
+        self._execute(self.write_tool,
+            {"expected_operation": "add", "tokens": ["add", "--", "new.txt"]}
         )
 
         self.assertIn("A  new.txt", self._git("status", "--short"))
@@ -349,10 +417,10 @@ class GitToolTest(unittest.TestCase):
         (self.repository / "first.txt").write_text("first\n", encoding="utf-8")
         (self.repository / "second.txt").write_text("second\n", encoding="utf-8")
 
-        self.write_tool.execute(
+        self._execute(self.write_tool,
             {
-                "command_name": "add",
-                "command": ["add", "first.txt", "second.txt"],
+                "expected_operation": "add",
+                "tokens": ["add", "first.txt", "second.txt"],
             }
         )
 
@@ -362,14 +430,14 @@ class GitToolTest(unittest.TestCase):
 
     def test_commit_creates_local_commit(self):
         (self.repository / "new.txt").write_text("new\n", encoding="utf-8")
-        self.write_tool.execute(
-            {"command_name": "add", "command": ["add", "--", "new.txt"]}
+        self._execute(self.write_tool,
+            {"expected_operation": "add", "tokens": ["add", "--", "new.txt"]}
         )
 
-        output = self.write_tool.execute(
+        output = self._execute(self.write_tool,
             {
-                "command_name": "commit",
-                "command": [
+                "expected_operation": "commit",
+                "tokens": [
                     "commit",
                     "--no-verify",
                     "--no-gpg-sign",
@@ -384,14 +452,14 @@ class GitToolTest(unittest.TestCase):
 
     def test_commit_accepts_standard_message_syntax(self):
         (self.repository / "standard.txt").write_text("new\n", encoding="utf-8")
-        self.write_tool.execute(
-            {"command_name": "add", "command": ["add", "standard.txt"]}
+        self._execute(self.write_tool,
+            {"expected_operation": "add", "tokens": ["add", "standard.txt"]}
         )
 
-        output = self.write_tool.execute(
+        output = self._execute(self.write_tool,
             {
-                "command_name": "commit",
-                "command": ["commit", "-m", "Use standard syntax"],
+                "expected_operation": "commit",
+                "tokens": ["commit", "-m", "Use standard syntax"],
             }
         )
 
@@ -402,18 +470,18 @@ class GitToolTest(unittest.TestCase):
         )
 
     def test_branch_create_and_switch(self):
-        self.write_tool.execute(
+        self._execute(self.write_tool,
             {
-                "command_name": "branch_create",
-                "command": ["branch", "--no-track", "feature/test"],
+                "expected_operation": "branch_create",
+                "tokens": ["branch", "--no-track", "feature/test"],
             }
         )
         self.assertIn("feature/test", self._git("branch", "--list"))
 
-        output = self.write_tool.execute(
+        output = self._execute(self.write_tool,
             {
-                "command_name": "switch",
-                "command": ["switch", "--no-guess", "feature/test"],
+                "expected_operation": "switch",
+                "tokens": ["switch", "--no-guess", "feature/test"],
             }
         )
 
@@ -423,18 +491,18 @@ class GitToolTest(unittest.TestCase):
     def test_branch_rename_and_safe_delete(self):
         self._git("branch", "old-name")
 
-        self.write_tool.execute(
+        self._execute(self.write_tool,
             {
-                "command_name": "branch_rename",
-                "command": ["branch", "-m", "old-name", "new-name"],
+                "expected_operation": "branch_rename",
+                "tokens": ["branch", "-m", "old-name", "new-name"],
             }
         )
         self.assertIn("new-name", self._git("branch", "--list"))
 
-        self.write_tool.execute(
+        self._execute(self.write_tool,
             {
-                "command_name": "branch_delete",
-                "command": ["branch", "-d", "new-name"],
+                "expected_operation": "branch_delete",
+                "tokens": ["branch", "-d", "new-name"],
             }
         )
         self.assertNotIn("new-name", self._git("branch", "--list"))
@@ -445,10 +513,10 @@ class GitToolTest(unittest.TestCase):
         self._git("switch", "main")
 
         with self.assertRaisesRegex(RuntimeError, "not fully merged"):
-            self.write_tool.execute(
+            self._execute(self.write_tool,
                 {
-                    "command_name": "branch_delete",
-                    "command": ["branch", "-d", "unmerged"],
+                    "expected_operation": "branch_delete",
+                    "tokens": ["branch", "-d", "unmerged"],
                 }
             )
 
@@ -459,10 +527,10 @@ class GitToolTest(unittest.TestCase):
         self._commit_file("feature.txt", "feature\n", "Feature commit")
         self._git("switch", "main")
 
-        output = self.write_tool.execute(
+        output = self._execute(self.write_tool,
             {
-                "command_name": "merge",
-                "command": ["merge", "--no-edit", "--no-gpg-sign", "feature"],
+                "expected_operation": "merge",
+                "tokens": ["merge", "--no-edit", "--no-gpg-sign", "feature"],
             }
         )
 
@@ -476,10 +544,10 @@ class GitToolTest(unittest.TestCase):
         self._commit_file("tracked.txt", "main change\n", "Main change")
 
         with self.assertRaisesRegex(RuntimeError, "Git command failed"):
-            self.write_tool.execute(
+            self._execute(self.write_tool,
                 {
-                    "command_name": "merge",
-                    "command": [
+                    "expected_operation": "merge",
+                    "tokens": [
                         "merge",
                         "--no-edit",
                         "--no-gpg-sign",
@@ -496,10 +564,10 @@ class GitToolTest(unittest.TestCase):
         revision = self._commit_file("picked.txt", "picked\n", "Picked commit")
         self._git("switch", "main")
 
-        self.write_tool.execute(
+        self._execute(self.write_tool,
             {
-                "command_name": "cherry_pick",
-                "command": ["cherry-pick", "--no-gpg-sign", revision],
+                "expected_operation": "cherry_pick",
+                "tokens": ["cherry-pick", "--no-gpg-sign", revision],
             }
         )
 
@@ -512,10 +580,10 @@ class GitToolTest(unittest.TestCase):
         (self.repository / "tracked.txt").write_text("changed\n", encoding="utf-8")
         self._git("add", "tracked.txt")
 
-        self.write_tool.execute(
+        self._execute(self.write_tool,
             {
-                "command_name": "restore",
-                "command": ["restore", "--staged", "--", "tracked.txt"],
+                "expected_operation": "restore",
+                "tokens": ["restore", "--staged", "--", "tracked.txt"],
             }
         )
 
@@ -525,19 +593,19 @@ class GitToolTest(unittest.TestCase):
     def test_reset_supports_only_soft_and_mixed_modes(self):
         self._commit_file("second.txt", "second\n", "Second commit")
 
-        self.write_tool.execute(
+        self._execute(self.write_tool,
             {
-                "command_name": "reset",
-                "command": ["reset", "--soft", "HEAD~1"],
+                "expected_operation": "reset",
+                "tokens": ["reset", "--soft", "HEAD~1"],
             }
         )
         self.assertIn("second.txt", self._git("diff", "--cached", "--name-only"))
 
         self._git("commit", "-m", "Second commit again")
-        self.write_tool.execute(
+        self._execute(self.write_tool,
             {
-                "command_name": "reset",
-                "command": ["reset", "--mixed", "HEAD~1"],
+                "expected_operation": "reset",
+                "tokens": ["reset", "--mixed", "HEAD~1"],
             }
         )
         self.assertEqual(self._git("diff", "--cached", "--name-only"), "")
@@ -546,10 +614,10 @@ class GitToolTest(unittest.TestCase):
     def test_stash_list_and_pop_round_trip_changes(self):
         (self.repository / "tracked.txt").write_text("stashed\n", encoding="utf-8")
 
-        self.write_tool.execute(
+        self._execute(self.write_tool,
             {
-                "command_name": "stash",
-                "command": ["stash", "push", "--message", "Harness stash", "--"],
+                "expected_operation": "stash",
+                "tokens": ["stash", "push", "--message", "Harness stash", "--"],
             }
         )
         self.assertEqual(
@@ -558,15 +626,15 @@ class GitToolTest(unittest.TestCase):
         )
         self.assertIn(
             "Harness stash",
-            self.read_tool.execute(
-                {"command_name": "stash_list", "command": ["stash", "list"]}
+            self._execute(self.read_tool,
+                {"expected_operation": "stash_list", "tokens": ["stash", "list"]}
             ),
         )
 
-        self.write_tool.execute(
+        self._execute(self.write_tool,
             {
-                "command_name": "stash_pop",
-                "command": ["stash", "pop", "stash@{0}"],
+                "expected_operation": "stash_pop",
+                "tokens": ["stash", "pop", "stash@{0}"],
             }
         )
         self.assertEqual(
@@ -575,28 +643,28 @@ class GitToolTest(unittest.TestCase):
         )
 
     def test_tag_create_and_delete(self):
-        self.write_tool.execute(
+        self._execute(self.write_tool,
             {
-                "command_name": "tag_create",
-                "command": ["tag", "v2.0.0", "HEAD"],
+                "expected_operation": "tag_create",
+                "tokens": ["tag", "v2.0.0", "HEAD"],
             }
         )
         self.assertIn("v2.0.0", self._git("tag", "--list"))
 
-        self.write_tool.execute(
+        self._execute(self.write_tool,
             {
-                "command_name": "tag_delete",
-                "command": ["tag", "-d", "v2.0.0"],
+                "expected_operation": "tag_delete",
+                "tokens": ["tag", "-d", "v2.0.0"],
             }
         )
         self.assertNotIn("v2.0.0", self._git("tag", "--list"))
 
     def test_rejects_json_encoded_command(self):
-        with self.assertRaisesRegex(ValueError, "non-empty array"):
-            self.read_tool.execute(
+        with self.assertRaisesRegex(ValueError, "must be an array"):
+            self._execute(self.read_tool,
                 {
-                    "command_name": "log",
-                    "command": json.dumps(
+                    "expected_operation": "log",
+                    "tokens": json.dumps(
                         ["log", "--oneline", "--no-decorate", "--max-count=1"]
                     ),
                 }
@@ -606,10 +674,10 @@ class GitToolTest(unittest.TestCase):
         self._create_bare_remote()
         self._git("push", "origin", "main")
 
-        self.remote_tool.execute(
+        self._execute(self.remote_tool,
             {
-                "command_name": "fetch",
-                "command": ["fetch", "--no-tags", "origin"],
+                "expected_operation": "fetch",
+                "tokens": ["fetch", "--no-tags", "origin"],
             }
         )
 
@@ -653,10 +721,10 @@ class GitToolTest(unittest.TestCase):
             check=True,
         )
 
-        self.remote_tool.execute(
+        self._execute(self.remote_tool,
             {
-                "command_name": "pull",
-                "command": [
+                "expected_operation": "pull",
+                "tokens": [
                     "pull",
                     "--ff-only",
                     "--no-rebase",
@@ -674,10 +742,10 @@ class GitToolTest(unittest.TestCase):
     def test_push_uses_same_branch_and_never_force_pushes(self):
         remote = self._create_bare_remote()
 
-        output = self.remote_tool.execute(
+        output = self._execute(self.remote_tool,
             {
-                "command_name": "push",
-                "command": [
+                "expected_operation": "push",
+                "tokens": [
                     "push",
                     "--porcelain",
                     "--no-verify",
@@ -699,70 +767,54 @@ class GitToolTest(unittest.TestCase):
     def test_rejects_invalid_operations_and_arguments(self):
         invalid_calls = [
             {},
-            {"command_name": "rebase", "command": ["rebase", "main"]},
+            {"expected_operation": "rebase", "tokens": ["rebase", "main"]},
             {
-                "command_name": "status",
-                "command": ["status"],
+                "expected_operation": "status",
+                "tokens": ["status"],
                 "unexpected": "value",
             },
-            {"command_name": "status", "command": []},
-            {"command_name": "status", "command": "status"},
-            {"command_name": "status", "command": ["status", "--porcelain"]},
+            {"expected_operation": "status", "tokens": []},
+            {"expected_operation": "status", "tokens": "status"},
+            {"expected_operation": "status", "tokens": ["status", "--porcelain"]},
+            {"expected_operation": "status", "tokens": ["-c", "alias.status=!sh"]},
+            {"expected_operation": "status", "tokens": ["status", "&&", "push"]},
+            {"expected_operation": "status", "tokens": ["status", 1]},
+            {"expected_operation": "status", "tokens": ["status\0"]},
             {
-                "command_name": "status",
-                "command": ["push", "origin", "main"],
-            },
-            {
-                "command_name": "branch_create",
-                "command": ["branch", "-d", "feature"],
-            },
-            {
-                "command_name": "stash",
-                "command": ["stash", "pop", "stash@{0}"],
-            },
-            {
-                "command_name": "tag_create",
-                "command": ["tag", "--list", "--sort=refname"],
-            },
-            {"command_name": "status", "command": ["-c", "alias.status=!sh"]},
-            {"command_name": "status", "command": ["status", "&&", "push"]},
-            {"command_name": "status", "command": ["status", 1]},
-            {"command_name": "status", "command": ["status\0"]},
-            {
-                "command_name": "commit",
-                "command": ["commit", "--no-verify", "--no-gpg-sign", "-m", " "],
+                "expected_operation": "commit",
+                "tokens": ["commit", "--no-verify", "--no-gpg-sign", "-m", " "],
             },
         ]
 
         for arguments in invalid_calls:
-            if arguments.get("command_name") in GitTool.WRITE_OPERATIONS:
+            if arguments.get("expected_operation") in GitTool.WRITE_OPERATIONS:
                 tool = self.write_tool
             else:
                 tool = self.read_tool
             with self.subTest(arguments=arguments), self.assertRaises(ValueError):
-                tool.execute(arguments)
+                self._execute(tool, arguments)
 
     def test_rejects_invalid_arguments_for_extended_operations(self):
         invalid_calls = [
             (
                 self.read_tool,
                 {
-                    "command_name": "tag_list",
-                    "command": ["tag", "--list", "--sort=refname", "*"],
+                    "expected_operation": "tag_list",
+                    "tokens": ["tag", "--list", "--sort=refname", "*"],
                 },
             ),
             (
                 self.read_tool,
                 {
-                    "command_name": "blame",
-                    "command": ["blame", "--date=short", "HEAD", "--", "."],
+                    "expected_operation": "blame",
+                    "tokens": ["blame", "--date=short", "HEAD", "--", "."],
                 },
             ),
             (
                 self.read_tool,
                 {
-                    "command_name": "rev_parse",
-                    "command": [
+                    "expected_operation": "rev_parse",
+                    "tokens": [
                         "rev-parse",
                         "--verify",
                         "--end-of-options",
@@ -773,66 +825,66 @@ class GitToolTest(unittest.TestCase):
             (
                 self.read_tool,
                 {
-                    "command_name": "reflog",
-                    "command": ["reflog", "--oneline", "--max-count=101"],
+                    "expected_operation": "reflog",
+                    "tokens": ["reflog", "--oneline", "--max-count=101"],
                 },
             ),
             (
                 self.write_tool,
-                {"command_name": "branch_rename", "command": ["branch", "-m", "main"]},
+                {"expected_operation": "branch_rename", "tokens": ["branch", "-m", "main"]},
             ),
             (
                 self.write_tool,
-                {"command_name": "branch_delete", "command": ["branch", "-D", "main"]},
+                {"expected_operation": "branch_delete", "tokens": ["branch", "-D", "main"]},
             ),
             (
                 self.write_tool,
-                {"command_name": "merge", "command": ["merge", "--abort"]},
+                {"expected_operation": "merge", "tokens": ["merge", "--abort"]},
             ),
             (
                 self.write_tool,
-                {"command_name": "cherry_pick", "command": ["cherry-pick", "--abort"]},
+                {"expected_operation": "cherry_pick", "tokens": ["cherry-pick", "--abort"]},
             ),
             (
                 self.write_tool,
-                {"command_name": "restore", "command": ["restore", "tracked.txt"]},
+                {"expected_operation": "restore", "tokens": ["restore", "tracked.txt"]},
             ),
             (
                 self.write_tool,
-                {"command_name": "reset", "command": ["reset", "--hard", "HEAD"]},
+                {"expected_operation": "reset", "tokens": ["reset", "--hard", "HEAD"]},
             ),
             (
                 self.write_tool,
-                {"command_name": "stash", "command": ["stash", "push", "--all", "--"]},
+                {"expected_operation": "stash", "tokens": ["stash", "push", "--all", "--"]},
             ),
             (
                 self.write_tool,
-                {"command_name": "stash_pop", "command": ["stash", "pop", "stash@{-1}"]},
+                {"expected_operation": "stash_pop", "tokens": ["stash", "pop", "stash@{-1}"]},
             ),
             (
                 self.write_tool,
-                {"command_name": "tag_create", "command": ["tag", "--force", "HEAD"]},
+                {"expected_operation": "tag_create", "tokens": ["tag", "--force", "HEAD"]},
             ),
             (
                 self.remote_tool,
-                {"command_name": "fetch", "command": ["fetch", "--no-tags", "missing"]},
+                {"expected_operation": "fetch", "tokens": ["fetch", "--no-tags", "missing"]},
             ),
             (
                 self.remote_tool,
                 {
-                    "command_name": "fetch",
-                    "command": ["fetch", "--no-tags", "https://example.test/repo"],
+                    "expected_operation": "fetch",
+                    "tokens": ["fetch", "--no-tags", "https://example.test/repo"],
                 },
             ),
             (
                 self.remote_tool,
-                {"command_name": "pull", "command": ["pull", "origin", "main"]},
+                {"expected_operation": "pull", "tokens": ["pull", "origin", "main"]},
             ),
             (
                 self.remote_tool,
                 {
-                    "command_name": "push",
-                    "command": [
+                    "expected_operation": "push",
+                    "tokens": [
                         "push",
                         "--force",
                         "origin",
@@ -843,8 +895,8 @@ class GitToolTest(unittest.TestCase):
             (
                 self.remote_tool,
                 {
-                    "command_name": "push",
-                    "command": [
+                    "expected_operation": "push",
+                    "tokens": [
                         "push",
                         "--porcelain",
                         "--no-verify",
@@ -857,7 +909,7 @@ class GitToolTest(unittest.TestCase):
 
         for tool, arguments in invalid_calls:
             with self.subTest(arguments=arguments), self.assertRaises(ValueError):
-                tool.execute(arguments)
+                self._execute(tool, arguments)
 
     def test_rejects_paths_outside_repository_and_git_metadata(self):
         outside_path = self.root / "outside.txt"
@@ -865,8 +917,8 @@ class GitToolTest(unittest.TestCase):
 
         for path in ("../outside.txt", str(outside_path), ".git/config", ":(top)*"):
             with self.subTest(path=path), self.assertRaises(ValueError):
-                self.write_tool.execute(
-                    {"command_name": "add", "command": ["add", "--", path]}
+                self._execute(self.write_tool,
+                    {"expected_operation": "add", "tokens": ["add", "--", path]}
                 )
 
     def test_rejects_working_directory_that_is_not_repository_root(self):
@@ -876,12 +928,8 @@ class GitToolTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "repository root"):
             GitTool(working_directory=subdirectory).execute(
                 {
-                    "command_name": "status",
-                    "command": [
-                        "status",
-                        "--short",
-                        "--branch",
-                        "--untracked-files=all",
+                    "commands": [
+                        "status --short --branch --untracked-files=all"
                     ],
                 }
             )
@@ -891,22 +939,18 @@ class GitToolTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "Not a Git repository"):
             GitTool(working_directory=outside_directory).execute(
                 {
-                    "command_name": "status",
-                    "command": [
-                        "status",
-                        "--short",
-                        "--branch",
-                        "--untracked-files=all",
+                    "commands": [
+                        "status --short --branch --untracked-files=all"
                     ],
                 }
             )
 
     def test_surfaces_git_command_failures(self):
         with self.assertRaisesRegex(RuntimeError, "Git command failed"):
-            self.write_tool.execute(
+            self._execute(self.write_tool,
                 {
-                    "command_name": "switch",
-                    "command": ["switch", "--no-guess", "missing-branch"],
+                    "expected_operation": "switch",
+                    "tokens": ["switch", "--no-guess", "missing-branch"],
                 }
             )
 
@@ -1013,10 +1057,10 @@ class GitToolTest(unittest.TestCase):
 
     def test_write_operations_are_disabled_by_default(self):
         calls = [
-            {"command_name": "add", "command": ["add", "--", "tracked.txt"]},
+            {"expected_operation": "add", "tokens": ["add", "--", "tracked.txt"]},
             {
-                "command_name": "commit",
-                "command": [
+                "expected_operation": "commit",
+                "tokens": [
                     "commit",
                     "--no-verify",
                     "--no-gpg-sign",
@@ -1025,40 +1069,49 @@ class GitToolTest(unittest.TestCase):
                 ],
             },
             {
-                "command_name": "branch_create",
-                "command": ["branch", "--no-track", "feature"],
+                "expected_operation": "branch_create",
+                "tokens": ["branch", "--no-track", "feature"],
             },
-            {"command_name": "branch_rename", "command": ["branch", "-m", "main", "renamed"]},
-            {"command_name": "branch_delete", "command": ["branch", "-d", "feature"]},
-            {"command_name": "switch", "command": ["switch", "--no-guess", "main"]},
-            {"command_name": "merge", "command": ["merge", "--no-edit", "--no-gpg-sign", "main"]},
-            {"command_name": "cherry_pick", "command": ["cherry-pick", "--no-gpg-sign", "HEAD"]},
-            {"command_name": "restore", "command": ["restore", "--staged", "--", "tracked.txt"]},
-            {"command_name": "reset", "command": ["reset", "--mixed", "HEAD"]},
-            {"command_name": "stash", "command": ["stash", "push", "--"]},
-            {"command_name": "stash_pop", "command": ["stash", "pop", "stash@{0}"]},
-            {"command_name": "tag_create", "command": ["tag", "v1", "HEAD"]},
-            {"command_name": "tag_delete", "command": ["tag", "-d", "v1"]},
+            {"expected_operation": "branch_rename", "tokens": ["branch", "-m", "main", "renamed"]},
+            {"expected_operation": "branch_delete", "tokens": ["branch", "-d", "feature"]},
+            {"expected_operation": "switch", "tokens": ["switch", "--no-guess", "main"]},
+            {
+                "expected_operation": "merge",
+                "tokens": ["merge", "--no-edit", "--no-gpg-sign", "main"],
+            },
+            {
+                "expected_operation": "cherry_pick",
+                "tokens": ["cherry-pick", "--no-gpg-sign", "HEAD"],
+            },
+            {
+                "expected_operation": "restore",
+                "tokens": ["restore", "--staged", "--", "tracked.txt"],
+            },
+            {"expected_operation": "reset", "tokens": ["reset", "--mixed", "HEAD"]},
+            {"expected_operation": "stash", "tokens": ["stash", "push", "--"]},
+            {"expected_operation": "stash_pop", "tokens": ["stash", "pop", "stash@{0}"]},
+            {"expected_operation": "tag_create", "tokens": ["tag", "v1", "HEAD"]},
+            {"expected_operation": "tag_delete", "tokens": ["tag", "-d", "v1"]},
         ]
 
         for arguments in calls:
-            with self.subTest(operation=arguments["command_name"]):
+            with self.subTest(operation=arguments["expected_operation"]):
                 with self.assertRaisesRegex(PermissionError, "disabled"):
-                    self.read_tool.execute(arguments)
+                    self._execute(self.read_tool, arguments)
 
     def test_remote_operations_are_disabled_separately(self):
         calls = [
             {
-                "command_name": "fetch",
-                "command": ["fetch", "--no-tags", "origin"],
+                "expected_operation": "fetch",
+                "tokens": ["fetch", "--no-tags", "origin"],
             },
             {
-                "command_name": "pull",
-                "command": ["pull", "--ff-only", "--no-rebase", "origin", "main"],
+                "expected_operation": "pull",
+                "tokens": ["pull", "--ff-only", "--no-rebase", "origin", "main"],
             },
             {
-                "command_name": "push",
-                "command": [
+                "expected_operation": "push",
+                "tokens": [
                     "push",
                     "--porcelain",
                     "--no-verify",
@@ -1069,9 +1122,9 @@ class GitToolTest(unittest.TestCase):
         ]
 
         for arguments in calls:
-            with self.subTest(operation=arguments["command_name"]):
+            with self.subTest(operation=arguments["expected_operation"]):
                 with self.assertRaisesRegex(PermissionError, "remote operations"):
-                    self.read_tool.execute(arguments)
+                    self._execute(self.read_tool, arguments)
 
     def test_register_tools_honors_git_write_and_remote_settings(self):
         registry = ToolRegistry()
@@ -1084,23 +1137,18 @@ class GitToolTest(unittest.TestCase):
         ):
             register_tools(registry, working_directory=self.repository)
 
-        git_tool = registry.get("git")
-        git_tool.execute(
-            {
-                "command_name": "branch_create",
-                "command": ["branch", "--no-track", "registered"],
-            }
+        registry.execute(
+            "git",
+            {"commands": ["branch --no-track registered"]},
         )
 
         self.assertIn("registered", self._git("branch", "--list"))
 
         self._create_bare_remote()
         self._git("push", "origin", "main")
-        git_tool.execute(
-            {
-                "command_name": "fetch",
-                "command": ["fetch", "--no-tags", "origin"],
-            }
+        registry.execute(
+            "git",
+            {"commands": ["fetch --no-tags origin"]},
         )
 
 

@@ -1,3 +1,4 @@
+import json
 import unittest
 from pathlib import Path
 from unittest.mock import Mock
@@ -54,7 +55,17 @@ class CommandServiceTest(unittest.TestCase):
             sections={},
         )
         tool_registry = Mock()
-        tool_registry.execute.return_value = "command file content"
+        tool_registry.execute.return_value = json.dumps(
+            {
+                "results": [
+                    {
+                        "path": str(command_path),
+                        "success": True,
+                        "content": "command file content",
+                    }
+                ]
+            }
+        )
         service = self.create_service(command_resolver, command_loader, tool_registry)
 
         message = service.prepare_command_context(
@@ -64,7 +75,7 @@ class CommandServiceTest(unittest.TestCase):
         command_resolver.resolve.assert_called_once_with("review")
         tool_registry.execute.assert_called_once_with(
             "read_file",
-            {"path": str(command_path)},
+            {"paths": [str(command_path)]},
         )
         command_loader.get_command_object.assert_called_once_with(
             "command file content"

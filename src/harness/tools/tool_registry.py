@@ -1,6 +1,7 @@
 from typing import Any
 
 from harness.contracts.tool import Tool
+from harness.validators.tool_validator import ToolValidator
 
 
 class ToolRegistry:
@@ -33,6 +34,12 @@ class ToolRegistry:
         arguments: dict[str, Any],
     ) -> str:
         tool = self.get(name)
+
+        ToolValidator.validate_arguments(
+            tool.name,
+            tool.get_parameter_object(),
+            arguments,
+        )
 
         return tool.execute(arguments)
 

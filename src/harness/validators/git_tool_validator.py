@@ -1,4 +1,5 @@
 import re
+import shlex
 from pathlib import Path
 from typing import Any
 
@@ -6,6 +7,7 @@ from harness.config.git_tool_config import (
     GIT_OPERATION_DEFINITIONS,
     GIT_REMOTE_OPERATIONS_ENVIRONMENT_VARIABLE,
     GIT_WRITE_OPERATIONS_ENVIRONMENT_VARIABLE,
+    MAX_COMMANDS,
     MAX_COMMAND_TOKENS,
     MAX_COUNT,
     MAX_MESSAGE_LENGTH,
@@ -47,10 +49,17 @@ class GitToolValidator:
         """
         Validate the top-level Git arguments and repository context.
 
-        Example (valid): {"command_name": "status", "command": ["status", "--short", "--branch", "--untracked-files=all"]}.
-        Example (invalid): {"command_name": "status"}.
+        Example (valid): {"commands": ["status --short --branch --untracked-files=all"]}.
+        Example (invalid): {"commands": []}.
         Result: ValueError because a required argument is missing.
         """
+        self.prepare_commands(arguments)
+
+    def prepare_commands(
+        self,
+        arguments: dict[str, Any],
+    ) -> list[tuple[str, str, list[str]]]:
+        """Validate and normalize a batch of safe Git command strings."""
         if not isinstance(arguments, dict):
             raise ValueError("git arguments must be an object.")
 
@@ -64,11 +73,93 @@ class GitToolValidator:
             names = ", ".join(sorted(missing_arguments))
             raise ValueError(f"git is missing required arguments: {names}")
 
-        self.validate_command(
-            arguments["command_name"],
-            arguments["command"],
-        )
+        commands = arguments["commands"]
+        if not isinstance(commands, list) or not commands:
+            raise ValueError(
+                "git commands must be an array with at least one command."
+            )
+        if len(commands) > MAX_COMMANDS:
+            raise ValueError(f"git accepts at most {MAX_COMMANDS} commands.")
+        if any(
+            not isinstance(command, str) or not command.strip()
+            for command in commands
+        ):
+            raise ValueError("git commands must be non-empty strings.")
+
+        prepared_commands: list[tuple[str, str, list[str]]] = []
+        for command_text in commands:
+            try:
+                command = shlex.split(command_text, posix=True)
+            except ValueError as error:
+                raise ValueError(
+                    f"Invalid Git command quoting: {command_text}"
+                ) from error
+            if not command:
+                raise ValueError("git commands must be non-empty strings.")
+
+            command_name = self._identify_operation(command)
+            self.validate_command(command_name, command)
+            prepared_commands.append(
+                (
+                    command_text,
+                    command_name,
+                    self.normalize_safe_command(command_name, command),
+                )
+            )
+
         self._ensure_project_repository()
+        return prepared_commands
+
+    @staticmethod
+    def _identify_operation(command: list[str]) -> str:
+        first = command[0]
+        direct_operations = {
+            "status": "status",
+            "diff": "diff",
+            "log": "log",
+            "show": "show",
+            "remote": "remote_list",
+            "blame": "blame",
+            "rev-parse": "rev_parse",
+            "reflog": "reflog",
+            "ls-files": "ls_files",
+            "add": "add",
+            "commit": "commit",
+            "switch": "switch",
+            "merge": "merge",
+            "cherry-pick": "cherry_pick",
+            "restore": "restore",
+            "reset": "reset",
+            "fetch": "fetch",
+            "pull": "pull",
+            "push": "push",
+        }
+        if first in direct_operations:
+            return direct_operations[first]
+
+        second = command[1] if len(command) > 1 else ""
+        if first == "branch":
+            return {
+                "--list": "branch_list",
+                "--no-track": "branch_create",
+                "-m": "branch_rename",
+                "-d": "branch_delete",
+            }.get(second, "branch_list")
+        if first == "tag":
+            if second == "--list":
+                return "tag_list"
+            if second == "-d":
+                return "tag_delete"
+            return "tag_create"
+        if first == "stash":
+            return {
+                "list": "stash_list",
+                "push": "stash",
+                "pop": "stash_pop",
+            }.get(second, "stash_list")
+
+        allowed = ", ".join(sorted(SUPPORTED_OPERATIONS))
+        raise ValueError(f"git command must use a supported operation: {allowed}")
 
     def validate_command(
         self,

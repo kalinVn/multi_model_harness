@@ -12,7 +12,7 @@ def _parse_tool_calls(data) -> list[ToolCall]:
     Construct tool calls from validated model response data.
 
     Example input:
-        {"tool_calls": [{"tool": "bash", "arguments": {"command": "ls"}}]}
+        {"tool_calls": [{"tool": "bash", "arguments": {"commands": ["ls"]}}]}
 
     Returns:
         A list of ToolCall objects.

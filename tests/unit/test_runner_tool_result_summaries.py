@@ -22,7 +22,7 @@ class MainOrchestratorToolResultSummariesTest(unittest.TestCase):
                 client.generate.side_effect = [
                     ModelResponse(
                         text="Done",
-                        tool_calls=[ToolCall("read_file", {"path": "next.py"})] if has_tool_calls else [],
+                        tool_calls=[ToolCall("read_file", {"paths": ["next.py"]})] if has_tool_calls else [],
                         tool_result_summaries=[
                             ToolResultSummary(result.id, summary),
                             ToolResultSummary("unknown-id", "Ignore this summary."),
@@ -55,7 +55,10 @@ class MainOrchestratorToolResultSummariesTest(unittest.TestCase):
                 self.assertEqual(len(stored_results), 3 if has_tool_calls else 2)
                 self.assertEqual(client.generate.call_count, 2 if has_tool_calls else 1)
                 if has_tool_calls:
-                    runner._tool_registry.execute.assert_called_once_with("read_file", {"path": "next.py"})
+                    runner._tool_registry.execute.assert_called_once_with(
+                        "read_file",
+                        {"paths": ["next.py"]},
+                    )
                     next_messages = client.generate.call_args_list[1].args[0]
                     self.assertTrue(any(summary in message.content for message in next_messages))
                     self.assertFalse(any(result.output in message.content for message in next_messages))

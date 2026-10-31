@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from harness.domain.message import Message
@@ -96,12 +97,18 @@ class SessionManager:
             / "CAISA.md"
         )
 
-        return self._tool_registry.execute(
-            "read_file",
-            {
-                "path": str(system_prompt_path),
-            },
+        output = json.loads(
+            self._tool_registry.execute(
+                "read_file",
+                {
+                    "paths": [str(system_prompt_path)],
+                },
+            )
         )
+        result = output["results"][0]
+        if not result["success"]:
+            raise RuntimeError(result["error"])
+        return result["content"]
 
     def _build_tools_context(
         self,

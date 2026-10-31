@@ -52,6 +52,9 @@ def build_tools_context(tools: list[Tool]) -> str:
         "",
         "Do not claim that a tool succeeded "
         "unless it was actually executed.",
+        "",
+        "Follow each tool's parameter schema. Include undeclared parameters "
+        "only when its schema explicitly allows additional properties.",
     ]
 
     return "\n".join(parts).strip()
@@ -82,6 +85,15 @@ def build_text_tools_context(tool_definitions: list[ToolDefinition]) -> str:
                 )
         else:
             parts.append("Arguments: none")
+
+        additional_properties = tool_definition["parameters"].get(
+            "additionalProperties",
+            True,
+        )
+        parts.append(
+            "Additional arguments: "
+            + ("allowed." if additional_properties else "not allowed.")
+        )
 
         parts.append("")
 

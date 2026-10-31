@@ -1,6 +1,6 @@
+import json
 from pathlib import Path
 from typing import Any
-
 
 class ReadFileTool:
     @property
@@ -9,18 +9,23 @@ class ReadFileTool:
 
     @property
     def description(self) -> str:
-        return "Reads text content from a file."
+        return (
+            "Reads text content from one or more files sequentially. "
+            "Returns one result per path and continues after read failures."
+        )
 
     def get_parameter_object(self) -> dict[str, Any]:
         return {
             "type": "object",
             "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Path of the file to read.",
+                "paths": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "minItems": 1,
+                    "description": "Paths of the files to read in order.",
                 },
             },
-            "required": ["path"],
+            "required": ["paths"],
             "additionalProperties": False,
         }
 
@@ -28,14 +33,29 @@ class ReadFileTool:
         self,
         arguments: dict[str, Any],
     ) -> str:
-        path_value = arguments.get("path")
+        paths = arguments["paths"]
 
-        if not isinstance(path_value, str):
-            raise ValueError("read_file requires a string 'path'.")
+        results: list[dict[str, Any]] = []
+        for path_value in paths:
+            path = Path(path_value)
+            result: dict[str, Any] = {"path": path_value}
 
-        path = Path(path_value)
+            try:
+                if not path.is_file():
+                    raise FileNotFoundError(f"File not found: {path}")
+                result.update(
+                    success=True,
+                    content=path.read_text(encoding="utf-8"),
+                )
+            except Exception as error:
+                result.update(success=False, error=str(error))
 
-        if not path.is_file():
-            raise FileNotFoundError(f"File not found: {path}")
+            results.append(result)
 
-        return path.read_text(encoding="utf-8")
+        return json.dumps(
+            {
+                "success": all(result["success"] for result in results),
+                "results": results,
+            },
+            ensure_ascii=False,
+        )

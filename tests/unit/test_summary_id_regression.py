@@ -16,7 +16,7 @@ class SummaryIDRegressionTest(unittest.TestCase):
     def test_original_ids_match_across_messages_before_new_execution(self):
         ids = ["bc950638-61a9-4662-a330-76c77c43225d", "99f97142-ae4f-404f-a0f5-81a998a42df6"]
         results = [ToolResult("read_file", f"raw {i}", id=id_) for i, id_ in enumerate(ids)]
-        payload = dict(text="", tool_calls=[dict(tool="read_file", arguments={"path": "next"})],
+        payload = dict(text="", tool_calls=[dict(tool="read_file", arguments={"paths": ["next"]})],
                        tool_result_summaries=[dict(id=ids[1], summary="second"),
                                               dict(id="future-id", summary="invented"),
                                               dict(id=ids[0], summary="first")])

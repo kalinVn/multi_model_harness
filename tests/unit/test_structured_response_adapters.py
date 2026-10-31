@@ -330,11 +330,22 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
             if declaration["name"] == "git"
         )
         parameters = git_declaration["parameters_json_schema"]
-        command_name = parameters["properties"]["command_name"]
-        command = parameters["properties"]["command"]
-        self.assertIn("commit", command_name["enum"])
-        self.assertEqual(command["items"]["type"], "string")
-        self.assertGreater(command["maxItems"], 1)
+        commands = parameters["properties"]["commands"]
+        self.assertEqual(commands["items"]["type"], "string")
+        self.assertGreater(commands["maxItems"], 1)
+        self.assertFalse(parameters["additionalProperties"])
+
+        sdk_config = types.GenerateContentConfig(tools=native_tools)
+        sdk_declarations = sdk_config.tools[0].function_declarations
+        sdk_git_declaration = next(
+            declaration
+            for declaration in sdk_declarations
+            if declaration.name == "git"
+        )
+        self.assertEqual(
+            sdk_git_declaration.parameters_json_schema,
+            parameters,
+        )
 
     def test_adapters_return_contract_and_propagate_invalid_responses(self):
         raw = json.dumps(dict(text="Done", tool_calls=[],

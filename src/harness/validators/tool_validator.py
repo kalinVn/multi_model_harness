@@ -58,7 +58,6 @@ class ToolValidator:
             "type",
             "properties",
             "required",
-            "additionalProperties",
         }
         if not required_fields.issubset(parameter_object):
             raise ValueError(
@@ -68,9 +67,13 @@ class ToolValidator:
             raise ValueError(
                 f"Tool parameter object must define type object: {tool_name}"
             )
-        if parameter_object["additionalProperties"] is not False:
+        if (
+            "additionalProperties" in parameter_object
+            and not isinstance(parameter_object["additionalProperties"], bool)
+        ):
             raise ValueError(
-                "Tool parameter object must disable additional properties: "
+                "Tool parameter object must define additionalProperties "
+                "as a boolean: "
                 f"{tool_name}"
             )
 
@@ -78,6 +81,20 @@ class ToolValidator:
             parameter_object,
             tool_name,
             require_descriptions=True,
+        )
+
+    @classmethod
+    def validate_arguments(
+        cls,
+        tool_name: str,
+        parameter_object: dict[str, Any],
+        arguments: Any,
+    ) -> None:
+        """Validate runtime arguments against the declared tool schema."""
+        cls._validate_argument_value(
+            arguments,
+            parameter_object,
+            f"{tool_name} arguments",
         )
 
     @classmethod
@@ -133,6 +150,15 @@ class ToolValidator:
         path: str,
         require_descriptions: bool = False,
     ) -> None:
+        if (
+            "additionalProperties" in schema
+            and not isinstance(schema["additionalProperties"], bool)
+        ):
+            raise ValueError(
+                "Tool parameter object must define additionalProperties "
+                f"as a boolean: {path}"
+            )
+
         properties = schema.get("properties", {})
         if not isinstance(properties, dict):
             raise ValueError(f"Invalid tool parameter schema: {path}.properties")
@@ -164,3 +190,76 @@ class ToolValidator:
             raise ValueError(
                 f"Conflicting tool parameter schema definitions: {path}"
             )
+
+    @classmethod
+    def _validate_argument_value(
+        cls,
+        value: Any,
+        schema: dict[str, Any],
+        path: str,
+    ) -> None:
+        schema_type = schema["type"]
+
+        if schema_type == "object":
+            if not isinstance(value, dict):
+                raise ValueError(f"{path} must be an object.")
+
+            properties = schema.get("properties", {})
+            unexpected = set(value) - set(properties)
+            if unexpected and schema.get("additionalProperties", True) is False:
+                names = ", ".join(sorted(unexpected))
+                raise ValueError(
+                    f"{path} contains undeclared parameters: {names}"
+                )
+
+            missing = set(schema.get("required", [])) - set(value)
+            if missing:
+                names = ", ".join(sorted(missing))
+                raise ValueError(
+                    f"{path} is missing required parameters: {names}"
+                )
+
+            for name, nested_value in value.items():
+                if name not in properties:
+                    continue
+                cls._validate_argument_value(
+                    nested_value,
+                    properties[name],
+                    f"{path}.{name}",
+                )
+            return
+
+        if schema_type == "array":
+            if not isinstance(value, list):
+                raise ValueError(f"{path} must be an array.")
+            if len(value) < schema.get("minItems", 0):
+                raise ValueError(f"{path} contains too few items.")
+            max_items = schema.get("maxItems")
+            if max_items is not None and len(value) > max_items:
+                raise ValueError(f"{path} contains too many items.")
+            items = schema.get("items")
+            if items is not None:
+                for index, item in enumerate(value):
+                    cls._validate_argument_value(
+                        item,
+                        items,
+                        f"{path}[{index}]",
+                    )
+            return
+
+        expected_types = {
+            "string": str,
+            "boolean": bool,
+            "integer": int,
+            "number": (int, float),
+        }
+        expected_type = expected_types.get(schema_type)
+        if expected_type is None:
+            return
+        if isinstance(value, bool) and schema_type in {"integer", "number"}:
+            raise ValueError(f"{path} must be a {schema_type}.")
+        if not isinstance(value, expected_type):
+            raise ValueError(f"{path} must be a {schema_type}.")
+
+        if "enum" in schema and value not in schema["enum"]:
+            raise ValueError(f"{path} contains an unsupported value.")

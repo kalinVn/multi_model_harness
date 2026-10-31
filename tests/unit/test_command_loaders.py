@@ -1,3 +1,4 @@
+import json
 import unittest
 from pathlib import Path
 from unittest.mock import Mock
@@ -39,8 +40,17 @@ Second line
         command_resolver = Mock()
         command_resolver.resolve.return_value = command_path
         tool_registry = Mock()
-        tool_registry.execute.return_value = (
-            "# Name\nexample\n# Description\nExample description"
+        content = "# Name\nexample\n# Description\nExample description"
+        tool_registry.execute.return_value = json.dumps(
+            {
+                "results": [
+                    {
+                        "path": str(command_path),
+                        "success": True,
+                        "content": content,
+                    }
+                ]
+            }
         )
 
         message = get_command_message_obj(
@@ -52,7 +62,7 @@ Second line
 
         tool_registry.execute.assert_called_once_with(
             "read_file",
-            {"path": str(command_path)},
+            {"paths": [str(command_path)]},
         )
         self.assertEqual(
             message,

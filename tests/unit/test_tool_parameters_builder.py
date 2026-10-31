@@ -7,7 +7,10 @@ from harness.builder.tool_parameters_builder import (
     build_tool_parameters,
 )
 from harness.config.git_tool_config import GIT_TOOL_PARAMETER_OBJECT
+from harness.tools.bash_tool import BashTool
 from harness.tools.git_tool import GitTool
+from harness.tools.read_file_tool import ReadFileTool
+from harness.tools.write_file_tool import WriteFileTool
 
 
 class ToolParametersBuilderTest(unittest.TestCase):
@@ -19,7 +22,6 @@ class ToolParametersBuilderTest(unittest.TestCase):
             "type": "object",
             "properties": {},
             "required": [],
-            "additionalProperties": False,
         }
 
         with patch(
@@ -52,14 +54,12 @@ class ToolParametersBuilderTest(unittest.TestCase):
                             "name": {"type": "string", "minLength": 1},
                         },
                         "required": ["name"],
-                        "additionalProperties": False,
                     },
                     "minItems": 1,
                     "maxItems": 5,
                 },
             },
             "required": ["mode"],
-            "additionalProperties": False,
         }
         tool.get_parameter_object.return_value = parameter_object
         original = deepcopy(parameter_object)
@@ -79,7 +79,7 @@ class ToolParametersBuilderTest(unittest.TestCase):
             ["name"]["minLength"],
             1,
         )
-        self.assertFalse(parameters["additionalProperties"])
+        self.assertNotIn("additionalProperties", parameters)
 
     def test_git_schema_is_preserved(self):
         tool = GitTool()
@@ -92,7 +92,33 @@ class ToolParametersBuilderTest(unittest.TestCase):
         )
         self.assertEqual(
             schema["parameters"]["required"],
-            ["command_name", "command"],
+            ["commands"],
+        )
+
+    def test_batch_tool_schemas_use_declared_arrays_without_additional_properties(self):
+        schemas = {
+            schema["name"]: schema["parameters"]
+            for schema in build_tool_parameters(
+                [ReadFileTool(), WriteFileTool(), BashTool(), GitTool()]
+            )
+        }
+
+        self.assertEqual(schemas["read_file"]["required"], ["paths"])
+        self.assertEqual(schemas["write_file"]["required"], ["files"])
+        self.assertEqual(schemas["bash"]["required"], ["commands"])
+        self.assertEqual(schemas["git"]["required"], ["commands"])
+        self.assertEqual(
+            schemas["write_file"]["properties"]["files"]["items"][
+                "required"
+            ],
+            ["path", "content"],
+        )
+        for schema in schemas.values():
+            self.assertFalse(schema["additionalProperties"])
+        self.assertFalse(
+            schemas["write_file"]["properties"]["files"]["items"][
+                "additionalProperties"
+            ]
         )
 
     def test_tool_usage_context_contains_no_tool_definitions(self):
@@ -104,6 +130,7 @@ class ToolParametersBuilderTest(unittest.TestCase):
         self.assertNotIn(tool.name, context)
         self.assertNotIn("Tool:", context)
         self.assertNotIn("Arguments:", context)
+        self.assertIn("only when its schema explicitly allows", context)
 
 
 if __name__ == "__main__":

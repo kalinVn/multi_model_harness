@@ -1,3 +1,4 @@
+import json
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
@@ -55,11 +56,26 @@ class GitTool:
         return deepcopy(GIT_TOOL_PARAMETER_OBJECT)
 
     def execute(self, arguments: dict[str, Any]) -> str:
-        self._validator.validate(arguments)
-        command = self._validator.normalize_safe_command(
-            arguments["command_name"],
-            arguments["command"],
-        )
-        return self._service.run(command)
+        commands = self._validator.prepare_commands(arguments)
+        results: list[dict[str, Any]] = []
 
+        for command_text, command_name, command in commands:
+            result: dict[str, Any] = {
+                "command": command_text,
+                "operation": command_name,
+            }
+            try:
+                result.update(success=True, output=self._service.run(command))
+            except Exception as error:
+                result.update(success=False, error=str(error))
+
+            results.append(result)
+
+        return json.dumps(
+            {
+                "success": all(result["success"] for result in results),
+                "results": results,
+            },
+            ensure_ascii=False,
+        )
 

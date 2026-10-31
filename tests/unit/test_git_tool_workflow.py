@@ -59,44 +59,29 @@ class GitToolWorkflowTest(unittest.TestCase):
             ModelResponse(tool_calls=[ToolCall(
                 "git",
                 {
-                    "command_name": "status",
-                    "command": [
-                        "status",
-                        "--short",
-                        "--branch",
-                        "--untracked-files=all",
+                    "commands": [
+                        "status --short --branch --untracked-files=all"
+                    ],
+                },
+            )]),
+            ModelResponse(tool_calls=[ToolCall(
+                "git",
+                {"commands": ["add -- tracked.txt"]},
+            )]),
+            ModelResponse(tool_calls=[ToolCall(
+                "git",
+                {
+                    "commands": [
+                        "commit --no-verify --no-gpg-sign "
+                        "-m 'Update tracked file'"
                     ],
                 },
             )]),
             ModelResponse(tool_calls=[ToolCall(
                 "git",
                 {
-                    "command_name": "add",
-                    "command": ["add", "--", "tracked.txt"],
-                },
-            )]),
-            ModelResponse(tool_calls=[ToolCall(
-                "git",
-                {
-                    "command_name": "commit",
-                    "command": [
-                        "commit",
-                        "--no-verify",
-                        "--no-gpg-sign",
-                        "-m",
-                        "Update tracked file",
-                    ],
-                },
-            )]),
-            ModelResponse(tool_calls=[ToolCall(
-                "git",
-                {
-                    "command_name": "status",
-                    "command": [
-                        "status",
-                        "--short",
-                        "--branch",
-                        "--untracked-files=all",
+                    "commands": [
+                        "status --short --branch --untracked-files=all"
                     ],
                 },
             )]),
@@ -127,48 +112,33 @@ class GitToolWorkflowTest(unittest.TestCase):
             ModelResponse(tool_calls=[ToolCall(
                 "git",
                 {
-                    "command_name": "status",
-                    "command": [
-                        "status",
-                        "--short",
-                        "--branch",
-                        "--untracked-files=all",
+                    "commands": [
+                        "status --short --branch --untracked-files=all"
                     ],
                 },
             )]),
             ModelResponse(tool_calls=[ToolCall(
                 "git",
-                {"command_name": "add", "command": ["add", "--"]},
+                {"commands": ["add --"]},
+            )]),
+            ModelResponse(tool_calls=[ToolCall(
+                "git",
+                {"commands": ["add -- tracked.txt"]},
             )]),
             ModelResponse(tool_calls=[ToolCall(
                 "git",
                 {
-                    "command_name": "add",
-                    "command": ["add", "--", "tracked.txt"],
-                },
-            )]),
-            ModelResponse(tool_calls=[ToolCall(
-                "git",
-                {
-                    "command_name": "commit",
-                    "command": [
-                        "commit",
-                        "--no-verify",
-                        "--no-gpg-sign",
-                        "-m",
-                        "Recovered commit",
+                    "commands": [
+                        "commit --no-verify --no-gpg-sign "
+                        "-m 'Recovered commit'"
                     ],
                 },
             )]),
             ModelResponse(tool_calls=[ToolCall(
                 "git",
                 {
-                    "command_name": "status",
-                    "command": [
-                        "status",
-                        "--short",
-                        "--branch",
-                        "--untracked-files=all",
+                    "commands": [
+                        "status --short --branch --untracked-files=all"
                     ],
                 },
             )]),
@@ -197,24 +167,16 @@ class GitToolWorkflowTest(unittest.TestCase):
             ModelResponse(tool_calls=[ToolCall(
                 "git",
                 {
-                    "command_name": "status",
-                    "command": [
-                        "status",
-                        "--short",
-                        "--branch",
-                        "--untracked-files=all",
+                    "commands": [
+                        "status --short --branch --untracked-files=all"
                     ],
                 },
             )]),
             ModelResponse(tool_calls=[ToolCall(
                 "git",
                 {
-                    "command_name": "status",
-                    "command": [
-                        "status",
-                        "--short",
-                        "--branch",
-                        "--untracked-files=all",
+                    "commands": [
+                        "status --short --branch --untracked-files=all"
                     ],
                 },
             )]),

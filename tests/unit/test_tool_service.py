@@ -1,3 +1,4 @@
+import json
 import unittest
 from unittest.mock import Mock
 
@@ -33,8 +34,8 @@ class ToolServiceTest(unittest.TestCase):
     def test_execute_tool_calls_returns_successful_results_in_order(self):
         self.tool_registry.execute.side_effect = ["first output", "second output"]
         tool_calls = [
-            ToolCall("read_file", {"path": "first.txt"}),
-            ToolCall("bash", {"command": "pwd"}),
+            ToolCall("read_file", {"paths": ["first.txt"]}),
+            ToolCall("bash", {"commands": ["pwd"]}),
         ]
 
         results = self.create_service().execute_tool_calls(tool_calls)
@@ -48,8 +49,8 @@ class ToolServiceTest(unittest.TestCase):
         self.assertEqual(
             self.tool_registry.execute.call_args_list,
             [
-                unittest.mock.call("read_file", {"path": "first.txt"}),
-                unittest.mock.call("bash", {"command": "pwd"}),
+                unittest.mock.call("read_file", {"paths": ["first.txt"]}),
+                unittest.mock.call("bash", {"commands": ["pwd"]}),
             ],
         )
 
@@ -137,12 +138,31 @@ class ToolServiceTest(unittest.TestCase):
         self.tool_registry.execute.side_effect = ValueError("missing file")
 
         results = self.create_service().execute_tool_calls(
-            [ToolCall("read_file", {"path": "missing.txt"})]
+            [ToolCall("read_file", {"paths": ["missing.txt"]})]
         )
 
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].name, "read_file")
         self.assertEqual(results[0].output, "missing file")
+        self.assertFalse(results[0].success)
+
+    def test_execute_tool_calls_propagates_batch_failure_status(self):
+        output = json.dumps(
+            {
+                "success": False,
+                "results": [
+                    {"success": True, "output": "first"},
+                    {"success": False, "error": "second failed"},
+                ],
+            }
+        )
+        self.tool_registry.execute.return_value = output
+
+        results = self.create_service().execute_tool_calls(
+            [ToolCall("bash", {"commands": ["first", "second"]})]
+        )
+
+        self.assertEqual(results[0].output, output)
         self.assertFalse(results[0].success)
 
     def test_execute_tool_calls_invokes_callback_for_each_result(self):
@@ -212,7 +232,7 @@ class ToolServiceTest(unittest.TestCase):
         self.model_message_builder.update_model_messages_by_tool_result_output_requests_ids.assert_not_called()
 
     def test_prepare_tool_response_messages_does_not_modify_session(self):
-        tool_calls = [ToolCall("read_file", {"path": "config.py"})]
+        tool_calls = [ToolCall("read_file", {"paths": ["config.py"]})]
         tool_results = [ToolResult("read_file", "configuration", id="result-id")]
         existing_message = Message(role="user", content="Existing history")
         session = Session(messages=[existing_message])
