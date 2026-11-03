@@ -48,6 +48,11 @@ class GeminiRetriesTest(unittest.TestCase):
         send.side_effect = lambda *args, **kwargs: self.response(503)
         with self.assertRaisesRegex(ModelConnectionError, "high demand") as caught:
             self.client.generate(self.messages)
+        self.assertEqual(
+            str(caught.exception),
+            "Gemini is temporarily unavailable or experiencing high demand. "
+            "Please try again later."
+        )
         self.assertIsInstance(caught.exception.__cause__, ServerError)
         self.assertEqual(send.call_count, 4)
         self.assertEqual(sleep.call_count, 3)
@@ -55,14 +60,46 @@ class GeminiRetriesTest(unittest.TestCase):
     @patch("tenacity.nap.time.sleep")
     @patch("httpx.Client.send")
     def test_client_errors_are_not_retried(self, send, sleep):
-        for code, expected in [(400, ClientError), (401, ClientError), (429, ModelRateLimitError)]:
+        for code in (400, 401):
             with self.subTest(code=code):
                 send.reset_mock()
                 send.return_value = self.response(code)
-                with self.assertRaises(expected):
+                with self.assertRaises(ClientError) as caught:
                     self.client.generate(self.messages)
+                self.assertIs(type(caught.exception), ClientError)
                 self.assertEqual(send.call_count, 1)
         sleep.assert_not_called()
+
+    @patch("tenacity.nap.time.sleep")
+    @patch("httpx.Client.send")
+    def test_rate_limit_error_preserves_message_and_cause(self, send, sleep):
+        send.return_value = self.response(429)
+
+        with self.assertRaises(ModelRateLimitError) as caught:
+            self.client.generate(self.messages)
+
+        self.assertEqual(
+            str(caught.exception),
+            "Gemini request quota exceeded. "
+            "Wait for the cooldown shown by Gemini, then retry, "
+            "or increase the API project's quota/billing."
+        )
+        self.assertIsInstance(caught.exception.__cause__, ClientError)
+        send.assert_called_once()
+        sleep.assert_not_called()
+
+    def test_network_error_preserves_message_and_cause(self):
+        error = httpx.ConnectError("Connection failed")
+
+        with patch.object(self.client._client.models, "generate_content", side_effect=error):
+            with self.assertRaises(ModelConnectionError) as caught:
+                self.client.generate(self.messages)
+
+        self.assertEqual(
+            str(caught.exception),
+            "Gemini could not be reached. Check the internet connection and try again."
+        )
+        self.assertIs(caught.exception.__cause__, error)
 
     def test_cli_stays_open_after_unavailable_error(self):
         with (
@@ -88,6 +125,12 @@ class GeminiRetriesTest(unittest.TestCase):
         send.return_value = self.response(404)
         with self.assertRaisesRegex(ModelConnectionError, "djemini.*GEMINI_MODEL") as caught:
             self.client.generate(self.messages)
+        self.assertEqual(
+            str(caught.exception),
+            "Gemini model 'djemini' was not found or does not support "
+            "generateContent. Check GEMINI_MODEL in .env against the models "
+            "available to your API key, then restart the harness."
+        )
         self.assertIsInstance(caught.exception.__cause__, ClientError)
         send.assert_called_once()
         sleep.assert_not_called()

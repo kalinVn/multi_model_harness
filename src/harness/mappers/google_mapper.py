@@ -8,6 +8,7 @@ from harness.domain.tool_call import ToolCall
 from harness.models.response import ModelResponse
 from harness.models.tool_definition import ToolDefinition
 from harness.parser.response_parser import prepare_model_response
+from harness.validators.gemini_response_validator import GeminiResponseValidator
 
 
 def get_tool_object(tool_definitions: list[ToolDefinition]) -> list[dict[str, Any]]:
@@ -79,6 +80,19 @@ def map_response(
     is decoded only when all of its protocol fields are present, which keeps
     JSON answers and command-specific JSON as ordinary user-facing content.
     """
+    GeminiResponseValidator.validate(
+        response,
+        get_response_text(response),
+        has_function_calls(response)
+    )
+
+    try:
+        return _map_response(response, tool_definitions)
+    except ValueError as error:
+        raise ValueError(f"Gemini returned an invalid model response: {error}") from error
+
+
+def _map_response(response: Any, tool_definitions: list[ToolDefinition] | None) -> ModelResponse:
     allowed_names = {
         tool_definition["name"]
         for tool_definition in tool_definitions or []

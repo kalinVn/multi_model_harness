@@ -222,6 +222,35 @@ Avoid introducing unnecessary SDK-specific types into shared application code.
 
 Do not introduce duplicate models or redundant abstractions.
 
+## Explicit SDK and API Calls
+
+Avoid unnecessary wrapper methods and context managers that hide a single SDK or API call.
+
+BAD:
+
+~~~python
+response = self._fetch_response(contents, config)
+~~~
+
+BAD:
+
+~~~python
+with handle_api_errors(self._model):
+    response = self._client.models.generate_content(...)
+~~~
+
+PREFERRED:
+
+~~~python
+response = self._client.models.generate_content(...)
+~~~
+
+Keep API calls explicit and readable.
+
+Delegate error classification to dedicated validators.
+
+Do not introduce unnecessary helper methods, context managers, or abstraction layers.
+
 ## Existing Code
 
 When modifying existing code:

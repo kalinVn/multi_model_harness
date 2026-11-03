@@ -353,6 +353,22 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
             1,
         )
 
+    def test_gemini_invalid_mapped_response_preserves_provider_context(self):
+        client = GeminiClient.__new__(GeminiClient)
+        client._client = Mock()
+        client._model = "test-model"
+        client._client.models.generate_content.return_value = types.GenerateContentResponse(
+            candidates=[types.Candidate(content=types.Content(parts=[types.Part(
+                function_call=types.FunctionCall(name="unavailable", args={})
+            )]))]
+        )
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "Gemini returned an invalid model response: Gemini returned an unavailable tool"
+        ):
+            client.generate([Message(role="user", content="Use a tool")])
+
     def test_gemini_maps_all_registered_tools_and_complete_git_schema(self):
         registry = ToolRegistry()
         register_tools(registry)

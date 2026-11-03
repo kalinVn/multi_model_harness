@@ -1,24 +1,19 @@
 import os
-from typing import Any
 
 import httpx
 from google import genai
 from google.genai.errors import ClientError, ServerError
 
 from harness.domain.message import Message
-from harness.models.errors import (
-    ModelConnectionError,
-    ModelRateLimitError,
-)
 from harness.models.response import ModelResponse
 from harness.models.tool_definition import ToolDefinition
 from harness.mappers.google_mapper import (
     get_tool_object,
-    get_response_text,
-    has_function_calls,
     map_messages,
     map_response,
 )
+from harness.validators.gemini_error_validator import GeminiErrorValidator
+from harness.validators.messages_validator import MessagesValidator
 
 
 class GeminiClient:
@@ -48,70 +43,21 @@ class GeminiClient:
         self._model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
     def generate(self, messages: list[Message], tools: list[ToolDefinition] | None = None) -> ModelResponse:
+        MessagesValidator.validate(messages)
         contents, system_instruction = map_messages(messages)
-
-        if not contents:
-            raise ValueError("Cannot generate response with empty conversation.")
 
         config: dict[str, object] = {
             "system_instruction": system_instruction,
             "tools": get_tool_object(tools or []) or None,
         }
 
-        response = self._fetch_response(contents, config)
-
-        response_text = get_response_text(response)
-
-        if not response_text.strip() and not has_function_calls(response):
-            details = []
-            if response.prompt_feedback and response.prompt_feedback.block_reason:
-                details.append(f"block_reason={response.prompt_feedback.block_reason}")
-            for candidate in response.candidates or []:
-                if candidate.finish_reason:
-                    details.append(f"finish_reason={candidate.finish_reason}")
-            suffix = f" ({', '.join(details)})" if details else ""
-            raise ValueError(f"Gemini returned no response text{suffix}")
-
         try:
-            return map_response(response, tools)
-        except ValueError as error:
-            raise ValueError(
-                f"Gemini returned an invalid model response: {error}"
-            ) from error
-
-    def _fetch_response(
-        self,
-        contents: list[dict[str, object]],
-        config: dict[str, object],
-    ) -> Any:
-        try:
-            return self._client.models.generate_content(
+            response = self._client.models.generate_content(
                 model=self._model,
                 contents=contents,
-                config=config,
+                config=config
             )
-        except ClientError as error:
-            if error.code == 404:
-                raise ModelConnectionError(
-                    f"Gemini model '{self._model}' was not found or does not support "
-                    "generateContent. Check GEMINI_MODEL in .env against the models "
-                    "available to your API key, then restart the harness."
-                ) from error
-            if error.code != 429:
-                raise
+        except (ClientError, ServerError, httpx.HTTPError) as error:
+            GeminiErrorValidator.validate(error, self._model)
 
-            raise ModelRateLimitError(
-                "Gemini request quota exceeded. "
-                "Wait for the cooldown shown by Gemini, then retry, "
-                "or increase the API project's quota/billing."
-            ) from error
-        except ServerError as error:
-            raise ModelConnectionError(
-                "Gemini is temporarily unavailable or experiencing high demand. "
-                "Please try again later."
-            ) from error
-        except httpx.HTTPError as error:
-            raise ModelConnectionError(
-                "Gemini could not be reached. "
-                "Check the internet connection and try again."
-            ) from error
+        return map_response(response, tools)
