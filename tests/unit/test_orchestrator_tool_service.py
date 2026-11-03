@@ -125,10 +125,10 @@ class MainOrchestratorToolServiceIntegrationTest(unittest.TestCase):
             ModelResponse(tool_calls=[ToolCall("read_file")]),
         ]
         runner = self.create_orchestrator(client)
-        runner.MAX_TOOL_STEPS = 1
         runner._tool_registry.execute = Mock(return_value="output")
 
-        result = runner.handle(Request.create("Continue"))
+        with patch.object(MainOrchestrator, "MAX_TOOL_STEPS", 1):
+            result = runner.handle(Request.create("Continue"))
 
         self.assertEqual(result, "Maximum tool execution steps exceeded.")
         runner._tool_registry.execute.assert_called_once_with("read_file", {})
@@ -144,11 +144,13 @@ class MainOrchestratorToolServiceIntegrationTest(unittest.TestCase):
             ModelResponse(text="still invalid"),
         ]
         runner = self.create_orchestrator(client)
-        runner.MAX_COMMAND_RESPONSE_RETRIES = 1
 
-        with patch(
-            "harness.service.command_service.get_command_message_obj",
-            return_value=Message(role="system", content="Command instructions"),
+        with (
+            patch.object(MainOrchestrator, "MAX_COMMAND_RESPONSE_RETRIES", 1),
+            patch(
+                "harness.service.command_service.get_command_message_obj",
+                return_value=Message(role="system", content="Command instructions")
+            )
         ):
             result = runner.handle(Request.create("execute command review"))
 

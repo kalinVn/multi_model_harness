@@ -1,4 +1,3 @@
-import os
 from collections.abc import Callable
 from pathlib import Path
 from harness.builder.command_response_format_context_builder import (
@@ -45,30 +44,13 @@ class MainOrchestrator:
     MAX_TOOL_STEPS = 20
     MAX_COMMAND_RESPONSE_RETRIES = 2
     MAX_TOOL_RESULT_OUTPUT_REQUEST_STEPS = 3
+
     def __init__(
         self,
         model_client: ModelClient,
         project_root: Path | None = None,
-        on_tool_result: Callable[[ToolResult], None] | None = None,
-        max_tool_steps: int | None = None,
-        max_command_response_retries: int | None = None,
-        max_tool_result_output_request_steps: int | None = None,
+        on_tool_result: Callable[[ToolResult], None] | None = None
     ) -> None:
-        self.MAX_TOOL_STEPS = self._read_non_negative_limit(
-            "HARNESS_MAX_TOOL_STEPS",
-            max_tool_steps,
-            type(self).MAX_TOOL_STEPS,
-        )
-        self.MAX_COMMAND_RESPONSE_RETRIES = self._read_non_negative_limit(
-            "HARNESS_MAX_COMMAND_RESPONSE_RETRIES",
-            max_command_response_retries,
-            type(self).MAX_COMMAND_RESPONSE_RETRIES,
-        )
-        self.MAX_TOOL_RESULT_OUTPUT_REQUEST_STEPS = self._read_non_negative_limit(
-            "HARNESS_MAX_TOOL_RESULT_OUTPUT_REQUEST_STEPS",
-            max_tool_result_output_request_steps,
-            type(self).MAX_TOOL_RESULT_OUTPUT_REQUEST_STEPS,
-        )
         self._model_client = model_client
         self._model_messages_builder = ModelMessageBuilder()
         self._on_tool_result = on_tool_result
@@ -102,27 +84,6 @@ class MainOrchestrator:
             tool_registry=self._tool_registry,
         )
         self._session_manager.create_session()
-
-    @staticmethod
-    def _read_non_negative_limit(
-        environment_name: str,
-        configured_value: int | None,
-        default: int,
-    ) -> int:
-        raw_value: int | str = (
-            configured_value
-            if configured_value is not None
-            else os.getenv(environment_name, str(default))
-        )
-        try:
-            value = int(raw_value)
-        except (TypeError, ValueError) as error:
-            raise ValueError(
-                f"{environment_name} must be a non-negative integer."
-            ) from error
-        if value < 0:
-            raise ValueError(f"{environment_name} must be a non-negative integer.")
-        return value
 
     def handle(
         self,
@@ -191,7 +152,7 @@ class MainOrchestrator:
                 
 
 
-            result = self._handle_response_without_tool_calls(
+            result = self._process_response(
                 session,
                 state.response,
                 state.parsed_command,
@@ -243,7 +204,7 @@ class MainOrchestrator:
 
         return self._loop(state, session)
 
-    def _handle_response_without_tool_calls(
+    def _process_response(
         self,
         session: Session,
         response: ModelResponse,

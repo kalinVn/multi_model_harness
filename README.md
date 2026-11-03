@@ -137,12 +137,10 @@ also redacts HTTP(S) URL credentials and sensitive environment values.
 
 ## Execution and context limits
 
-The following optional `.env` settings bound model retries and request size:
+Execution loop limits are fixed by `MainOrchestrator` class constants. The
+following optional `.env` settings bound request context size:
 
 ```env
-HARNESS_MAX_TOOL_STEPS=20
-HARNESS_MAX_COMMAND_RESPONSE_RETRIES=2
-HARNESS_MAX_TOOL_RESULT_OUTPUT_REQUEST_STEPS=3
 HARNESS_MAX_HISTORY_MESSAGES=40
 HARNESS_MAX_TOOL_RESULT_CHARS=12000
 ```

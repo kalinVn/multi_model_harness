@@ -161,7 +161,7 @@ class GitToolWorkflowTest(unittest.TestCase):
         self.assertEqual(self._git("log", "-1", "--pretty=%s"), "Recovered commit")
         self.assertEqual(self._git("status", "--porcelain"), "")
 
-    def test_tool_iteration_limit_is_configurable(self):
+    def test_tool_iteration_limit_uses_class_constant(self):
         client = Mock()
         client.generate.side_effect = [
             ModelResponse(tool_calls=[ToolCall(
@@ -183,14 +183,14 @@ class GitToolWorkflowTest(unittest.TestCase):
         ]
         with patch.dict(
             os.environ,
-            {
-                "HARNESS_ENABLE_GIT_WRITE_OPERATIONS": "true",
-                "HARNESS_MAX_TOOL_STEPS": "1",
-            },
+            {"HARNESS_ENABLE_GIT_WRITE_OPERATIONS": "true"}
+        ), patch.object(
+            MainOrchestrator,
+            "MAX_TOOL_STEPS",
+            1
         ):
             runner = MainOrchestrator(client, project_root=self.project_root)
-
-        result = runner.handle(Request.create("check twice"))
+            result = runner.handle(Request.create("check twice"))
 
         self.assertEqual(result, "Maximum tool execution steps exceeded.")
         self.assertEqual(client.generate.call_count, 2)
