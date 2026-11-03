@@ -1,11 +1,10 @@
 import os
+from typing import Any
 
 import httpx
 from google import genai
-from google.genai import types
 from google.genai.errors import ClientError, ServerError
 
-from harness.converter.tool_converter_facade import ToolConverterFacade
 from harness.domain.message import Message
 from harness.models.errors import (
     ModelConnectionError,
@@ -14,6 +13,7 @@ from harness.models.errors import (
 from harness.models.response import ModelResponse
 from harness.models.tool_definition import ToolDefinition
 from harness.mappers.google_mapper import (
+    get_tool_object,
     get_response_text,
     has_function_calls,
     map_messages,
@@ -22,10 +22,7 @@ from harness.mappers.google_mapper import (
 
 
 class GeminiClient:
-    def __init__(
-        self,
-        tool_converter: ToolConverterFacade | None = None,
-    ) -> None:
+    def __init__(self) -> None:
         api_key = os.getenv("GEMINI_API_KEY")
 
         if not api_key:
@@ -35,29 +32,22 @@ class GeminiClient:
 
         self._client = genai.Client(
             api_key=api_key,
-            http_options=types.HttpOptions(
-                timeout=timeout_seconds * 1000,
-                retry_options=types.HttpRetryOptions(
-                    attempts=4,
-                    initial_delay=1.0,
-                    max_delay=8.0,
-                    exp_base=2.0,
-                    jitter=1.0,
-                    http_status_codes=[500, 502, 503, 504],
-                ),
-            ),
+            http_options={
+                "timeout": timeout_seconds * 1000,
+                "retry_options": {
+                    "attempts": 4,
+                    "initial_delay": 1.0,
+                    "max_delay": 8.0,
+                    "exp_base": 2.0,
+                    "jitter": 1.0,
+                    "http_status_codes": [500, 502, 503, 504],
+                },
+            },
         )
 
         self._model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-        self._tool_converter = tool_converter or ToolConverterFacade()
 
-    def generate(
-        self,
-        messages: list[Message],
-        tools: list[ToolDefinition] | None = None,
-    ) -> ModelResponse:
-        native_tools = self._tool_converter.convert_tools("gemini", tools or [])
-
+    def generate(self, messages: list[Message], tools: list[ToolDefinition] | None = None) -> ModelResponse:
         contents, system_instruction = map_messages(messages)
 
         if not contents:
@@ -65,7 +55,7 @@ class GeminiClient:
 
         config: dict[str, object] = {
             "system_instruction": system_instruction,
-            "tools": native_tools or None,
+            "tools": get_tool_object(tools or []) or None,
         }
 
         response = self._fetch_response(contents, config)
@@ -91,9 +81,9 @@ class GeminiClient:
 
     def _fetch_response(
         self,
-        contents: list[types.Content],
+        contents: list[dict[str, object]],
         config: dict[str, object],
-    ) -> types.GenerateContentResponse:
+    ) -> Any:
         try:
             return self._client.models.generate_content(
                 model=self._model,

@@ -1,11 +1,7 @@
 import json
 from typing import Any
 
-from google.genai import types
-
-from harness.config.response.gemini_response_instruction import (
-    GEMINI_RESPONSE_INSTRUCTION,
-)
+from harness.config.response.gemini_response_instruction import GEMINI_RESPONSE_INSTRUCTION
 from harness.converter.tool_converter_facade import ToolConverterFacade
 from harness.domain.message import Message
 from harness.domain.tool_call import ToolCall
@@ -14,20 +10,21 @@ from harness.models.tool_definition import ToolDefinition
 from harness.parser.response_parser import prepare_model_response
 
 
-def map_tool_definitions(
-    tool_definitions: list[ToolDefinition],
-) -> list[dict[str, Any]]:
+def get_tool_object(tool_definitions: list[ToolDefinition]) -> list[dict[str, Any]]:
     """Convert shared definitions to Gemini declaration dictionaries."""
-    return ToolConverterFacade().convert_tools(
-        "gemini",
-        tool_definitions,
-    )
+
+    return ToolConverterFacade().convert_tools("gemini", tool_definitions)
 
 
 def map_messages(
     messages: list[Message],
-) -> tuple[list[types.Content], str | None]:
-    contents: list[types.Content] = []
+) -> tuple[list[dict[str, object]], str]:
+    """Map Harness history to the dictionary format accepted by Gemini.
+
+    Tool calls and tool results are already rendered into Message.content by
+    the shared Harness message builders, so their history remains unchanged.
+    """
+    contents: list[dict[str, object]] = []
     system_messages: list[str] = []
 
     for message in messages:
@@ -41,9 +38,10 @@ def map_messages(
             else "user"
         )
 
-        contents.append(
-            types.Content(role=role, parts=[types.Part.from_text(text=message.content)])
-        )
+        contents.append({
+            "role": role,
+            "parts": [{"text": message.content}],
+        })
 
     system_messages.append(GEMINI_RESPONSE_INSTRUCTION)
 
@@ -52,8 +50,9 @@ def map_messages(
     return contents, system_instruction
 
 
-def get_response_text(response: types.GenerateContentResponse) -> str:
+def get_response_text(response: Any) -> str:
     """Collect text parts without assuming that a native call has text."""
+
     return "".join(
         part.text
         for candidate in response.candidates or []
@@ -62,7 +61,7 @@ def get_response_text(response: types.GenerateContentResponse) -> str:
     )
 
 
-def has_function_calls(response: types.GenerateContentResponse) -> bool:
+def has_function_calls(response: Any) -> bool:
     return any(
         part.function_call is not None
         for candidate in response.candidates or []
@@ -71,7 +70,7 @@ def has_function_calls(response: types.GenerateContentResponse) -> bool:
 
 
 def map_response(
-    response: types.GenerateContentResponse,
+    response: Any,
     tool_definitions: list[ToolDefinition] | None = None,
 ) -> ModelResponse:
     """Map user-facing Gemini text and native calls to the shared response.
@@ -101,6 +100,7 @@ def map_response(
             )
 
     response_text = get_response_text(response)
+
     if response_text.strip():
         parsed_response = _map_text_response(response_text)
     elif native_calls:
@@ -115,16 +115,16 @@ def map_response(
         text=parsed_response.text,
         tool_calls=native_calls,
         tool_result_summaries=parsed_response.tool_result_summaries,
-        tool_result_output_requests=(
-            parsed_response.tool_result_output_requests
-        ),
+        tool_result_output_requests=parsed_response.tool_result_output_requests
     )
 
 
 def _map_text_response(response_text: str) -> ModelResponse:
     """Decode a harness metadata envelope, otherwise preserve Gemini text."""
+
     try:
         data = json.loads(response_text)
+
     except (json.JSONDecodeError, TypeError):
         return ModelResponse(text=response_text)
 
@@ -133,6 +133,7 @@ def _map_text_response(response_text: str) -> ModelResponse:
         "tool_calls",
         "tool_result_output_requests",
     }
+
     if (
         not isinstance(data, dict)
         or not required_metadata_fields.issubset(data)

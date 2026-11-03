@@ -1,6 +1,6 @@
 import json
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from google.genai import types
 
@@ -8,16 +8,16 @@ from harness.builder.tool_parameters_builder import build_tool_parameters
 from harness.config.response.gemini_response_instruction import (
     GEMINI_RESPONSE_INSTRUCTION,
 )
-from harness.converter.tool_converter_facade import ToolConverterFacade
 from harness.domain.message import Message
 from harness.domain.tool_call import ToolCall
+from harness.domain.tool_result import ToolResult
 from harness.models.response import ModelResponse
 from harness.models.response_instruction import MODEL_RESPONSE_INSTRUCTION
 from harness.parser.response_parser import prepare_model_response
 from harness.providers.google_client import GeminiClient
 from harness.mappers.google_mapper import (
+    get_tool_object,
     map_messages as google_messages,
-    map_tool_definitions as google_tools,
 )
 from harness.providers.openai_client import OpenAIClient
 from harness.mappers.openai_mapper import map_messages as openai_messages
@@ -38,7 +38,6 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         client = GeminiClient.__new__(GeminiClient)
         client._client = Mock()
         client._model = "test-model"
-        client._tool_converter = ToolConverterFacade()
         client._client.models.generate_content.return_value = self.gemini_response("Done")
         self.assertEqual(client.generate([
             Message(role="system", content="Project instructions"),
@@ -53,12 +52,16 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
             "respond with only the user-facing",
             config["system_instruction"],
         )
+        contents = client._client.models.generate_content.call_args.kwargs["contents"]
+        self.assertEqual(
+            contents,
+            [{"role": "user", "parts": [{"text": "Continue"}]}],
+        )
 
     def test_gemini_empty_response_reports_provider_reason(self):
         client = GeminiClient.__new__(GeminiClient)
         client._client = Mock()
         client._model = "test-model"
-        client._tool_converter = ToolConverterFacade()
         cases = [
             (types.GenerateContentResponse(), "no response text"),
             (types.GenerateContentResponse(prompt_feedback={"block_reason": "SAFETY"}), "SAFETY"),
@@ -79,7 +82,6 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         client = GeminiClient.__new__(GeminiClient)
         client._client = Mock()
         client._model = "test-model"
-        client._tool_converter = ToolConverterFacade()
         client._client.models.generate_content.return_value = self.gemini_response(
             "136."
         )
@@ -105,7 +107,6 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         client = GeminiClient.__new__(GeminiClient)
         client._client = Mock()
         client._model = "test-model"
-        client._tool_converter = ToolConverterFacade()
         client._client.models.generate_content.return_value = self.gemini_response(
             "Hi! How can I help?"
         )
@@ -117,11 +118,34 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         self.assertNotIn("response_mime_type", config)
         self.assertIsNotNone(config["tools"])
 
+    @patch("harness.mappers.google_mapper.ToolConverterFacade.convert_tools")
+    def test_gemini_prepares_available_tools_once(self, convert_tools):
+        schemas = [{
+            "name": "example",
+            "description": "Example tool.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+        }]
+        prepared_tools = [{"function_declarations": [{"name": "example"}]}]
+        convert_tools.return_value = prepared_tools
+        client = GeminiClient.__new__(GeminiClient)
+        client._client = Mock()
+        client._model = "test-model"
+        client._client.models.generate_content.return_value = self.gemini_response("Done")
+
+        client.generate([Message(role="user", content="Use a tool")], schemas)
+
+        convert_tools.assert_called_once_with("gemini", schemas)
+        config = client._client.models.generate_content.call_args.kwargs["config"]
+        self.assertIs(config["tools"], prepared_tools)
+
     def test_gemini_preserves_command_specific_json_without_outer_envelope(self):
         client = GeminiClient.__new__(GeminiClient)
         client._client = Mock()
         client._model = "test-model"
-        client._tool_converter = ToolConverterFacade()
         command_response = '{"answer":"Done","command_summary":"Completed."}'
         client._client.models.generate_content.return_value = self.gemini_response(
             command_response
@@ -136,7 +160,6 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         client = GeminiClient.__new__(GeminiClient)
         client._client = Mock()
         client._model = "test-model"
-        client._tool_converter = ToolConverterFacade()
         raw = json.dumps({
             "text": "Файлът беше прочетен успешно.",
             "tool_result_summaries": [
@@ -154,15 +177,35 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         self.assertEqual(response.tool_result_summaries[0].id, "result-1")
 
     def test_mappers_preserve_history_and_add_one_instruction(self):
-        messages = [Message(role="system", content="Project instructions"),
-                    Message(role="user", content="Read file"),
-                    Message(role="assistant", content='Raw tool calls:\n[{"tool":"read_file"}]'),
-                    Message(role="user", content="Tool result ID: original-id\nOutput:\ncontents")]
+        tool_result = ToolResult(
+            "read_file",
+            "contents",
+            id="original-id",
+        )
+        messages = [
+            Message(role="system", content="Project instructions"),
+            Message(role="user", content="Read file"),
+            Message(
+                role="assistant",
+                content='Raw tool calls:\n[{"tool":"read_file"}]',
+            ),
+            Message(
+                role="user",
+                content="Tool result ID: original-id\nOutput:\ncontents",
+                tool_results=(tool_result,),
+            ),
+        ]
         contents, instruction = google_messages(messages)
         self.assertEqual(instruction.count(GEMINI_RESPONSE_INSTRUCTION), 1)
         self.assertIn("Project instructions", instruction)
-        self.assertEqual([c.role for c in contents], ["user", "model", "user"])
-        self.assertEqual([c.parts[0].text for c in contents], [m.content for m in messages[1:]])
+        self.assertEqual(
+            contents,
+            [
+                {"role": "user", "parts": [{"text": messages[1].content}]},
+                {"role": "model", "parts": [{"text": messages[2].content}]},
+                {"role": "user", "parts": [{"text": messages[3].content}]},
+            ],
+        )
         mapped = openai_messages(messages)
         self.assertEqual(mapped[:-1], [{"role": m.role, "content": m.content} for m in messages])
         self.assertEqual(mapped[-1], {"role": "system", "content": MODEL_RESPONSE_INSTRUCTION})
@@ -178,9 +221,9 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
             Message(role="user", content="Continue"),
         ])
 
-        self.assertEqual(google_tools([]), [])
+        self.assertEqual(get_tool_object([]), [])
         self.assertIn(catalog_text, instruction)
-        self.assertEqual(contents[0].parts[0].text, "Continue")
+        self.assertEqual(contents[0]["parts"][0]["text"], "Continue")
 
     def test_gemini_passes_json_schema_keywords_to_sdk(self):
         schemas = [{
@@ -201,7 +244,6 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         client = GeminiClient.__new__(GeminiClient)
         client._client = Mock()
         client._model = "test-model"
-        client._tool_converter = ToolConverterFacade()
         client._client.models.generate_content.return_value = self.gemini_response(
             "Done"
         )
@@ -252,7 +294,6 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         client = GeminiClient.__new__(GeminiClient)
         client._client = Mock()
         client._model = "test-model"
-        client._tool_converter = ToolConverterFacade()
         client._client.models.generate_content.return_value = (
             types.GenerateContentResponse(
                 candidates=[
@@ -317,7 +358,7 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         register_tools(registry)
         schemas = build_tool_parameters(registry.list_tools())
 
-        native_tools = google_tools(schemas)
+        native_tools = get_tool_object(schemas)
 
         declarations = native_tools[0]["function_declarations"]
         self.assertEqual(
@@ -355,8 +396,6 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
                 client = cls.__new__(cls)
                 client._client = Mock()
                 client._model = "test-model"
-                if cls is GeminiClient:
-                    client._tool_converter = ToolConverterFacade()
                 endpoint = (client._client.models.generate_content if cls is GeminiClient
                             else client._client.responses.create)
                 if cls is GeminiClient:

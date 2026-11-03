@@ -85,9 +85,7 @@ class MainOrchestrator:
         self._tool_registry = ToolRegistry()
 
         register_tools(self._tool_registry, working_directory=self._project_root)
-        self._tool_parameters = build_tool_parameters(
-            self._tool_registry.list_tools()
-        )
+        self._tool_parameters = build_tool_parameters(self._tool_registry.list_tools())
 
         self._command_service = CommandService(
             command_resolver=self._command_resolver,
