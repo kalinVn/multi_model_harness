@@ -16,6 +16,7 @@ from harness.models.response_instruction import MODEL_RESPONSE_INSTRUCTION
 from harness.parser.response_parser import prepare_model_response
 from harness.providers.google_client import GeminiClient
 from harness.mappers.google_mapper import (
+    GeminiResponseMapper,
     get_tool_object,
     map_messages as google_messages,
 )
@@ -57,6 +58,15 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
             contents,
             [{"role": "user", "parts": [{"text": "Continue"}]}],
         )
+
+    def test_gemini_response_mapper_uses_private_text_mapper(self):
+        mapper = GeminiResponseMapper()
+
+        with patch.object(mapper, "_map_text_response", wraps=mapper._map_text_response) as map_text:
+            response = mapper.map_response(self.gemini_response("Done"))
+
+        self.assertEqual(response, ModelResponse(text="Done"))
+        map_text.assert_called_once_with("Done")
 
     def test_gemini_empty_response_reports_provider_reason(self):
         client = GeminiClient.__new__(GeminiClient)
@@ -353,7 +363,7 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
             1,
         )
 
-    def test_gemini_invalid_mapped_response_preserves_provider_context(self):
+    def test_gemini_maps_tool_calls_without_availability_validation(self):
         client = GeminiClient.__new__(GeminiClient)
         client._client = Mock()
         client._model = "test-model"
@@ -363,11 +373,36 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
             )]))]
         )
 
+        response = client.generate([Message(role="user", content="Use a tool")])
+
+        self.assertEqual(response.tool_calls, [ToolCall("unavailable")])
+
+    def test_gemini_invalid_native_tool_arguments_preserve_error(self):
+        function_call = Mock()
+        function_call.name = "read_file"
+        function_call.args = ["README.md"]
+        part = Mock(text=None, function_call=function_call)
+        response = Mock(candidates=[Mock(content=Mock(parts=[part]))])
+
         with self.assertRaisesRegex(
             ValueError,
-            "Gemini returned an invalid model response: Gemini returned an unavailable tool"
+            "Gemini returned an invalid model response: Gemini tool arguments must be an object"
         ):
-            client.generate([Message(role="user", content="Use a tool")])
+            GeminiResponseMapper().map_response(response)
+
+    def test_gemini_text_encoded_tool_calls_preserve_error(self):
+        response_text = json.dumps({
+            "text": "",
+            "tool_calls": [{"tool": "read_file", "arguments": {}}],
+            "tool_result_summaries": []
+        })
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "Gemini returned an invalid model response: "
+            "Gemini must return tool calls as native function calls"
+        ):
+            GeminiResponseMapper().map_response(self.gemini_response(response_text))
 
     def test_gemini_maps_all_registered_tools_and_complete_git_schema(self):
         registry = ToolRegistry()

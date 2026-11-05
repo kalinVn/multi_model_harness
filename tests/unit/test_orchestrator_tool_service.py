@@ -137,6 +137,28 @@ class MainOrchestratorToolServiceIntegrationTest(unittest.TestCase):
             Message(role="assistant", content=result),
         )
 
+    def test_registered_tool_unavailable_for_request_is_rejected_before_execution(self):
+        client = Mock()
+        client.generate.side_effect = [
+            ModelResponse(text="invalid"),
+            ModelResponse(tool_calls=[ToolCall("read_file")]),
+        ]
+        runner = self.create_orchestrator(client)
+        runner._tool_registry.execute = Mock()
+
+        with (
+            patch(
+                "harness.service.command_service.get_command_message_obj",
+                return_value=Message(role="system", content="Command instructions")
+            ),
+            self.assertRaisesRegex(ValueError, "Model returned an unavailable tool")
+        ):
+            runner.handle(Request.create("execute command review"))
+
+        self.assertTrue(client.generate.call_args_list[0].kwargs["tools"])
+        self.assertEqual(client.generate.call_args_list[1].kwargs["tools"], [])
+        runner._tool_registry.execute.assert_not_called()
+
     def test_command_response_retry_limit_and_final_result_are_preserved(self):
         client = Mock()
         client.generate.side_effect = [

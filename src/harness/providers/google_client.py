@@ -7,11 +7,7 @@ from google.genai.errors import ClientError, ServerError
 from harness.domain.message import Message
 from harness.models.response import ModelResponse
 from harness.models.tool_definition import ToolDefinition
-from harness.mappers.google_mapper import (
-    get_tool_object,
-    map_messages,
-    map_response,
-)
+from harness.mappers.google_mapper import GeminiResponseMapper, get_tool_object, map_messages
 from harness.validators.gemini_error_validator import GeminiErrorValidator
 from harness.validators.messages_validator import MessagesValidator
 
@@ -60,4 +56,4 @@ class GeminiClient:
         except (ClientError, ServerError, httpx.HTTPError) as error:
             GeminiErrorValidator.validate(error, self._model)
 
-        return map_response(response, tools)
+        return GeminiResponseMapper().map_response(response)

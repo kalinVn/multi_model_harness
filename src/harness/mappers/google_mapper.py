@@ -9,6 +9,7 @@ from harness.models.response import ModelResponse
 from harness.models.tool_definition import ToolDefinition
 from harness.parser.response_parser import prepare_model_response
 from harness.validators.gemini_response_validator import GeminiResponseValidator
+from harness.validators.tool_call_validator import ToolCallValidator
 
 
 def get_tool_object(tool_definitions: list[ToolDefinition]) -> list[dict[str, Any]]:
@@ -51,112 +52,75 @@ def map_messages(
     return contents, system_instruction
 
 
-def get_response_text(response: Any) -> str:
-    """Collect text parts without assuming that a native call has text."""
+class GeminiResponseMapper:
+    """Convert Gemini responses into the shared model response contract."""
 
-    return "".join(
-        part.text
-        for candidate in response.candidates or []
-        for part in (candidate.content.parts if candidate.content else []) or []
-        if part.text
-    )
+    def map_response(self, response: Any) -> ModelResponse:
+        """Map user-facing Gemini text and native calls to the shared response.
 
+        Gemini normally returns plain text. The legacy internal response envelope
+        is decoded only when all of its protocol fields are present, which keeps
+        JSON answers and command-specific JSON as ordinary user-facing content.
+        """
+        candidates = response.candidates or []
+        response_text = ""
+        native_calls: list[ToolCall] = []
 
-def has_function_calls(response: Any) -> bool:
-    return any(
-        part.function_call is not None
-        for candidate in response.candidates or []
-        for part in (candidate.content.parts if candidate.content else []) or []
-    )
+        for candidate in candidates:
+            parts = (candidate.content.parts if candidate.content else []) or []
+            for part in parts:
+                if part.text:
+                    response_text += part.text
 
+                function_call = part.function_call
+                if function_call is None:
+                    continue
 
-def map_response(
-    response: Any,
-    tool_definitions: list[ToolDefinition] | None = None,
-) -> ModelResponse:
-    """Map user-facing Gemini text and native calls to the shared response.
+                native_calls.append(ToolCall(
+                    name=function_call.name,
+                    arguments=function_call.args or {}
+                ))
 
-    Gemini normally returns plain text. The legacy internal response envelope
-    is decoded only when all of its protocol fields are present, which keeps
-    JSON answers and command-specific JSON as ordinary user-facing content.
-    """
-    GeminiResponseValidator.validate(
-        response,
-        get_response_text(response),
-        has_function_calls(response)
-    )
+        GeminiResponseValidator.validate(response, response_text, bool(native_calls))
 
-    try:
-        return _map_response(response, tool_definitions)
-    except ValueError as error:
-        raise ValueError(f"Gemini returned an invalid model response: {error}") from error
+        try:
+            ToolCallValidator.validate_arguments(native_calls, "Gemini")
+            parsed_response = self._map_text_response(response_text) if response_text.strip() else ModelResponse()
+            ToolCallValidator.validate_native_tool_calls(parsed_response.tool_calls, "Gemini")
+        except ValueError as error:
+            raise ValueError(f"Gemini returned an invalid model response: {error}") from error
 
+        return ModelResponse(
+            text=parsed_response.text,
+            tool_calls=native_calls,
+            tool_result_summaries=parsed_response.tool_result_summaries,
+            tool_result_output_requests=parsed_response.tool_result_output_requests
+        )
 
-def _map_response(response: Any, tool_definitions: list[ToolDefinition] | None) -> ModelResponse:
-    allowed_names = {
-        tool_definition["name"]
-        for tool_definition in tool_definitions or []
-    }
-    native_calls: list[ToolCall] = []
+    def _map_text_response(self, response_text: str) -> ModelResponse:
+        """Decode a harness metadata envelope, otherwise preserve Gemini text."""
 
-    for candidate in response.candidates or []:
-        for part in (candidate.content.parts if candidate.content else []) or []:
-            function_call = part.function_call
-            if function_call is None:
-                continue
-            if not function_call.name or function_call.name not in allowed_names:
-                raise ValueError("Gemini returned an unavailable tool")
-            arguments = function_call.args or {}
-            if not isinstance(arguments, dict):
-                raise ValueError("Gemini tool arguments must be an object")
-            native_calls.append(
-                ToolCall(name=function_call.name, arguments=arguments)
-            )
+        try:
+            data = json.loads(response_text)
 
-    response_text = get_response_text(response)
+        except (json.JSONDecodeError, TypeError):
+            return ModelResponse(text=response_text)
 
-    if response_text.strip():
-        parsed_response = _map_text_response(response_text)
-    elif native_calls:
-        parsed_response = ModelResponse()
-    else:
-        raise ValueError("Gemini returned no response text or tool calls")
+        required_metadata_fields = {"text", "tool_result_summaries"}
+        allowed_metadata_fields = required_metadata_fields | {
+            "tool_calls",
+            "tool_result_output_requests"
+        }
 
-    if parsed_response.tool_calls:
-        raise ValueError("Gemini must return tool calls as native function calls")
+        if (
+            not isinstance(data, dict)
+            or not required_metadata_fields.issubset(data)
+            or not set(data).issubset(allowed_metadata_fields)
+        ):
+            return ModelResponse(text=response_text)
 
-    return ModelResponse(
-        text=parsed_response.text,
-        tool_calls=native_calls,
-        tool_result_summaries=parsed_response.tool_result_summaries,
-        tool_result_output_requests=parsed_response.tool_result_output_requests
-    )
+        if "tool_calls" not in data:
+            data["tool_calls"] = []
+            response_text = json.dumps(data, ensure_ascii=False)
 
-
-def _map_text_response(response_text: str) -> ModelResponse:
-    """Decode a harness metadata envelope, otherwise preserve Gemini text."""
-
-    try:
-        data = json.loads(response_text)
-
-    except (json.JSONDecodeError, TypeError):
-        return ModelResponse(text=response_text)
-
-    required_metadata_fields = {"text", "tool_result_summaries"}
-    allowed_metadata_fields = required_metadata_fields | {
-        "tool_calls",
-        "tool_result_output_requests",
-    }
-
-    if (
-        not isinstance(data, dict)
-        or not required_metadata_fields.issubset(data)
-        or not set(data).issubset(allowed_metadata_fields)
-    ):
-        return ModelResponse(text=response_text)
-
-    if "tool_calls" not in data:
-        data["tool_calls"] = []
-        response_text = json.dumps(data, ensure_ascii=False)
-
-    return prepare_model_response(response_text)
+        return prepare_model_response(response_text)

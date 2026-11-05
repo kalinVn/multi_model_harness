@@ -38,6 +38,7 @@ from harness.models.model_client import (
     ModelClient,
 )
 from harness.models.response import ModelResponse
+from harness.validators.tool_call_validator import ToolCallValidator
 
 
 class MainOrchestrator:
@@ -114,6 +115,7 @@ class MainOrchestrator:
         tools = self._tool_service.get_available_tools(self._tool_parameters, state.model_messages)
         
         state.response = self._model_client.generate(state.model_messages, tools=tools)
+        ToolCallValidator.validate(state.response.tool_calls, tools)
                     
         session.apply_tool_result_summaries(state.response.tool_result_summaries)
         requested_tool_result_ids = self._tool_service.get_requested_tool_result_ids(
