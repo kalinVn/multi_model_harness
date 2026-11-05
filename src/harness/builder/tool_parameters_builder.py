@@ -97,22 +97,4 @@ def build_text_tools_context(tool_definitions: list[ToolDefinition]) -> str:
 
         parts.append("")
 
-    parts.extend(
-        [
-            "Tool call format:",
-            "",
-            "When you need to use a tool, respond only with valid JSON.",
-            "",
-            "{",
-            '  "tool": "<tool_name>",',
-            '  "arguments": {',
-            '    "<parameter_name>": "<argument_value>"',
-            "  }",
-            "}",
-            "",
-            "Do not wrap the JSON in Markdown.",
-            "Do not include explanatory text before or after the JSON.",
-        ]
-    )
-
     return "\n".join(parts).strip()

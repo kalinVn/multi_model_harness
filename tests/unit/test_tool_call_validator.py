@@ -33,19 +33,5 @@ class ToolCallValidatorTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Model returned an unavailable tool"):
             ToolCallValidator.validate([ToolCall("read_file")], [])
 
-    def test_validates_provider_tool_call_arguments(self):
-        ToolCallValidator.validate_arguments([ToolCall("read_file")], "Gemini")
-
-        with self.assertRaisesRegex(ValueError, "Gemini tool arguments must be an object"):
-            ToolCallValidator.validate_arguments([ToolCall("read_file", ["README.md"])], "Gemini")
-
-    def test_rejects_text_encoded_calls_for_native_tool_providers(self):
-        with self.assertRaisesRegex(
-            ValueError,
-            "Gemini must return tool calls as native function calls"
-        ):
-            ToolCallValidator.validate_native_tool_calls([ToolCall("read_file")], "Gemini")
-
-
 if __name__ == "__main__":
     unittest.main()

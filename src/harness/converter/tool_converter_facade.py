@@ -1,6 +1,5 @@
 from typing import Any
 
-from harness.converter.gemini_tool_converter import GeminiToolConverter
 from harness.converter.openai_tool_converter import OpenAIToolConverter
 from harness.models.tool_definition import ToolDefinition
 
@@ -10,7 +9,6 @@ class ToolConverterFacade:
 
     def __init__(self) -> None:
         self._converters = {
-            "gemini": GeminiToolConverter(),
             "openai": OpenAIToolConverter(),
         }
 
