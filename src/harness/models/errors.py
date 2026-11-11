@@ -4,3 +4,7 @@ class ModelRateLimitError(RuntimeError):
 
 class ModelConnectionError(RuntimeError):
     """Raised when a model provider cannot be reached."""
+
+
+class UnknownCommandError(ValueError):
+    """Raised when a requested Harness command does not exist."""

@@ -73,9 +73,7 @@ class ModelMessageBuilder:
             ]
 
         messages_for_model = self._limit_history(messages_for_model)
-        model_messages = self.compose_model_messages(
-            messages_for_model + response_format_instruction
-        )
+        model_messages = self.compose_model_messages(messages_for_model + response_format_instruction)
         
         if command_message is not None:
             model_messages.append(command_message)

@@ -19,6 +19,32 @@ Keep logically related statements together.
 
 Separate independent operations with blank lines.
 
+## Variable Assignments
+
+Keep short variable assignments and simple expressions on one line.
+
+Do not wrap an assignment in parentheses or split a short path expression across multiple lines.
+
+WRONG:
+
+~~~python
+self._project_root = (
+    project_root or Path.cwd()
+)
+commands_directory = (
+    self._project_root
+    / ".caisa"
+    / "commands"
+)
+~~~
+
+CORRECT:
+
+~~~python
+self._project_root = project_root or Path.cwd()
+commands_directory = self._project_root / ".caisa" / "commands"
+~~~
+
 ## Python Function Formatting Conventions
 
 **Important:** Follow these conventions whenever creating or modifying Python code.

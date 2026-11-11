@@ -46,6 +46,19 @@ class MainOrchestratorToolServiceIntegrationTest(unittest.TestCase):
             Message(role="assistant", content="Hello"),
         )
 
+    def test_unknown_command_returns_message_without_calling_model(self):
+        client = Mock()
+        runner = self.create_orchestrator(client)
+
+        result = runner.handle(Request.create("execute command missing-command"))
+
+        self.assertEqual(result, "Unknown command: missing-command")
+        client.generate.assert_not_called()
+        self.assertEqual(
+            runner._session_manager.current_session.messages[-1],
+            Message(role="assistant", content=result)
+        )
+
     def test_command_summary_precedes_final_answer(self):
         client = Mock()
         client.generate.return_value = ModelResponse(

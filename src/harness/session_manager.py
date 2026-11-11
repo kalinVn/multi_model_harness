@@ -1,14 +1,10 @@
 import json
 from pathlib import Path
 
+from harness.builder.tool_parameters_builder import build_tools_context
 from harness.domain.message import Message
 from harness.domain.session import Session
-from harness.tools.tool_registry import (
-    ToolRegistry,
-)
-from harness.builder.tool_parameters_builder import (
-    build_tools_context,
-)
+from harness.tools.tool_registry import ToolRegistry
 
 
 class SessionManager:

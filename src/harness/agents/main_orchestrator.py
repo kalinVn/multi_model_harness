@@ -37,6 +37,7 @@ from harness.builder.tool_parameters_builder import (
 from harness.models.model_client import (
     ModelClient,
 )
+from harness.models.errors import UnknownCommandError
 from harness.models.response import ModelResponse
 from harness.validators.tool_call_validator import ToolCallValidator
 
@@ -55,14 +56,8 @@ class MainOrchestrator:
         self._model_client = model_client
         self._model_messages_builder = ModelMessageBuilder()
         self._on_tool_result = on_tool_result
-        self._project_root = (
-            project_root or Path.cwd()
-        )
-        commands_directory = (
-            self._project_root
-            / ".caisa"
-            / "commands"
-        )
+        self._project_root = project_root or Path.cwd()
+        commands_directory = self._project_root / ".caisa" / "commands"
         self._command_resolver = CommandResolver(commands_directory)
         self._command_loader = CommandLoader()
         self._tool_registry = ToolRegistry()
@@ -101,11 +96,17 @@ class MainOrchestrator:
         state.parsed_command = parse_command(request.message)
 
       
-        state.model_messages = self._model_messages_builder.create_model_messages(
-            session.messages,
-            state.parsed_command,
-            self._command_service,
-        )
+        try:
+            state.model_messages = self._model_messages_builder.create_model_messages(
+                session.messages,
+                state.parsed_command,
+                self._command_service,
+            )
+        except UnknownCommandError as error:
+            message = str(error)
+            session.add_message(Message(role="assistant", content=message))
+
+            return message
 
         return self._loop(state, session)
    

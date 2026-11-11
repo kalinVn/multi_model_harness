@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from harness.models.errors import UnknownCommandError
+
 
 class CommandResolver:
     def __init__(self, commands_directory: Path) -> None:
@@ -17,6 +19,6 @@ class CommandResolver:
         )
 
         if not command_path.is_file():
-            raise ValueError(f"Unknown command: {command_name}")
+            raise UnknownCommandError(f"Unknown command: {command_name}")
         
         return command_path
