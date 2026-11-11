@@ -1,3 +1,5 @@
+import sys
+
 from dotenv import load_dotenv
 
 from harness.agents.main_orchestrator import MainOrchestrator
@@ -17,6 +19,9 @@ def display_tool_result(tool_result: ToolResult) -> None:
 
 
 def main() -> None:
+    if sys.stdout.isatty():
+        print("\033[2J\033[3J\033[H", end="", flush=True)
+
     load_dotenv()
 
     print("AI Harness started.")

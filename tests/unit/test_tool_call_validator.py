@@ -14,8 +14,7 @@ class ToolCallValidatorTest(unittest.TestCase):
                 "parameters": {
                     "type": "object",
                     "properties": {},
-                    "required": [],
-                    "additionalProperties": False
+                    "required": []
                 }
             }
         ]

@@ -22,15 +22,29 @@ class ModelResponseValidatorTest(unittest.TestCase):
         self.assertEqual(
             str(raised.exception),
             "response must contain text, tool_calls, and "
-            "tool_result_summaries, with optional "
-            "tool_result_output_requests",
+            "tool_result_summaries",
         )
 
-    def test_exact_fields_error_is_preserved(self):
+    def test_response_fields_accept_unrecognized_fields(self):
+        ModelResponseValidator.validate_response_fields({
+            "text": "",
+            "tool_calls": [],
+            "tool_result_summaries": [],
+            "metadata": {"provider": "test"}
+        })
+
+    def test_nested_fields_error_is_preserved(self):
         with self.assertRaises(ValueError) as raised:
             ModelResponseValidator.validate_fields({}, ("tool", "arguments"), "tool_calls[0]")
 
         self.assertEqual(
             str(raised.exception),
-            "tool_calls[0] must be an object with exactly: tool, arguments",
+            "tool_calls[0] must be an object containing: tool, arguments",
+        )
+
+    def test_nested_fields_accept_unrecognized_fields(self):
+        ModelResponseValidator.validate_fields(
+            {"tool": "read_file", "arguments": {}, "metadata": {}},
+            ("tool", "arguments"),
+            "tool_calls[0]"
         )

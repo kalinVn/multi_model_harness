@@ -79,7 +79,37 @@ Second line
                     "Executing command: example\n\n"
                     "Description:\nExample description"
                 ),
+                available_tool_names=()
             ),
+        )
+
+    def test_get_command_message_obj_exposes_declared_tools(self):
+        command_path = Path("/project/.caisa/commands/example.md")
+        command_resolver = Mock()
+        command_resolver.resolve.return_value = command_path
+        tool_registry = Mock()
+        tool_registry.execute.return_value = json.dumps({
+            "results": [{
+                "path": str(command_path),
+                "success": True,
+                "content": (
+                    "# Name\nexample\n# Description\nExample description"
+                    "\n# Tools\nbash, read_file"
+                )
+            }]
+        })
+
+        message = get_command_message_obj(
+            "example",
+            command_resolver=command_resolver,
+            tool_registry=tool_registry,
+            command_loader=CommandLoader()
+        )
+
+        self.assertEqual(message.available_tool_names, ("bash", "read_file"))
+        self.assertEqual(
+            tool_registry.get.call_args_list,
+            [unittest.mock.call("bash"), unittest.mock.call("read_file")]
         )
 
 

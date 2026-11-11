@@ -53,7 +53,7 @@ class ModelResponseParserTest(unittest.TestCase):
 
     def test_invalid_fields_and_nested_types_are_rejected(self):
         valid = dict(text="", tool_calls=[], tool_result_summaries=[])
-        invalid = [None, [], 1, {}, {**valid, "extra": 1}]
+        invalid = [None, [], 1, {}]
         for field in valid:
             invalid.append({k: v for k, v in valid.items() if k != field})
         for value in (None, 1, True, [], {}):
@@ -76,3 +76,27 @@ class ModelResponseParserTest(unittest.TestCase):
                 prepare_model_response(json.dumps(value))
         with self.assertRaises(ValueError):
             prepare_model_response(None)
+
+    def test_unrecognized_response_fields_are_ignored(self):
+        parsed = prepare_model_response(json.dumps({
+            "text": "Done",
+            "tool_calls": [{
+                "tool": "read_file",
+                "arguments": {"paths": ["README.md"]},
+                "metadata": {"source": "model"}
+            }],
+            "tool_result_summaries": [{
+                "id": IDS[0],
+                "summary": "Read successfully.",
+                "metadata": {"source": "tool"}
+            }],
+            "metadata": {"provider": "test"}
+        }))
+
+        self.assertEqual(parsed.text, "Done")
+        self.assertEqual(parsed.tool_calls, [
+            ToolCall("read_file", {"paths": ["README.md"]})
+        ])
+        self.assertEqual(parsed.tool_result_summaries, [
+            ToolResultSummary(IDS[0], "Read successfully.")
+        ])

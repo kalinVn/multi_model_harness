@@ -127,23 +127,17 @@ class ModelResponseValidator:
     @staticmethod
     def validate_response_fields(data) -> None:
         """
-        Validate that a response has exactly the required and optional fields.
+        Validate that a response contains the required fields.
 
         Example (valid): {"text": "Hello", "tool_calls": [], "tool_result_summaries": []}.
         Example (invalid): {"text": "Hello", "tool_result_summaries": []}.
         Result: ValueError because "tool_calls" is missing.
         """
         required_fields = {"text", "tool_calls", "tool_result_summaries"}
-        allowed_fields = required_fields | {"tool_result_output_requests"}
-        if (
-            not isinstance(data, dict)
-            or not required_fields.issubset(data)
-            or not set(data).issubset(allowed_fields)
-        ):
+        if not isinstance(data, dict) or not required_fields.issubset(data):
             raise ValueError(
                 "response must contain text, tool_calls, and "
-                "tool_result_summaries, with optional "
-                "tool_result_output_requests"
+                "tool_result_summaries"
             )
         
     @staticmethod
@@ -186,11 +180,11 @@ class ModelResponseValidator:
     @staticmethod
     def validate_fields(value, expected, path) -> None:
         """
-        Validate that an object contains exactly the expected fields.
+        Validate that an object contains the expected fields.
 
         Example (valid): {"tool": "read_file", "arguments": {}}.
         Example (invalid): {"tool": "read_file"}.
         Result: ValueError because an expected field is missing.
         """
-        if not isinstance(value, dict) or set(value) != set(expected):
-            raise ValueError(f"{path} must be an object with exactly: {', '.join(expected)}")
+        if not isinstance(value, dict) or not set(expected).issubset(value):
+            raise ValueError(f"{path} must be an object containing: {', '.join(expected)}")

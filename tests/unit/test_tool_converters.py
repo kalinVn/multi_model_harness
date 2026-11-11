@@ -48,7 +48,6 @@ class ToolConvertersTest(unittest.TestCase):
         self.assertIn("Description: Example tool.", converted)
         self.assertIn("Arguments:", converted)
         self.assertIn('"enum":["safe","fast"]', converted)
-        self.assertIn("Additional arguments: allowed.", converted)
         self.assertNotIn("Tool call format:", converted)
 
     def test_facade_selects_provider_converter(self):

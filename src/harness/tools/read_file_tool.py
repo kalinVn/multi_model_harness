@@ -25,8 +25,7 @@ class ReadFileTool:
                     "description": "Paths of the files to read in order.",
                 },
             },
-            "required": ["paths"],
-            "additionalProperties": False,
+            "required": ["paths"]
         }
 
     def execute(

@@ -1,16 +1,17 @@
 import json
 import unittest
+from copy import deepcopy
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from harness.builder.tool_parameters_builder import build_tool_parameters
+from harness.builder.tool_parameters_builder import TOOLS_CONTEXT_HEADER, build_tool_parameters
 from harness.domain.message import Message
 from harness.domain.tool_call import ToolCall
 from harness.domain.tool_result import ToolResult
 from harness.mappers.google_mapper import map_messages as google_messages
 from harness.mappers.openai_mapper import map_messages as openai_messages
 from harness.models.response import ModelResponse
-from harness.models.response_instruction import MODEL_RESPONSE_INSTRUCTION
+from harness.models.response_instruction import MODEL_RESPONSE_INSTRUCTION, MODEL_RESPONSE_SCHEMA
 from harness.parser.response_parser import prepare_model_response
 from harness.providers.google_client import GeminiClient
 from harness.providers.openai_client import OpenAIClient
@@ -46,9 +47,13 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
 
         self.assertEqual(response, ModelResponse(text="Done"))
         request = client._client.models.generate_content.call_args.kwargs
+        expected_schema = deepcopy(MODEL_RESPONSE_SCHEMA)
+        expected_schema["properties"]["tool_calls"]["maxItems"] = 0
         self.assertEqual(request["contents"], [{"role": "user", "parts": [{"text": "Continue"}]}])
         self.assertEqual(request["config"], {
-            "system_instruction": f"Project instructions\n\n{MODEL_RESPONSE_INSTRUCTION}"
+            "system_instruction": f"Project instructions\n\n{MODEL_RESPONSE_INSTRUCTION}",
+            "response_mime_type": "application/json",
+            "response_json_schema": expected_schema
         })
 
     def test_gemini_parses_response_text_without_provider_response_mapping(self):
@@ -84,8 +89,7 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
                     "enum": ["safe", "fast"]
                 }
             },
-            "required": ["mode"],
-            "additionalProperties": False
+            "required": ["mode"]
         }
         schemas = build_tool_parameters([tool])
         client = self.gemini_client(self.response_json(text="Done"))
@@ -94,11 +98,58 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
 
         config = client._client.models.generate_content.call_args.kwargs["config"]
         instruction = config["system_instruction"]
+        tool_schema = config["response_json_schema"]["properties"]["tool_calls"]
+        tool_variant = tool_schema["items"]["anyOf"][0]
         self.assertNotIn("tools", config)
         self.assertIn("Available tools:", instruction)
         self.assertIn("Tool: example", instruction)
         self.assertIn('"enum":["safe","fast"]', instruction)
         self.assertEqual(instruction.count(MODEL_RESPONSE_INSTRUCTION), 1)
+        self.assertEqual(tool_variant["properties"]["tool"]["enum"], ["example"])
+        self.assertEqual(
+            tool_variant["properties"]["arguments"],
+            schemas[0]["parameters"]
+        )
+
+    def test_gemini_response_schema_requires_each_tools_arguments(self):
+        registry = ToolRegistry()
+        register_tools(registry)
+        schemas = build_tool_parameters(registry.list_tools())
+        client = self.gemini_client(self.response_json(text="Done"))
+
+        client.generate([Message(role="user", content="Inspect project")], schemas)
+
+        config = client._client.models.generate_content.call_args.kwargs["config"]
+        variants = config["response_json_schema"]["properties"]["tool_calls"]["items"]["anyOf"]
+        variants_by_name = {
+            variant["properties"]["tool"]["enum"][0]: variant
+            for variant in variants
+        }
+        self.assertEqual(
+            variants_by_name["read_file"]["properties"]["arguments"]["required"],
+            ["paths"]
+        )
+        self.assertEqual(
+            variants_by_name["bash"]["properties"]["arguments"]["required"],
+            ["commands"]
+        )
+        self.assertNotIn(
+            "maxLength",
+            variants_by_name["git"]["properties"]["arguments"]["properties"]["commands"]["items"]
+        )
+
+    def test_mappers_explicitly_disable_empty_tool_catalog(self):
+        messages = [
+            Message(role="system", content=f"{TOOLS_CONTEXT_HEADER}\nUse tools"),
+            Message(role="user", content="Say hello")
+        ]
+
+        _, google_instruction = google_messages(messages, [])
+        openai_mapped = openai_messages(messages, [])
+
+        self.assertIn("No tools are currently available.", google_instruction)
+        self.assertNotIn(TOOLS_CONTEXT_HEADER, google_instruction)
+        self.assertEqual(openai_mapped[0]["content"], "No tools are currently available.")
 
     def test_gemini_preserves_command_response_inside_shared_text_field(self):
         command_response = '{"answer":"Done","command_summary":"Completed."}'

@@ -7,6 +7,21 @@ from harness.domain.tool_result import ToolResult
 
 
 class CliMainTest(unittest.TestCase):
+    def test_main_clears_interactive_terminal_before_startup_message(self) -> None:
+        stdout = io.StringIO()
+
+        with (
+            patch("harness.app.cli.main.load_dotenv"),
+            patch("harness.app.cli.main.create_model_client"),
+            patch("harness.app.cli.main.MainOrchestrator"),
+            patch("harness.app.cli.main.read_input", return_value="quit"),
+            patch("sys.stdout", stdout),
+            patch.object(stdout, "isatty", return_value=True)
+        ):
+            main()
+
+        self.assertTrue(stdout.getvalue().startswith("\033[2J\033[3J\033[HAI Harness started.\n"))
+
     def test_main_processes_messages_until_exit(self) -> None:
         with (
             patch("harness.app.cli.main.load_dotenv"),

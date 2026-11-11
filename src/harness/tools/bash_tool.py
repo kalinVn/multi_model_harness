@@ -40,8 +40,7 @@ class BashTool:
                     "description": "Bash commands to execute in order.",
                 },
             },
-            "required": ["commands"],
-            "additionalProperties": False,
+            "required": ["commands"]
         }
 
     def execute(

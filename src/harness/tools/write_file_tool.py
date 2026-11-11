@@ -34,15 +34,13 @@ class WriteFileTool:
                                 "description": "Text content to write.",
                             },
                         },
-                        "required": ["path", "content"],
-                        "additionalProperties": False,
+                        "required": ["path", "content"]
                     },
                     "minItems": 1,
                     "description": "Files to write sequentially.",
                 },
             },
-            "required": ["files"],
-            "additionalProperties": False,
+            "required": ["files"]
         }
 
     def execute(

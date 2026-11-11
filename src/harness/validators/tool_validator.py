@@ -67,16 +67,6 @@ class ToolValidator:
             raise ValueError(
                 f"Tool parameter object must define type object: {tool_name}"
             )
-        if (
-            "additionalProperties" in parameter_object
-            and not isinstance(parameter_object["additionalProperties"], bool)
-        ):
-            raise ValueError(
-                "Tool parameter object must define additionalProperties "
-                "as a boolean: "
-                f"{tool_name}"
-            )
-
         cls._validate_object_schema(
             parameter_object,
             tool_name,
@@ -150,15 +140,6 @@ class ToolValidator:
         path: str,
         require_descriptions: bool = False,
     ) -> None:
-        if (
-            "additionalProperties" in schema
-            and not isinstance(schema["additionalProperties"], bool)
-        ):
-            raise ValueError(
-                "Tool parameter object must define additionalProperties "
-                f"as a boolean: {path}"
-            )
-
         properties = schema.get("properties", {})
         if not isinstance(properties, dict):
             raise ValueError(f"Invalid tool parameter schema: {path}.properties")
@@ -206,7 +187,7 @@ class ToolValidator:
 
             properties = schema.get("properties", {})
             unexpected = set(value) - set(properties)
-            if unexpected and schema.get("additionalProperties", True) is False:
+            if unexpected:
                 names = ", ".join(sorted(unexpected))
                 raise ValueError(
                     f"{path} contains undeclared parameters: {names}"

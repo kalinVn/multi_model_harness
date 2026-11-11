@@ -1,4 +1,3 @@
-from copy import deepcopy
 from typing import Any
 
 from harness.models.tool_definition import ToolDefinition
@@ -22,7 +21,7 @@ class GeminiSchemaBuilder:
                 {
                     "name": tool["name"],
                     "description": tool["description"],
-                    "parameters": self._prepare_schema_value(tool["parameters"])
+                    "parameters": tool["parameters"]
                 }
             )
 
@@ -30,17 +29,3 @@ class GeminiSchemaBuilder:
             return []
 
         return [{"function_declarations": declarations}]
-
-    def _prepare_schema_value(self, value: Any) -> Any:
-
-        if isinstance(value, dict):
-            return {
-                key: self._prepare_schema_value(nested_value)
-                for key, nested_value in value.items()
-                if key != "additionalProperties"
-            }
-
-        if isinstance(value, list):
-            return [self._prepare_schema_value(item) for item in value]
-
-        return deepcopy(value)

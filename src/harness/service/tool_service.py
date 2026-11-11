@@ -33,14 +33,28 @@ class ToolService:
         model_messages: list[Message],
     ) -> list[ToolDefinition]:
         """Return tool parameters when the model context enables tools."""
-        if any(
+        tools_enabled = any(
             message.role == "system"
             and message.content.startswith(TOOLS_CONTEXT_HEADER)
             for message in model_messages
-        ):
+        )
+        if not tools_enabled:
+            return []
+
+        command_tool_names = next(
+            (
+                message.available_tool_names
+                for message in reversed(model_messages)
+                if message.available_tool_names is not None
+            ),
+            None
+        )
+        if command_tool_names is None:
             return tool_parameters
 
-        return []
+        allowed_names = set(command_tool_names)
+
+        return [tool for tool in tool_parameters if tool["name"] in allowed_names]
 
     def execute_tool_calls(
         self,

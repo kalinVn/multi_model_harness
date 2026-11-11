@@ -18,9 +18,10 @@ def map_messages(messages: list[Message], tools: list[ToolDefinition] | None = N
     for message in messages:
         if message.role == "system":
             content = message.content
-            if tools and content.startswith(TOOLS_CONTEXT_HEADER):
-                ToolValidator.validate_tool_names(tools)
-                content = build_text_tools_context(tools)
+            if content.startswith(TOOLS_CONTEXT_HEADER):
+                if tools:
+                    ToolValidator.validate_tool_names(tools)
+                content = build_text_tools_context(tools or [])
                 tools_context_mapped = True
             system_messages.append(content)
             continue

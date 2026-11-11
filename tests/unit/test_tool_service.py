@@ -62,8 +62,7 @@ class ToolServiceTest(unittest.TestCase):
                 "parameters": {
                     "type": "object",
                     "properties": {},
-                    "required": [],
-                    "additionalProperties": False,
+                    "required": []
                 },
             }
         ]
@@ -90,8 +89,7 @@ class ToolServiceTest(unittest.TestCase):
                 "parameters": {
                     "type": "object",
                     "properties": {},
-                    "required": [],
-                    "additionalProperties": False,
+                    "required": []
                 },
             }
         ]
@@ -107,6 +105,55 @@ class ToolServiceTest(unittest.TestCase):
 
         self.assertEqual(available_tools, [])
 
+    def test_command_without_declared_tools_returns_no_tools(self):
+        tool_parameters: list[ToolDefinition] = [
+            {
+                "name": "read_file",
+                "description": "Reads a file.",
+                "parameters": {"type": "object", "properties": {}, "required": []}
+            }
+        ]
+        model_messages = [
+            Message(role="system", content=f"{TOOLS_CONTEXT_HEADER}\nTools"),
+            Message(
+                role="system",
+                content="Command instructions",
+                available_tool_names=()
+            )
+        ]
+
+        available_tools = self.create_service().get_available_tools(
+            tool_parameters,
+            model_messages
+        )
+
+        self.assertEqual(available_tools, [])
+
+    def test_command_returns_only_declared_tools(self):
+        tool_parameters: list[ToolDefinition] = [
+            {
+                "name": name,
+                "description": f"Runs {name}.",
+                "parameters": {"type": "object", "properties": {}, "required": []}
+            }
+            for name in ("read_file", "bash", "git")
+        ]
+        model_messages = [
+            Message(role="system", content=f"{TOOLS_CONTEXT_HEADER}\nTools"),
+            Message(
+                role="system",
+                content="Command instructions",
+                available_tool_names=("bash",)
+            )
+        ]
+
+        available_tools = self.create_service().get_available_tools(
+            tool_parameters,
+            model_messages
+        )
+
+        self.assertEqual([tool["name"] for tool in available_tools], ["bash"])
+
     def test_non_system_message_does_not_enable_tools(self):
         tool_parameters: list[ToolDefinition] = [
             {
@@ -115,8 +162,7 @@ class ToolServiceTest(unittest.TestCase):
                 "parameters": {
                     "type": "object",
                     "properties": {},
-                    "required": [],
-                    "additionalProperties": False,
+                    "required": []
                 },
             }
         ]

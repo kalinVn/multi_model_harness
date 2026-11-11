@@ -13,6 +13,7 @@ class Message:
     content: str
     tool_results: tuple[ToolResult, ...] = ()
     tool_result_output_requests: tuple[str, ...] = ()
+    available_tool_names: tuple[str, ...] | None = None
 
     def has_tool_results(self) -> bool:
         return bool(self.tool_results)

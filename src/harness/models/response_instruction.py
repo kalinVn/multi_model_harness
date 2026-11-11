@@ -18,11 +18,11 @@ Rules:
 1. Put your user-facing answer in "text".
 
 2. Put requested tool calls in "tool_calls".
-   Each call must contain exactly a nonempty string "tool" and an object "arguments".
+   Each call must contain a nonempty string "tool" and an object "arguments".
 
 3. Summarize previously executed tool results in
    "tool_result_summaries".
-   Each summary must contain exactly the original tool
+   Each summary must contain the original tool
    result "id" (a nonempty string) and a string "summary".
 
 4. Never invent tool result IDs or claim that
@@ -39,6 +39,41 @@ Rules:
 7. Return JSON only, without Markdown code fences
    or explanatory text outside the JSON.
 """.strip()
+
+
+MODEL_RESPONSE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "text": {"type": "string"},
+        "tool_calls": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "tool": {"type": "string"},
+                    "arguments": {"type": "object"}
+                },
+                "required": ["tool", "arguments"]
+            }
+        },
+        "tool_result_summaries": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "summary": {"type": "string"}
+                },
+                "required": ["id", "summary"]
+            }
+        },
+        "tool_result_output_requests": {
+            "type": "array",
+            "items": {"type": "string"}
+        }
+    },
+    "required": ["text", "tool_calls", "tool_result_summaries"]
+}
 
 
 # Compatibility name for callers using the previous instruction constant.

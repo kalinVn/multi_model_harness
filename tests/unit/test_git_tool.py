@@ -215,7 +215,6 @@ class GitToolTest(unittest.TestCase):
             set(parameter_object["properties"]),
             {"commands"},
         )
-        self.assertFalse(parameter_object["additionalProperties"])
 
         self.assertEqual(set(GIT_OPERATION_DEFINITIONS), SUPPORTED_OPERATIONS)
         for operation, definition in GIT_OPERATION_DEFINITIONS.items():

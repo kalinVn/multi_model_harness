@@ -33,5 +33,14 @@ def get_command_message_obj(
     command_obj = command_loader.get_command_object(read_file_content)
 
     command_context = create_context_from_command_obj(command_obj)
+    available_tool_names = tuple(
+        command_obj.sections.get("Tools", "").replace(",", " ").split()
+    )
+    for tool_name in available_tool_names:
+        tool_registry.get(tool_name)
 
-    return Message(role="system", content=command_context)
+    return Message(
+        role="system",
+        content=command_context,
+        available_tool_names=available_tool_names
+    )

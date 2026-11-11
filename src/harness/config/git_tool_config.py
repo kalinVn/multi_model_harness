@@ -330,6 +330,5 @@ GIT_TOOL_PARAMETER_OBJECT: dict[str, Any] = {
             ),
         },
     },
-    "required": ["commands"],
-    "additionalProperties": False,
+    "required": ["commands"]
 }

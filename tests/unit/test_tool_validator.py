@@ -34,50 +34,19 @@ class ToolValidatorTest(unittest.TestCase):
             make_tool(name="batch-tool"),
         ])
 
-    def test_accepts_missing_or_boolean_additional_properties(self):
-        for additional_properties in (None, False, True):
-            parameter_object = {
-                "type": "object",
-                "properties": {},
-                "required": [],
-            }
-            if additional_properties is not None:
-                parameter_object["additionalProperties"] = additional_properties
+    def test_runtime_arguments_reject_undeclared_parameters(self):
+        parameter_object = {
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+            "required": ["name"]
+        }
 
-            with self.subTest(additional_properties=additional_properties):
-                ToolValidator.validate_parameter_object(
-                    "example",
-                    parameter_object,
-                )
-
-    def test_runtime_arguments_follow_additional_properties(self):
-        for additional_properties in (None, True, False):
-            parameter_object = {
-                "type": "object",
-                "properties": {"name": {"type": "string"}},
-                "required": ["name"],
-            }
-            if additional_properties is not None:
-                parameter_object["additionalProperties"] = additional_properties
-
-            arguments = {"name": "value", "extra": True}
-            with self.subTest(additional_properties=additional_properties):
-                if additional_properties is False:
-                    with self.assertRaisesRegex(
-                        ValueError,
-                        "undeclared parameters: extra",
-                    ):
-                        ToolValidator.validate_arguments(
-                            "example",
-                            parameter_object,
-                            arguments,
-                        )
-                else:
-                    ToolValidator.validate_arguments(
-                        "example",
-                        parameter_object,
-                        arguments,
-                    )
+        with self.assertRaisesRegex(ValueError, "undeclared parameters: extra"):
+            ToolValidator.validate_arguments(
+                "example",
+                parameter_object,
+                {"name": "value", "extra": True}
+            )
 
     def test_rejects_missing_or_invalid_tool_names(self):
         for name in (None, "", "   ", "1tool", "invalid name", "a" * 65):
@@ -116,19 +85,9 @@ class ToolValidatorTest(unittest.TestCase):
                 {
                     "type": "array",
                     "properties": {},
-                    "required": [],
-                    "additionalProperties": False,
+                    "required": []
                 },
                 "must define type object",
-            ),
-            (
-                {
-                    "type": "object",
-                    "properties": {},
-                    "required": [],
-                    "additionalProperties": "false",
-                },
-                "must define additionalProperties as a boolean",
             ),
         ]
 
@@ -152,8 +111,7 @@ class ToolValidatorTest(unittest.TestCase):
             parameter_object = {
                 "type": "object",
                 "properties": {"value": property_schema},
-                "required": ["value"],
-                "additionalProperties": False,
+                "required": ["value"]
             }
             with self.subTest(schema=property_schema), self.assertRaises(ValueError):
                 ToolValidator.validate_parameter_object(
@@ -182,8 +140,7 @@ class ToolValidatorTest(unittest.TestCase):
             parameter_object = {
                 "type": "object",
                 "properties": {"value": schema},
-                "required": ["value"],
-                "additionalProperties": False,
+                "required": ["value"]
             }
             with self.subTest(schema=schema), self.assertRaises(ValueError):
                 ToolValidator.validate_parameter_object(

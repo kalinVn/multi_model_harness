@@ -77,6 +77,30 @@ class MainOrchestratorToolServiceIntegrationTest(unittest.TestCase):
             ],
         )
 
+    def test_command_without_declared_tools_disables_tool_calls(self):
+        client = Mock()
+        client.generate.return_value = ModelResponse(
+            text=(
+                '{"answer": "Hello", '
+                '"command_summary": "The hello command was acknowledged."}'
+            )
+        )
+        runner = self.create_orchestrator(client)
+        command_context = Message(
+            role="system",
+            content="Hello command instructions",
+            available_tool_names=()
+        )
+
+        with patch(
+            "harness.service.command_service.get_command_message_obj",
+            return_value=command_context
+        ):
+            result = runner.handle(Request.create("execute command hello"))
+
+        self.assertEqual(result, "Hello")
+        self.assertEqual(client.generate.call_args.kwargs["tools"], [])
+
     def test_tool_messages_keep_execution_order_and_final_response(self):
         client = Mock()
         client.generate.side_effect = [

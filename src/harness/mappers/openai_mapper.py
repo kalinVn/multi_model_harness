@@ -1,5 +1,6 @@
 from harness.builder.tool_parameters_builder import (
     TOOLS_CONTEXT_HEADER,
+    build_text_tools_context,
 )
 from harness.converter.tool_converter_facade import ToolConverterFacade
 from harness.domain.message import Message
@@ -16,12 +17,12 @@ def map_messages(
 
     for message in messages:
         content = message.content
-        if (
-            tools
-            and message.role == "system"
-            and content.startswith(TOOLS_CONTEXT_HEADER)
-        ):
-            content = ToolConverterFacade().convert_tools("openai", tools)
+        if message.role == "system" and content.startswith(TOOLS_CONTEXT_HEADER):
+            content = (
+                ToolConverterFacade().convert_tools("openai", tools)
+                if tools
+                else build_text_tools_context([])
+            )
             tools_context_mapped = True
         mapped_messages.append({"role": message.role, "content": content})
 

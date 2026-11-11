@@ -79,8 +79,6 @@ class ToolParametersBuilderTest(unittest.TestCase):
             ["name"]["minLength"],
             1,
         )
-        self.assertNotIn("additionalProperties", parameters)
-
     def test_git_schema_is_preserved(self):
         tool = GitTool()
 
@@ -95,7 +93,7 @@ class ToolParametersBuilderTest(unittest.TestCase):
             ["commands"],
         )
 
-    def test_batch_tool_schemas_use_declared_arrays_without_additional_properties(self):
+    def test_batch_tool_schemas_use_declared_arrays(self):
         schemas = {
             schema["name"]: schema["parameters"]
             for schema in build_tool_parameters(
@@ -113,14 +111,6 @@ class ToolParametersBuilderTest(unittest.TestCase):
             ],
             ["path", "content"],
         )
-        for schema in schemas.values():
-            self.assertFalse(schema["additionalProperties"])
-        self.assertFalse(
-            schemas["write_file"]["properties"]["files"]["items"][
-                "additionalProperties"
-            ]
-        )
-
     def test_tool_usage_context_contains_no_tool_definitions(self):
         tool = Mock()
         tool.name = "secret_tool_name"
@@ -130,7 +120,7 @@ class ToolParametersBuilderTest(unittest.TestCase):
         self.assertNotIn(tool.name, context)
         self.assertNotIn("Tool:", context)
         self.assertNotIn("Arguments:", context)
-        self.assertIn("only when its schema explicitly allows", context)
+        self.assertIn("return only declared parameters", context)
 
 
 if __name__ == "__main__":
