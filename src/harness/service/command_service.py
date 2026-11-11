@@ -39,6 +39,7 @@ class CommandService:
         """Build the system message that summarizes a completed command."""
         return Message(
             role="system",
+            type="command_instruction",
             content=(
                 "Command execution summary: "
                 f"{parsed_command.name} was executed. Result: "

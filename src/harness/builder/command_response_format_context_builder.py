@@ -4,6 +4,7 @@ from harness.domain.message import Message
 def build_command_response_format_context() -> Message:
     return Message(
         role="system",
+        type="command_instruction",
         content=(
             "When this command is complete and no more tools "
             "are needed, put a JSON-encoded object in the `text` string "
@@ -29,6 +30,7 @@ def build_command_response_format_context() -> Message:
 def build_command_response_retry_context() -> Message:
     return Message(
         role="system",
+        type="command_instruction",
         content=(
             "The previous command response was empty or did not follow the "
             "required format. Return the final command response now. The outer "

@@ -79,7 +79,8 @@ Second line
                     "Executing command: example\n\n"
                     "Description:\nExample description"
                 ),
-                available_tool_names=()
+                available_tool_names=(),
+                type="command_instruction"
             ),
         )
 

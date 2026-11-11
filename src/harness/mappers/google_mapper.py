@@ -1,4 +1,4 @@
-from harness.builder.tool_parameters_builder import TOOLS_CONTEXT_HEADER, build_text_tools_context
+from harness.builder.tool_parameters_builder import build_text_tools_context
 from harness.domain.message import Message
 from harness.models.response_instruction import MODEL_RESPONSE_INSTRUCTION
 from harness.models.tool_definition import ToolDefinition
@@ -18,7 +18,7 @@ def map_messages(messages: list[Message], tools: list[ToolDefinition] | None = N
     for message in messages:
         if message.role == "system":
             content = message.content
-            if content.startswith(TOOLS_CONTEXT_HEADER):
+            if message.type == "tools_instruction":
                 if tools:
                     ToolValidator.validate_tool_names(tools)
                 content = build_text_tools_context(tools or [])

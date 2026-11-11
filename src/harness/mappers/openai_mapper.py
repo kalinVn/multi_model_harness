@@ -1,7 +1,4 @@
-from harness.builder.tool_parameters_builder import (
-    TOOLS_CONTEXT_HEADER,
-    build_text_tools_context,
-)
+from harness.builder.tool_parameters_builder import build_text_tools_context
 from harness.converter.tool_converter_facade import ToolConverterFacade
 from harness.domain.message import Message
 from harness.models.response_instruction import MODEL_RESPONSE_INSTRUCTION
@@ -17,7 +14,7 @@ def map_messages(
 
     for message in messages:
         content = message.content
-        if message.role == "system" and content.startswith(TOOLS_CONTEXT_HEADER):
+        if message.role == "system" and message.type == "tools_instruction":
             content = (
                 ToolConverterFacade().convert_tools("openai", tools)
                 if tools

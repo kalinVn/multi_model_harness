@@ -33,6 +33,17 @@ class MainOrchestratorToolServiceIntegrationTest(unittest.TestCase):
         )
         self.assertIs(runner._tool_service._on_tool_result, callback)
 
+    def test_session_starts_with_typed_system_messages(self):
+        runner = self.create_orchestrator(Mock())
+
+        system_instruction, tools_instruction = runner._session_manager.current_session.messages
+
+        self.assertEqual(system_instruction.role, "system")
+        self.assertEqual(system_instruction.type, "system_instruction")
+        self.assertEqual(system_instruction.content, "Instructions")
+        self.assertEqual(tools_instruction.role, "system")
+        self.assertEqual(tools_instruction.type, "tools_instruction")
+
     def test_normal_response_is_added_to_session_and_returned(self):
         client = Mock()
         client.generate.return_value = ModelResponse(text="Hello")
@@ -42,8 +53,12 @@ class MainOrchestratorToolServiceIntegrationTest(unittest.TestCase):
 
         self.assertEqual(result, "Hello")
         self.assertEqual(
+            runner._session_manager.current_session.messages[-2].type,
+            "user_message"
+        )
+        self.assertEqual(
             runner._session_manager.current_session.messages[-1],
-            Message(role="assistant", content="Hello"),
+            Message(role="assistant", content="Hello", type="assistant_message")
         )
 
     def test_unknown_command_returns_message_without_calling_model(self):
@@ -56,7 +71,7 @@ class MainOrchestratorToolServiceIntegrationTest(unittest.TestCase):
         client.generate.assert_not_called()
         self.assertEqual(
             runner._session_manager.current_session.messages[-1],
-            Message(role="assistant", content=result)
+            Message(role="assistant", content=result, type="error")
         )
 
     def test_command_summary_precedes_final_answer(self):
@@ -85,8 +100,9 @@ class MainOrchestratorToolServiceIntegrationTest(unittest.TestCase):
                         "Command execution summary: review was executed. Result: "
                         "Reviewed the project."
                     ),
+                    type="command_instruction"
                 ),
-                Message(role="assistant", content="Done"),
+                Message(role="assistant", content="Done", type="assistant_message")
             ],
         )
 
@@ -153,7 +169,10 @@ class MainOrchestratorToolServiceIntegrationTest(unittest.TestCase):
         )
         self.assertLess(tool_call_index, tool_result_index)
         self.assertEqual(len(session.messages[tool_result_index].tool_results), 2)
-        self.assertEqual(session.messages[-1], Message(role="assistant", content="Done"))
+        self.assertEqual(
+            session.messages[-1],
+            Message(role="assistant", content="Done", type="assistant_message")
+        )
 
     def test_tool_execution_limit_is_preserved(self):
         client = Mock()
@@ -171,7 +190,7 @@ class MainOrchestratorToolServiceIntegrationTest(unittest.TestCase):
         runner._tool_registry.execute.assert_called_once_with("read_file", {})
         self.assertEqual(
             runner._session_manager.current_session.messages[-1],
-            Message(role="assistant", content=result),
+            Message(role="assistant", content=result, type="error")
         )
 
     def test_registered_tool_unavailable_for_request_is_rejected_before_execution(self):
@@ -217,7 +236,7 @@ class MainOrchestratorToolServiceIntegrationTest(unittest.TestCase):
         self.assertEqual(client.generate.call_count, 2)
         self.assertEqual(
             runner._session_manager.current_session.messages[-1],
-            Message(role="assistant", content=result),
+            Message(role="assistant", content=result, type="error")
         )
 
 

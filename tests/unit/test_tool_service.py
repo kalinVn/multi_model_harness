@@ -3,7 +3,6 @@ import unittest
 from unittest.mock import Mock
 
 from harness.builder.model_message_builder import ModelMessageBuilder
-from harness.builder.tool_parameters_builder import TOOLS_CONTEXT_HEADER
 from harness.builder.tool_call_context_builder import build_tool_calls_context
 from harness.builder.tool_result_context_builder import build_tool_results_context
 from harness.domain.message import Message
@@ -69,7 +68,8 @@ class ToolServiceTest(unittest.TestCase):
         model_messages = [
             Message(
                 role="system",
-                content=f"{TOOLS_CONTEXT_HEADER}\nUse tools when needed.",
+                content="Use tools when needed.",
+                type="tools_instruction"
             ),
             Message(role="user", content="Read the file."),
         ]
@@ -94,7 +94,7 @@ class ToolServiceTest(unittest.TestCase):
             }
         ]
         model_messages = [
-            Message(role="system", content="Project instructions"),
+            Message(role="system", content="Use tools when needed."),
             Message(role="user", content="Hello"),
         ]
 
@@ -114,11 +114,12 @@ class ToolServiceTest(unittest.TestCase):
             }
         ]
         model_messages = [
-            Message(role="system", content=f"{TOOLS_CONTEXT_HEADER}\nTools"),
+            Message(role="system", content="Tools", type="tools_instruction"),
             Message(
                 role="system",
                 content="Command instructions",
-                available_tool_names=()
+                available_tool_names=(),
+                type="command_instruction"
             )
         ]
 
@@ -139,11 +140,12 @@ class ToolServiceTest(unittest.TestCase):
             for name in ("read_file", "bash", "git")
         ]
         model_messages = [
-            Message(role="system", content=f"{TOOLS_CONTEXT_HEADER}\nTools"),
+            Message(role="system", content="Tools", type="tools_instruction"),
             Message(
                 role="system",
                 content="Command instructions",
-                available_tool_names=("bash",)
+                available_tool_names=("bash",),
+                type="command_instruction"
             )
         ]
 
@@ -169,7 +171,8 @@ class ToolServiceTest(unittest.TestCase):
         model_messages = [
             Message(
                 role="user",
-                content=f"{TOOLS_CONTEXT_HEADER}\nDo not enable from here.",
+                content="Do not enable from here.",
+                type="tools_instruction"
             ),
         ]
 
@@ -292,9 +295,15 @@ class ToolServiceTest(unittest.TestCase):
 
         self.assertEqual(
             tool_call_message,
-            Message(role="assistant", content=build_tool_calls_context(tool_calls)),
+            Message(
+                role="assistant",
+                content=build_tool_calls_context(tool_calls),
+                type="tool_call"
+            ),
         )
+        self.assertEqual(tool_call_message.type, "tool_call")
         self.assertEqual(tool_result_message.role, "user")
+        self.assertEqual(tool_result_message.type, "tool_result")
         self.assertEqual(
             tool_result_message.content,
             build_tool_results_context(tool_results),

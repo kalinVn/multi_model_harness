@@ -40,6 +40,7 @@ class CommandServiceTest(unittest.TestCase):
                     "Command execution summary: review was executed. Result: "
                     "Reviewed the project."
                 ),
+                type="command_instruction"
             ),
         )
         self.assertEqual(session.messages, [])

@@ -2,7 +2,6 @@ import json
 from collections.abc import Callable
 
 from harness.builder.model_message_builder import ModelMessageBuilder
-from harness.builder.tool_parameters_builder import TOOLS_CONTEXT_HEADER
 from harness.builder.tool_call_context_builder import build_tool_calls_context
 from harness.builder.tool_result_context_builder import build_tool_results_context
 from harness.domain.message import Message
@@ -34,8 +33,7 @@ class ToolService:
     ) -> list[ToolDefinition]:
         """Return tool parameters when the model context enables tools."""
         tools_enabled = any(
-            message.role == "system"
-            and message.content.startswith(TOOLS_CONTEXT_HEADER)
+            message.role == "system" and message.type == "tools_instruction"
             for message in model_messages
         )
         if not tools_enabled:
@@ -147,7 +145,11 @@ class ToolService:
     ) -> Message:
         """Build the assistant message that describes tool calls."""
         
-        return Message(role="assistant", content=build_tool_calls_context(tool_calls))
+        return Message(
+            role="assistant",
+            type="tool_call",
+            content=build_tool_calls_context(tool_calls)
+        )
 
     def prepare_tool_result_message(
         self,
@@ -156,6 +158,7 @@ class ToolService:
         """Build the user message that contains existing tool results."""
         return Message(
             role="user",
+            type="tool_result",
             content=build_tool_results_context(tool_results),
-            tool_results=tuple(tool_results),
+            tool_results=tuple(tool_results)
         )

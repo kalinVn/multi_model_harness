@@ -8,7 +8,6 @@ from harness.builder.tool_result_context_builder import (
     build_tool_results_context,
     has_tool_result_summary,
 )
-from harness.builder.tool_parameters_builder import TOOLS_CONTEXT_HEADER
 from harness.domain.message import Message
 from harness.parser.command_parser import ParsedCommand
 from harness.service.command_service import CommandService
@@ -66,10 +65,7 @@ class ModelMessageBuilder:
             messages_for_model = [
                 message
                 for message in session_messages
-                if not (
-                    message.role == "system"
-                    and message.content.startswith(TOOLS_CONTEXT_HEADER)
-                )
+                if message.type != "tools_instruction"
             ]
 
         messages_for_model = self._limit_history(messages_for_model)
@@ -166,13 +162,12 @@ class ModelMessageBuilder:
                         tool_result_ids_to_summarize.append(tool_result.id)
 
                 model_messages.append(
-                    Message(
-                        role=message.role,
+                    replace(
+                        message,
                         content=build_tool_results_context(
                             list(message.tool_results),
-                            max_output_chars=self._max_tool_result_chars,
-                        ),
-                        tool_results=message.tool_results,
+                            max_output_chars=self._max_tool_result_chars
+                        )
                     )
                 )
             else:
@@ -204,7 +199,9 @@ class ModelMessageBuilder:
             "use fewer tokens for simple results."
         )
 
-        model_messages.append(Message(role="system", content=instruction))
+        model_messages.append(
+            Message(role="system", type="tool_result_summary", content=instruction)
+        )
 
     def _limit_history(self, messages: list[Message]) -> list[Message]:
         initial_system_count = 0

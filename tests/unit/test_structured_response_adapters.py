@@ -4,7 +4,7 @@ from copy import deepcopy
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from harness.builder.tool_parameters_builder import TOOLS_CONTEXT_HEADER, build_tool_parameters
+from harness.builder.tool_parameters_builder import build_tool_parameters
 from harness.domain.message import Message
 from harness.domain.tool_call import ToolCall
 from harness.domain.tool_result import ToolResult
@@ -140,7 +140,7 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
 
     def test_mappers_explicitly_disable_empty_tool_catalog(self):
         messages = [
-            Message(role="system", content=f"{TOOLS_CONTEXT_HEADER}\nUse tools"),
+            Message(role="system", content="Use tools", type="tools_instruction"),
             Message(role="user", content="Say hello")
         ]
 
@@ -148,7 +148,7 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         openai_mapped = openai_messages(messages, [])
 
         self.assertIn("No tools are currently available.", google_instruction)
-        self.assertNotIn(TOOLS_CONTEXT_HEADER, google_instruction)
+        self.assertNotIn("Use tools", google_instruction)
         self.assertEqual(openai_mapped[0]["content"], "No tools are currently available.")
 
     def test_gemini_preserves_command_response_inside_shared_text_field(self):
@@ -174,13 +174,18 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
     def test_mappers_preserve_history_and_add_shared_instruction(self):
         tool_result = ToolResult("read_file", "contents", id="original-id")
         messages = [
-            Message(role="system", content="Project instructions"),
-            Message(role="user", content="Read file"),
-            Message(role="assistant", content='Raw tool calls:\n[{"tool":"read_file"}]'),
+            Message(role="system", content="Project instructions", type="system_instruction"),
+            Message(role="user", content="Read file", type="user_message"),
+            Message(
+                role="assistant",
+                content='Raw tool calls:\n[{"tool":"read_file"}]',
+                type="tool_call"
+            ),
             Message(
                 role="user",
                 content="Tool result ID: original-id\nOutput:\ncontents",
-                tool_results=(tool_result,)
+                tool_results=(tool_result,),
+                type="tool_result"
             )
         ]
 

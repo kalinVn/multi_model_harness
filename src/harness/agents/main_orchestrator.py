@@ -91,7 +91,7 @@ class MainOrchestrator:
             return "Please enter a message."
         
         session = self._session_manager.current_session
-        user_message = Message(role="user", content=request.message)
+        user_message = Message(role="user", type="user_message", content=request.message)
         session.add_message(user_message)
         state.parsed_command = parse_command(request.message)
 
@@ -104,7 +104,7 @@ class MainOrchestrator:
             )
         except UnknownCommandError as error:
             message = str(error)
-            session.add_message(Message(role="assistant", content=message))
+            session.add_message(Message(role="assistant", type="error", content=message))
 
             return message
 
@@ -144,7 +144,7 @@ class MainOrchestrator:
                         "Maximum tool result output request steps "
                         "exceeded."
                     )
-                    session.add_message(Message(role="assistant", content=message))
+                    session.add_message(Message(role="assistant", type="error", content=message))
 
                     return message
 
@@ -176,7 +176,7 @@ class MainOrchestrator:
         if state.tool_steps >= self.MAX_TOOL_STEPS:
 
             message = "Maximum tool execution steps exceeded."
-            session.add_message(Message(role="assistant", content=message))
+            session.add_message(Message(role="assistant", type="error", content=message))
 
             return message
         
@@ -224,7 +224,7 @@ class MainOrchestrator:
         # If there is no parsed command, save and return the response text
         # without any command-specific processing.
         if parsed_command is None:
-            session.add_message(Message(role="assistant", content=response.text))
+            session.add_message(Message(role="assistant", type="assistant_message", content=response.text))
             return response.text
 
         # Parse the response and verify that it has the expected structure.
@@ -245,7 +245,7 @@ class MainOrchestrator:
                 )
             )
             session.add_message(command_summary_message)
-            session.add_message(Message(role="assistant", content=answer))
+            session.add_message(Message(role="assistant", type="assistant_message", content=answer))
 
             # Return the final text intended for the user.
             return answer
@@ -258,7 +258,7 @@ class MainOrchestrator:
                 f"{self.MAX_COMMAND_RESPONSE_RETRIES} retries."
             )
 
-            session.add_message(Message(role="assistant", content=message))
+            session.add_message(Message(role="assistant", type="error", content=message))
 
             return message
 

@@ -8,7 +8,6 @@ from harness.builder.tool_result_context_builder import (
     TOOL_RESULTS_CONTEXT_FOOTER,
     TOOL_RESULTS_CONTEXT_HEADER,
 )
-from harness.builder.tool_parameters_builder import TOOLS_CONTEXT_HEADER
 from harness.domain.message import Message
 from harness.domain.tool_call import ToolCall
 from harness.domain.tool_result import ToolResult
@@ -24,7 +23,7 @@ class ModelMessageBuilderTest(unittest.TestCase):
     def test_create_model_messages_limits_history_and_preserves_initial_system_messages(self):
         messages = [
             Message(role="system", content="Instructions"),
-            Message(role="system", content=f"{TOOLS_CONTEXT_HEADER}\nTools"),
+            Message(role="system", content="Tools", type="tools_instruction"),
             Message(role="user", content="old request"),
             Message(role="assistant", content="old response"),
             Message(role="user", content="current request"),
@@ -102,19 +101,30 @@ class ModelMessageBuilderTest(unittest.TestCase):
 
     def test_create_model_messages_filters_tools_when_disabled(self):
         messages = [
-            Message(role="system", content=f"{TOOLS_CONTEXT_HEADER}\nTools"),
+            Message(role="system", content="Tools", type="tools_instruction"),
+            Message(role="system", content="Tools", type="system_instruction"),
             Message(role="user", content="Continue"),
         ]
+        original = deepcopy(messages)
         command_service = Mock()
+        builder = ModelMessageBuilder()
 
-        model_messages = ModelMessageBuilder().create_model_messages(
+        with_tools = builder.create_model_messages(
             messages,
             None,
             command_service,
-            include_tools=False,
+            include_tools=True
+        )
+        without_tools = builder.create_model_messages(
+            messages,
+            None,
+            command_service,
+            include_tools=False
         )
 
-        self.assertEqual(model_messages, [Message(role="user", content="Continue")])
+        self.assertEqual(with_tools, messages)
+        self.assertEqual(without_tools, messages[1:])
+        self.assertEqual(messages, original)
         command_service.prepare_command_context.assert_not_called()
 
     def test_tool_results_generate_unique_ids_and_allow_summary_assignment(self):
@@ -136,7 +146,14 @@ class ModelMessageBuilderTest(unittest.TestCase):
             Message(role="system", content="Instructions"),
             Message(role="user", content="Read config.py"),
             Message(role="assistant", content="Reading config.py"),
-            Message(role="user", content="full raw tool results", tool_results=results),
+            Message(
+                role="user",
+                content="full raw tool results",
+                tool_results=results,
+                tool_result_output_requests=(results[0].id,),
+                available_tool_names=("read_file", "bash"),
+                type="tool_result"
+            ),
         ]
         original = deepcopy(messages)
 
@@ -147,7 +164,13 @@ class ModelMessageBuilderTest(unittest.TestCase):
         self.assertEqual(messages, original)
         self.assertEqual(model_messages[:3], messages[:3])
         self.assertEqual(model_messages[3].role, "user")
+        self.assertEqual(model_messages[3].type, "tool_result")
         self.assertEqual(model_messages[3].tool_results, results)
+        self.assertEqual(
+            model_messages[3].tool_result_output_requests,
+            messages[3].tool_result_output_requests
+        )
+        self.assertEqual(model_messages[3].available_tool_names, messages[3].available_tool_names)
         self.assertIs(model_messages[3].tool_results[0], results[0])
         self.assertIs(model_messages[3].tool_results[1], results[1])
         self.assertIn(results[0].summary, model_messages[3].content)
@@ -183,6 +206,7 @@ class ModelMessageBuilderTest(unittest.TestCase):
         self.assertEqual(model_messages[-2], messages[-1])
         instruction = model_messages[-1]
         self.assertEqual(instruction.role, "system")
+        self.assertEqual(instruction.type, "tool_result_summary")
         self.assertIn(unsummarized.id, instruction.content)
         self.assertIn(another_result.id, instruction.content)
         self.assertNotIn(summarized.id, instruction.content)
@@ -238,6 +262,9 @@ class ModelMessageBuilderTest(unittest.TestCase):
             role="user",
             content="Original tool results",
             tool_results=(requested, untouched, unsummarized),
+            tool_result_output_requests=(requested.id,),
+            available_tool_names=("read_file", "bash"),
+            type="tool_result"
         )
         builder = ModelMessageBuilder()
         model_messages = builder.compose_model_messages([unrelated, source])
@@ -262,6 +289,9 @@ class ModelMessageBuilderTest(unittest.TestCase):
         self.assertEqual(content.count(TOOL_RESULTS_CONTEXT_HEADER), 1)
         self.assertEqual(content.count(TOOL_RESULTS_CONTEXT_FOOTER), 1)
         self.assertEqual(len(updated), len(model_messages))
+        self.assertEqual(updated[1].type, source.type)
+        self.assertEqual(updated[1].tool_result_output_requests, source.tool_result_output_requests)
+        self.assertEqual(updated[1].available_tool_names, source.available_tool_names)
 
     def test_update_model_messages_handles_empty_and_unknown_requests(self):
         result = ToolResult(
@@ -345,7 +375,10 @@ class ModelMessageBuilderTest(unittest.TestCase):
                 self.assertEqual(result.summary, "")
                 self.assertIn(raw_output, stored.content)
                 self.assertTrue(any("Raw tool calls:" in message.content for message in session.messages))
-                self.assertEqual(session.messages[-1], Message(role="assistant", content="Done"))
+                self.assertEqual(
+                    session.messages[-1],
+                    Message(role="assistant", content="Done", type="assistant_message")
+                )
                 runner._tool_registry.execute.assert_called_once_with(
                     "read_file",
                     {"paths": ["config.py"]},
@@ -450,7 +483,7 @@ class ModelMessageBuilderTest(unittest.TestCase):
         )
         self.assertEqual(
             session.messages[-1],
-            Message(role="assistant", content=result),
+            Message(role="assistant", content=result, type="error")
         )
 
     def test_runner_sends_requested_previous_output_on_next_model_call(self):
@@ -593,7 +626,10 @@ class ModelMessageBuilderTest(unittest.TestCase):
         for messages in (first_messages, second_messages):
             self.assertTrue(any("`command_summary`" in message.content for message in messages))
         session = runner._session_manager.current_session
-        self.assertEqual(session.messages[-1], Message(role="assistant", content="Done"))
+        self.assertEqual(
+            session.messages[-1],
+            Message(role="assistant", content="Done", type="assistant_message")
+        )
         self.assertIn("Read configuration.", session.messages[-2].content)
         published_result = listener.call_args.args[0]
         self.assertEqual(listener.call_count, 1)
@@ -628,16 +664,26 @@ class ModelMessageBuilderTest(unittest.TestCase):
         self.assertIn(command_context, retry_messages)
         self.assertFalse(
             any(
-                message.content.startswith(TOOLS_CONTEXT_HEADER)
+                message.type == "tools_instruction"
                 for message in retry_messages
             )
         )
         self.assertTrue(
             any("previous command response" in message.content for message in retry_messages)
         )
+        self.assertTrue(
+            any(
+                message.type == "command_instruction"
+                and "previous command response" in message.content
+                for message in retry_messages
+            )
+        )
         session = runner._session_manager.current_session
         self.assertFalse(any(message.content == "" for message in session.messages))
-        self.assertEqual(session.messages[-1], Message(role="assistant", content="Done"))
+        self.assertEqual(
+            session.messages[-1],
+            Message(role="assistant", content="Done", type="assistant_message")
+        )
 
     def test_summary_only_command_response_is_retried_for_final_answer(self):
         client = Mock()

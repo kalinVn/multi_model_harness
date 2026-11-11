@@ -37,8 +37,16 @@ class SessionManager:
 
         session = Session(
             messages=[
-                Message(role="system", content=system_prompt),
-                Message(role="system", content=tools_context),
+                Message(
+                    role="system",
+                    type="system_instruction",
+                    content=system_prompt
+                ),
+                Message(
+                    role="system",
+                    type="tools_instruction",
+                    content=tools_context
+                )
             ]
         )
 

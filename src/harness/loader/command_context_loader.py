@@ -41,6 +41,7 @@ def get_command_message_obj(
 
     return Message(
         role="system",
+        type="command_instruction",
         content=command_context,
         available_tool_names=available_tool_names
     )
