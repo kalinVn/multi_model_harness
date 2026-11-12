@@ -1,26 +1,27 @@
 import unittest
 from unittest.mock import Mock, patch
 
+from harness.agents.main_orchestrator import MainOrchestrator
+from harness.config.response.command_response_config import COMMAND_RESPONSE_FORMAT_INSTRUCTIONS
+from harness.config.tool_usage_config import TOOL_USAGE_INSTRUCTIONS
+from harness.domain.context import ModelContextLimits
 from harness.domain.message import Message
 from harness.domain.tool_call import ToolCall
+from harness.models.errors import ContextWindowExceeded
 from harness.models.request import Request
 from harness.models.response import ModelResponse
-from harness.agents.main_orchestrator import MainOrchestrator
 from harness.session_manager import SessionManager
+from tests.unit.model_client_mock import allow_context
 
 
 class MainOrchestratorToolServiceIntegrationTest(unittest.TestCase):
-    def create_orchestrator(
-        self,
-        client: Mock,
-        on_tool_result=None,
-    ) -> MainOrchestrator:
+    def create_orchestrator(self, client: Mock, on_tool_result=None) -> MainOrchestrator:
         with patch.object(
             SessionManager,
             "_load_system_prompt",
-            return_value="Instructions",
+            return_value="Instructions"
         ):
-            return MainOrchestrator(client, on_tool_result=on_tool_result)
+            return MainOrchestrator(allow_context(client), on_tool_result=on_tool_result)
 
     def test_tool_service_reuses_orchestrator_dependencies(self):
         callback = Mock()
@@ -33,16 +34,19 @@ class MainOrchestratorToolServiceIntegrationTest(unittest.TestCase):
         )
         self.assertIs(runner._tool_service._on_tool_result, callback)
 
-    def test_session_starts_with_typed_system_messages(self):
+    def test_session_starts_with_combined_system_message(self):
         runner = self.create_orchestrator(Mock())
 
-        system_instruction, tools_instruction = runner._session_manager.current_session.messages
+        messages = runner._session_manager.current_session.messages
 
+        self.assertEqual(len(messages), 1)
+        system_instruction = messages[0]
         self.assertEqual(system_instruction.role, "system")
         self.assertEqual(system_instruction.type, "system_instruction")
-        self.assertEqual(system_instruction.content, "Instructions")
-        self.assertEqual(tools_instruction.role, "system")
-        self.assertEqual(tools_instruction.type, "tools_instruction")
+        self.assertEqual(
+            system_instruction.content,
+            f"Instructions\n\n{TOOL_USAGE_INSTRUCTIONS}\n\n{COMMAND_RESPONSE_FORMAT_INSTRUCTIONS}"
+        )
 
     def test_normal_response_is_added_to_session_and_returned(self):
         client = Mock()
@@ -52,6 +56,7 @@ class MainOrchestratorToolServiceIntegrationTest(unittest.TestCase):
         result = runner.handle(Request.create("Hi"))
 
         self.assertEqual(result, "Hello")
+        self.assertTrue(client.generate.call_args.kwargs["tools"])
         self.assertEqual(
             runner._session_manager.current_session.messages[-2].type,
             "user_message"
@@ -60,6 +65,34 @@ class MainOrchestratorToolServiceIntegrationTest(unittest.TestCase):
             runner._session_manager.current_session.messages[-1],
             Message(role="assistant", content="Hello", type="assistant_message")
         )
+
+    def test_context_validation_uses_each_generated_request(self):
+        client = Mock()
+        client.generate.side_effect = [
+            ModelResponse(tool_calls=[ToolCall("read_file", {"paths": ["README.md"]})]),
+            ModelResponse(text="Done")
+        ]
+        runner = self.create_orchestrator(client)
+        runner._tool_registry.execute = Mock(return_value="contents")
+
+        self.assertEqual(runner.handle(Request.create("Read README.md")), "Done")
+
+        self.assertEqual(client.count_tokens.call_count, client.generate.call_count)
+        self.assertEqual(client.get_context_limits.call_count, client.generate.call_count)
+        for count_call, generate_call in zip(client.count_tokens.call_args_list, client.generate.call_args_list):
+            self.assertEqual(count_call.args[0], generate_call.args[0])
+            self.assertEqual(count_call.args[1], generate_call.kwargs["tools"])
+
+    def test_context_validation_rejects_request_before_generation(self):
+        client = Mock()
+        runner = self.create_orchestrator(client)
+        client.count_tokens.return_value = 901
+        client.get_context_limits.return_value = ModelContextLimits("test-model", 1_000, 100)
+
+        with self.assertRaises(ContextWindowExceeded):
+            runner.handle(Request.create("Continue"))
+
+        client.generate.assert_not_called()
 
     def test_unknown_command_returns_message_without_calling_model(self):
         client = Mock()
@@ -129,6 +162,46 @@ class MainOrchestratorToolServiceIntegrationTest(unittest.TestCase):
 
         self.assertEqual(result, "Hello")
         self.assertEqual(client.generate.call_args.kwargs["tools"], [])
+
+    def test_command_retry_permissions_do_not_leak_to_next_request(self):
+        client = Mock()
+        client.generate.side_effect = [
+            ModelResponse(text="invalid"),
+            ModelResponse(
+                text=(
+                    '{"answer": "Hello", '
+                    '"command_summary": "The command completed."}'
+                )
+            ),
+            ModelResponse(tool_calls=[ToolCall("read_file", {"paths": ["README.md"]})]),
+            ModelResponse(text="Done")
+        ]
+        runner = self.create_orchestrator(client)
+        command_context = Message(
+            role="system",
+            content="Command instructions",
+            available_tool_names=("read_file",)
+        )
+
+        with patch(
+            "harness.service.command_service.get_command_message_obj",
+            return_value=command_context
+        ):
+            self.assertEqual(runner.handle(Request.create("execute command hello")), "Hello")
+
+        runner._tool_registry.execute = Mock(return_value="contents")
+
+        self.assertEqual(runner.handle(Request.create("Read README.md")), "Done")
+        self.assertEqual(
+            [tool["name"] for tool in client.generate.call_args_list[0].kwargs["tools"]],
+            ["read_file"]
+        )
+        self.assertEqual(client.generate.call_args_list[1].kwargs["tools"], [])
+        self.assertTrue(client.generate.call_args_list[2].kwargs["tools"])
+        runner._tool_registry.execute.assert_called_once_with(
+            "read_file",
+            {"paths": ["README.md"]}
+        )
 
     def test_tool_messages_keep_execution_order_and_final_response(self):
         client = Mock()

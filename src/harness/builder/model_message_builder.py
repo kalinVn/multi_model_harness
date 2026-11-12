@@ -1,9 +1,6 @@
 import os
 from dataclasses import replace
 
-from harness.builder.command_response_format_context_builder import (
-    build_command_response_format_context,
-)
 from harness.builder.tool_result_context_builder import (
     build_tool_results_context,
     has_tool_result_summary,
@@ -14,63 +11,30 @@ from harness.service.command_service import CommandService
 
 
 class ModelMessageBuilder:
-    DEFAULT_MAX_HISTORY_MESSAGES = 40
     DEFAULT_MAX_TOOL_RESULT_CHARS = 12_000
 
-    def __init__(
-        self,
-        max_history_messages: int | None = None,
-        max_tool_result_chars: int | None = None,
-    ) -> None:
-        self._max_history_messages = self._read_positive_limit(
-            "HARNESS_MAX_HISTORY_MESSAGES",
-            max_history_messages,
-            self.DEFAULT_MAX_HISTORY_MESSAGES,
-        )
+    def __init__(self, max_tool_result_chars: int | None = None) -> None:
         self._max_tool_result_chars = self._read_positive_limit(
             "HARNESS_MAX_TOOL_RESULT_CHARS",
             max_tool_result_chars,
-            self.DEFAULT_MAX_TOOL_RESULT_CHARS,
+            self.DEFAULT_MAX_TOOL_RESULT_CHARS
         )
 
     def create_model_messages(
         self,
         session_messages: list[Message],
         parsed_command: ParsedCommand | None,
-        command_service: CommandService,
-        include_tools: bool = True,
+        command_service: CommandService
     ) -> list[Message]:
-        """Add a system message for the current turn that tells the model how
-        to format the final response for a command. This message is not saved
-        in the session history and applies only to the current invocation.
-        For example, for a file creation command, we can instruct the model to
-        return the final response as JSON with answer and command_summary
-        fields. This applies only to the current turn and does not modify the
-        history.
-        """
-        response_format_instruction: list[Message] = []
+        """Build model context without modifying the session history."""
+
         command_message = None
 
-        # Add a system message for the current turn that tells the model how
-        # to format the final response for a command. The message is not saved
-        # in the session history and applies only to this invocation. For
-        # example, a file creation command can require JSON with answer and
-        # command_summary fields without modifying the history.
         if parsed_command is not None:
-            response_format_instruction.append(build_command_response_format_context())
             command_message = command_service.prepare_command_context(parsed_command)
 
-        messages_for_model = session_messages
-        if not include_tools:
-            messages_for_model = [
-                message
-                for message in session_messages
-                if message.type != "tools_instruction"
-            ]
+        model_messages = self.compose_model_messages(session_messages)
 
-        messages_for_model = self._limit_history(messages_for_model)
-        model_messages = self.compose_model_messages(messages_for_model + response_format_instruction)
-        
         if command_message is not None:
             model_messages.append(command_message)
 
@@ -84,16 +48,17 @@ class ModelMessageBuilder:
         summary and add instructions asking the model to summarize them. The
         original session messages are not modified.
         """
+
         model_messages: list[Message] = []
 
         tool_result_ids_to_summarize = self._add_tool_results_to_model_messages(
             messages,
-            model_messages,
+            model_messages
         )
 
         self._add_tool_result_summary_instructions_to_model_messages(
             model_messages,
-            tool_result_ids_to_summarize,
+            tool_result_ids_to_summarize
         )
 
         return model_messages
@@ -101,12 +66,13 @@ class ModelMessageBuilder:
     def update_model_messages_by_tool_result_output_requests_ids(
         self,
         model_messages: list[Message],
-        tool_result_output_requests: list[str],
+        tool_result_output_requests: list[str]
     ) -> list[Message]:
         """Update only contexts with explicitly requested full tool outputs.
 
         The original session messages remain unchanged.
         """
+
         if not tool_result_output_requests:
             return model_messages
 
@@ -114,16 +80,14 @@ class ModelMessageBuilder:
         model_messages_updated = False
 
         for message in model_messages:
-
-            if  not message.has_tool_results() or not message.has_requested_tool_results(tool_result_output_requests):
-               
+            if not message.has_tool_results() or not message.has_requested_tool_results(tool_result_output_requests):
                 updated_model_messages.append(message)
                 continue
 
             updated_content = build_tool_results_context(
                 list(message.tool_results),
                 tool_result_output_requests,
-                max_output_chars=self._max_tool_result_chars,
+                max_output_chars=self._max_tool_result_chars
             )
 
             if updated_content == message.content:
@@ -131,7 +95,6 @@ class ModelMessageBuilder:
                 continue
 
             updated_model_messages.append(replace(message, content=updated_content))
-            
             model_messages_updated = True
 
         if not model_messages_updated:
@@ -142,7 +105,7 @@ class ModelMessageBuilder:
     def _add_tool_results_to_model_messages(
         self,
         messages: list[Message],
-        model_messages: list[Message],
+        model_messages: list[Message]
     ) -> list[str]:
         """Process all messages and check whether they contain tool_results.
 
@@ -153,6 +116,7 @@ class ModelMessageBuilder:
         without tool_results are added unchanged. The original session
         messages are not modified.
         """
+
         tool_result_ids_to_summarize: list[str] = []
 
         for message in messages:
@@ -178,7 +142,7 @@ class ModelMessageBuilder:
     def _add_tool_result_summary_instructions_to_model_messages(
         self,
         model_messages: list[Message],
-        tool_result_ids_to_summarize: list[str],
+        tool_result_ids_to_summarize: list[str]
     ) -> None:
         """Check whether any ToolResult IDs need to be summarized.
 
@@ -188,6 +152,7 @@ class ModelMessageBuilder:
         again or process tool output. The original session messages are not
         modified.
         """
+
         if not tool_result_ids_to_summarize:
             return
 
@@ -203,45 +168,9 @@ class ModelMessageBuilder:
             Message(role="system", type="tool_result_summary", content=instruction)
         )
 
-    def _limit_history(self, messages: list[Message]) -> list[Message]:
-        initial_system_count = 0
-        for message in messages:
-            if message.role != "system":
-                break
-            initial_system_count += 1
-
-        initial_system_messages = messages[:initial_system_count]
-        conversation = messages[initial_system_count:]
-        if len(conversation) <= self._max_history_messages:
-            return list(messages)
-
-        recent_messages = conversation[-self._max_history_messages:]
-        latest_user_request = next(
-            (
-                message
-                for message in reversed(conversation)
-                if message.role == "user" and not message.has_tool_results()
-            ),
-            None,
-        )
-        if self._max_history_messages > 1 and latest_user_request is not None and all(
-            message is not latest_user_request for message in recent_messages
-        ):
-            recent_messages = [latest_user_request] + recent_messages[1:]
-
-        return initial_system_messages + recent_messages
-
     @staticmethod
-    def _read_positive_limit(
-        environment_name: str,
-        configured_value: int | None,
-        default: int,
-    ) -> int:
-        raw_value: int | str = (
-            configured_value
-            if configured_value is not None
-            else os.getenv(environment_name, str(default))
-        )
+    def _read_positive_limit(environment_name: str, configured_value: int | None, default: int) -> int:
+        raw_value = configured_value if configured_value is not None else os.getenv(environment_name, str(default))
         try:
             value = int(raw_value)
         except (TypeError, ValueError) as error:

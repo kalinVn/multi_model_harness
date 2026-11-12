@@ -1,6 +1,6 @@
 from harness.builder.tool_parameters_builder import build_text_tools_context
+from harness.config.response.model_response_config import MODEL_RESPONSE_INSTRUCTION
 from harness.domain.message import Message
-from harness.models.response_instruction import MODEL_RESPONSE_INSTRUCTION
 from harness.models.tool_definition import ToolDefinition
 from harness.validators.tool_validator import ToolValidator
 
@@ -13,17 +13,10 @@ def map_messages(messages: list[Message], tools: list[ToolDefinition] | None = N
     """
     contents: list[dict[str, object]] = []
     system_messages: list[str] = []
-    tools_context_mapped = False
 
     for message in messages:
         if message.role == "system":
-            content = message.content
-            if message.type == "tools_instruction":
-                if tools:
-                    ToolValidator.validate_tool_names(tools)
-                content = build_text_tools_context(tools or [])
-                tools_context_mapped = True
-            system_messages.append(content)
+            system_messages.append(message.content)
             continue
 
         role = (
@@ -37,7 +30,7 @@ def map_messages(messages: list[Message], tools: list[ToolDefinition] | None = N
             "parts": [{"text": message.content}],
         })
 
-    if tools and not tools_context_mapped:
+    if tools:
         ToolValidator.validate_tool_names(tools)
         system_messages.append(build_text_tools_context(tools))
 

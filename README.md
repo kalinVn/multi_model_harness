@@ -138,17 +138,19 @@ also redacts HTTP(S) URL credentials and sensitive environment values.
 ## Execution and context limits
 
 Execution loop limits are fixed by `MainOrchestrator` class constants. The
-following optional `.env` settings bound request context size:
+complete prepared request is checked against the selected model's token budget
+before every provider call. OpenAI context limits can be configured explicitly:
 
 ```env
-HARNESS_MAX_HISTORY_MESSAGES=40
+OPENAI_CONTEXT_WINDOW=1050000
+OPENAI_RESERVED_OUTPUT_TOKENS=128000
 HARNESS_MAX_TOOL_RESULT_CHARS=12000
 ```
 
-Initial system/tool instructions are retained while only the newest configured
-number of conversation messages are sent. Tool outputs are truncated with an
-explicit marker before they are sent to a provider. These limits reduce the
-risk of HTTP 413 responses.
+Session history is not truncated. Gemini limits come from model metadata;
+OpenAI's default model has built-in limits that can be overridden with the
+settings above. Tool outputs are still truncated with an explicit marker before
+they are sent to a provider.
 
 ## Test commands
 

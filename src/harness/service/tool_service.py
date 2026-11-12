@@ -11,6 +11,7 @@ from harness.domain.tool_result import ToolResult
 from harness.models.response import ModelResponse
 from harness.models.tool_definition import ToolDefinition
 from harness.tools.tool_registry import ToolRegistry
+from harness.validators.tool_call_validator import ToolCallValidator
 
 
 class ToolService:
@@ -20,7 +21,7 @@ class ToolService:
         self,
         tool_registry: ToolRegistry,
         model_message_builder: ModelMessageBuilder,
-        on_tool_result: Callable[[ToolResult], None] | None = None,
+        on_tool_result: Callable[[ToolResult], None] | None = None
     ) -> None:
         self._tool_registry = tool_registry
         self._model_message_builder = model_message_builder
@@ -29,16 +30,9 @@ class ToolService:
     def get_available_tools(
         self,
         tool_parameters: list[ToolDefinition],
-        model_messages: list[Message],
+        model_messages: list[Message]
     ) -> list[ToolDefinition]:
-        """Return tool parameters when the model context enables tools."""
-        tools_enabled = any(
-            message.role == "system" and message.type == "tools_instruction"
-            for message in model_messages
-        )
-        if not tools_enabled:
-            return []
-
+        """Return the tool parameters permitted for the current request."""
         command_tool_names = next(
             (
                 message.available_tool_names
@@ -57,26 +51,28 @@ class ToolService:
     def execute_tool_calls(
         self,
         tool_calls: list[ToolCall],
+        permitted_tools: list[ToolDefinition]
     ) -> list[ToolResult]:
         """Execute tool calls and return their results in the same order."""
+        ToolCallValidator.validate(tool_calls, permitted_tools)
         tool_results: list[ToolResult] = []
 
         for tool_call in tool_calls:
             try:
                 output = self._tool_registry.execute(
                     tool_call.name,
-                    tool_call.arguments,
+                    tool_call.arguments
                 )
                 tool_result = ToolResult(
                     name=tool_call.name,
                     output=output,
-                    success=self._get_output_success(output),
+                    success=self._get_output_success(output)
                 )
             except Exception as error:
                 tool_result = ToolResult(
                     name=tool_call.name,
                     output=str(error),
-                    success=False,
+                    success=False
                 )
 
             tool_results.append(tool_result)
@@ -99,7 +95,7 @@ class ToolService:
     def get_requested_tool_result_ids(
         self,
         session: Session,
-        response: ModelResponse,
+        response: ModelResponse
     ) -> list[str]:
         """Return requested tool-result IDs that exist in the session."""
         requested_tool_result_ids: list[str] = []
@@ -114,7 +110,7 @@ class ToolService:
     def update_model_messages_by_requested_tool_result_ids(
         self,
         model_messages: list[Message],
-        requested_tool_result_ids: list[str],
+        requested_tool_result_ids: list[str]
     ) -> list[Message]:
         """Expose full output for explicitly requested tool results."""
         if not requested_tool_result_ids:
@@ -124,37 +120,31 @@ class ToolService:
             self._model_message_builder
             .update_model_messages_by_tool_result_output_requests_ids(
                 model_messages=model_messages,
-                tool_result_output_requests=requested_tool_result_ids,
+                tool_result_output_requests=requested_tool_result_ids
             )
         )
 
     def prepare_tool_response_messages(
         self,
         tool_calls: list[ToolCall],
-        tool_results: list[ToolResult],
+        tool_results: list[ToolResult]
     ) -> tuple[Message, Message]:
         """Build session messages for tool calls and their existing results."""
         return (
             self.prepare_tool_call_message(tool_calls),
-            self.prepare_tool_result_message(tool_results),
+            self.prepare_tool_result_message(tool_results)
         )
 
-    def prepare_tool_call_message(
-        self,
-        tool_calls: list[ToolCall],
-    ) -> Message:
+    def prepare_tool_call_message(self, tool_calls: list[ToolCall]) -> Message:
         """Build the assistant message that describes tool calls."""
-        
+
         return Message(
             role="assistant",
             type="tool_call",
             content=build_tool_calls_context(tool_calls)
         )
 
-    def prepare_tool_result_message(
-        self,
-        tool_results: list[ToolResult],
-    ) -> Message:
+    def prepare_tool_result_message(self, tool_results: list[ToolResult]) -> Message:
         """Build the user message that contains existing tool results."""
         return Message(
             role="user",

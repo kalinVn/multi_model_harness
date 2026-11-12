@@ -3,13 +3,14 @@ import unittest
 from unittest.mock import Mock, patch
 
 from harness.agents.main_orchestrator import MainOrchestrator
-from harness.builder.command_response_format_context_builder import build_command_response_format_context
+from harness.config.response.command_response_config import COMMAND_RESPONSE_FORMAT_INSTRUCTIONS
 from harness.session_manager import SessionManager
 from harness.models.request import Request
 from harness.domain.message import Message
 from harness.domain.tool_result import ToolResult
 from harness.parser.command_response_parser import parse_command_response
 from harness.parser.response_parser import prepare_model_response
+from tests.unit.model_client_mock import allow_context
 
 
 class SummaryIDRegressionTest(unittest.TestCase):
@@ -20,7 +21,7 @@ class SummaryIDRegressionTest(unittest.TestCase):
                        tool_result_summaries=[dict(id=ids[1], summary="second"),
                                               dict(id="future-id", summary="invented"),
                                               dict(id=ids[0], summary="first")])
-        client = Mock()
+        client = allow_context(Mock())
         client.generate.side_effect = [prepare_model_response(json.dumps(payload)),
             prepare_model_response(json.dumps(dict(text="Done", tool_calls=[], tool_result_summaries=[])))]
         with patch.object(SessionManager, "_load_system_prompt", return_value="Instructions"):
@@ -49,6 +50,5 @@ class SummaryIDRegressionTest(unittest.TestCase):
             parse_command_response(response.text),
             ("Done", "Reviewed files."),
         )
-        instruction = build_command_response_format_context().content
-        self.assertIn("`text` string", instruction)
-        self.assertIn("`tool_result_summaries`", instruction)
+        self.assertIn("`text` string", COMMAND_RESPONSE_FORMAT_INSTRUCTIONS)
+        self.assertIn("`tool_result_summaries`", COMMAND_RESPONSE_FORMAT_INSTRUCTIONS)

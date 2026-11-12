@@ -9,6 +9,7 @@ from harness.agents.main_orchestrator import MainOrchestrator
 from harness.domain.tool_call import ToolCall
 from harness.models.request import Request
 from harness.models.response import ModelResponse
+from tests.unit.model_client_mock import allow_context
 
 
 class GitToolWorkflowTest(unittest.TestCase):
@@ -41,7 +42,7 @@ class GitToolWorkflowTest(unittest.TestCase):
         return completed.stdout.strip()
 
     def _create_orchestrator(self, responses: list[ModelResponse]):
-        client = Mock()
+        client = allow_context(Mock())
         client.generate.side_effect = responses
         environment = patch.dict(
             os.environ,
@@ -162,7 +163,7 @@ class GitToolWorkflowTest(unittest.TestCase):
         self.assertEqual(self._git("status", "--porcelain"), "")
 
     def test_tool_iteration_limit_uses_class_constant(self):
-        client = Mock()
+        client = allow_context(Mock())
         client.generate.side_effect = [
             ModelResponse(tool_calls=[ToolCall(
                 "git",

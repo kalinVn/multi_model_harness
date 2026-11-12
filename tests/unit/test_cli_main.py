@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from harness.app.cli.main import display_tool_result, main
 from harness.domain.tool_result import ToolResult
+from harness.models.errors import ContextWindowExceeded
 
 
 class CliMainTest(unittest.TestCase):
@@ -58,6 +59,24 @@ class CliMainTest(unittest.TestCase):
             main()
 
         runner.return_value.handle.assert_not_called()
+
+    def test_main_reports_context_limit_and_stays_open(self) -> None:
+        error = ContextWindowExceeded("test-model", 901, 900)
+
+        with (
+            patch("harness.app.cli.main.load_dotenv"),
+            patch("harness.app.cli.main.create_model_client"),
+            patch("harness.app.cli.main.MainOrchestrator") as runner,
+            patch("harness.app.cli.main.read_input", side_effect=["hello", "exit"]),
+            patch("sys.stdout", new_callable=io.StringIO) as stdout
+        ):
+            runner.return_value.handle.side_effect = error
+            main()
+
+        output = stdout.getvalue()
+        self.assertIn("Harness > Context window exceeded.", output)
+        self.assertIn("Exceeded by: 1 tokens", output)
+        self.assertTrue(output.endswith("AI Harness stopped.\n"))
 
     def test_display_tool_result_preserves_multiline_bash_output(self) -> None:
         result = ToolResult(

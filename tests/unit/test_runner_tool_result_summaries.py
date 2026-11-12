@@ -9,6 +9,7 @@ from harness.domain.tool_call import ToolCall
 from harness.domain.tool_result import ToolResult
 from harness.models.response import ModelResponse
 from harness.models.tool_result_summary import ToolResultSummary
+from tests.unit.model_client_mock import allow_context
 
 
 class MainOrchestratorToolResultSummariesTest(unittest.TestCase):
@@ -18,7 +19,7 @@ class MainOrchestratorToolResultSummariesTest(unittest.TestCase):
                 result = ToolResult("read_file", "full original contents")
                 untouched = ToolResult("read_file", "another full output")
                 summary = "Contains the main orchestration loop."
-                client = Mock()
+                client = allow_context(Mock())
                 client.generate.side_effect = [
                     ModelResponse(
                         text="Done",
@@ -44,7 +45,7 @@ class MainOrchestratorToolResultSummariesTest(unittest.TestCase):
 
                 self.assertEqual(runner.handle(Request.create("Continue")), "Done")
 
-                self.assertIs(session.messages[2], stored_message)
+                self.assertIs(session.messages[1], stored_message)
                 self.assertIs(stored_message.tool_results[0], result)
                 self.assertEqual(result.summary, summary)
                 self.assertEqual(result.output, "full original contents")

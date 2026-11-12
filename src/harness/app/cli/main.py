@@ -7,6 +7,7 @@ from harness.app.cli.reader import read_input
 from harness.domain.tool_result import ToolResult
 from harness.factory.model_client_factory import create_model_client
 from harness.models.errors import (
+    ContextWindowExceeded,
     ModelConnectionError,
     ModelRateLimitError,
 )
@@ -45,6 +46,7 @@ def main() -> None:
         try:
             response = runner.handle(request)
         except (
+            ContextWindowExceeded,
             ModelConnectionError,
             ModelRateLimitError,
         ) as error:

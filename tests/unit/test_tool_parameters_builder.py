@@ -2,11 +2,9 @@ import unittest
 from copy import deepcopy
 from unittest.mock import Mock, patch
 
-from harness.builder.tool_parameters_builder import (
-    build_tools_context,
-    build_tool_parameters,
-)
+from harness.builder.tool_parameters_builder import build_tool_parameters
 from harness.config.git_tool_config import GIT_TOOL_PARAMETER_OBJECT
+from harness.config.tool_usage_config import TOOL_USAGE_INSTRUCTIONS
 from harness.tools.bash_tool import BashTool
 from harness.tools.git_tool import GitTool
 from harness.tools.read_file_tool import ReadFileTool
@@ -111,16 +109,11 @@ class ToolParametersBuilderTest(unittest.TestCase):
             ],
             ["path", "content"],
         )
-    def test_tool_usage_context_contains_no_tool_definitions(self):
-        tool = Mock()
-        tool.name = "secret_tool_name"
-
-        context = build_tools_context([tool])
-
-        self.assertNotIn(tool.name, context)
-        self.assertNotIn("Tool:", context)
-        self.assertNotIn("Arguments:", context)
-        self.assertIn("return only declared parameters", context)
+    def test_tool_usage_instructions_are_static_and_contain_no_definitions(self):
+        self.assertTrue(TOOL_USAGE_INSTRUCTIONS.startswith("TOOL USAGE INSTRUCTIONS:"))
+        self.assertNotIn("Tool:", TOOL_USAGE_INSTRUCTIONS)
+        self.assertNotIn("Arguments:", TOOL_USAGE_INSTRUCTIONS)
+        self.assertIn("return only declared parameters", TOOL_USAGE_INSTRUCTIONS)
 
 
 if __name__ == "__main__":

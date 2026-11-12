@@ -19,6 +19,14 @@ class ToolServiceTest(unittest.TestCase):
     def setUp(self) -> None:
         self.tool_registry = Mock(spec=ToolRegistry)
         self.model_message_builder = Mock(spec=ModelMessageBuilder)
+        self.permitted_tools: list[ToolDefinition] = [
+            {
+                "name": name,
+                "description": f"Runs {name}.",
+                "parameters": {"type": "object", "properties": {}, "required": []}
+            }
+            for name in ("read_file", "bash")
+        ]
 
     def create_service(
         self,
@@ -37,7 +45,10 @@ class ToolServiceTest(unittest.TestCase):
             ToolCall("bash", {"commands": ["pwd"]}),
         ]
 
-        results = self.create_service().execute_tool_calls(tool_calls)
+        results = self.create_service().execute_tool_calls(
+            tool_calls,
+            self.permitted_tools
+        )
 
         self.assertEqual([result.name for result in results], ["read_file", "bash"])
         self.assertEqual(
@@ -53,7 +64,39 @@ class ToolServiceTest(unittest.TestCase):
             ],
         )
 
-    def test_matching_system_message_returns_tool_parameters(self):
+    def test_execute_tool_calls_rejects_unauthorized_batch_before_execution(self):
+        tool_calls = [ToolCall("read_file"), ToolCall("write_file")]
+
+        with self.assertRaisesRegex(ValueError, "unavailable tool"):
+            self.create_service().execute_tool_calls(
+                tool_calls,
+                self.permitted_tools
+            )
+
+        self.tool_registry.execute.assert_not_called()
+
+    def test_execute_tool_calls_rejects_empty_permissions(self):
+        with self.assertRaisesRegex(ValueError, "unavailable tool"):
+            self.create_service().execute_tool_calls([ToolCall("read_file")], [])
+
+        self.tool_registry.execute.assert_not_called()
+
+    def test_denied_request_does_not_leak_into_later_execution(self):
+        service = self.create_service()
+
+        with self.assertRaises(ValueError):
+            service.execute_tool_calls([ToolCall("read_file")], [])
+
+        self.tool_registry.execute.return_value = "output"
+        results = service.execute_tool_calls(
+            [ToolCall("read_file")],
+            self.permitted_tools
+        )
+
+        self.assertTrue(results[0].success)
+        self.tool_registry.execute.assert_called_once_with("read_file", {})
+
+    def test_request_without_command_restrictions_returns_tool_parameters(self):
         tool_parameters: list[ToolDefinition] = [
             {
                 "name": "read_file",
@@ -65,14 +108,7 @@ class ToolServiceTest(unittest.TestCase):
                 },
             }
         ]
-        model_messages = [
-            Message(
-                role="system",
-                content="Use tools when needed.",
-                type="tools_instruction"
-            ),
-            Message(role="user", content="Read the file."),
-        ]
+        model_messages = [Message(role="user", content="Read the file.")]
 
         available_tools = self.create_service().get_available_tools(
             tool_parameters,
@@ -81,26 +117,10 @@ class ToolServiceTest(unittest.TestCase):
 
         self.assertIs(available_tools, tool_parameters)
 
-    def test_missing_matching_system_message_returns_no_tools(self):
-        tool_parameters: list[ToolDefinition] = [
-            {
-                "name": "read_file",
-                "description": "Reads a file.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {},
-                    "required": []
-                },
-            }
-        ]
-        model_messages = [
-            Message(role="system", content="Use tools when needed."),
-            Message(role="user", content="Hello"),
-        ]
-
+    def test_empty_permitted_tool_list_returns_no_tools(self):
         available_tools = self.create_service().get_available_tools(
-            tool_parameters,
-            model_messages,
+            [],
+            [Message(role="user", content="Hello")]
         )
 
         self.assertEqual(available_tools, [])
@@ -114,7 +134,6 @@ class ToolServiceTest(unittest.TestCase):
             }
         ]
         model_messages = [
-            Message(role="system", content="Tools", type="tools_instruction"),
             Message(
                 role="system",
                 content="Command instructions",
@@ -140,7 +159,6 @@ class ToolServiceTest(unittest.TestCase):
             for name in ("read_file", "bash", "git")
         ]
         model_messages = [
-            Message(role="system", content="Tools", type="tools_instruction"),
             Message(
                 role="system",
                 content="Command instructions",
@@ -156,38 +174,12 @@ class ToolServiceTest(unittest.TestCase):
 
         self.assertEqual([tool["name"] for tool in available_tools], ["bash"])
 
-    def test_non_system_message_does_not_enable_tools(self):
-        tool_parameters: list[ToolDefinition] = [
-            {
-                "name": "bash",
-                "description": "Runs a command.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {},
-                    "required": []
-                },
-            }
-        ]
-        model_messages = [
-            Message(
-                role="user",
-                content="Do not enable from here.",
-                type="tools_instruction"
-            ),
-        ]
-
-        available_tools = self.create_service().get_available_tools(
-            tool_parameters,
-            model_messages,
-        )
-
-        self.assertEqual(available_tools, [])
-
     def test_execute_tool_calls_converts_exceptions_to_failed_results(self):
         self.tool_registry.execute.side_effect = ValueError("missing file")
 
         results = self.create_service().execute_tool_calls(
-            [ToolCall("read_file", {"paths": ["missing.txt"]})]
+            [ToolCall("read_file", {"paths": ["missing.txt"]})],
+            self.permitted_tools
         )
 
         self.assertEqual(len(results), 1)
@@ -208,7 +200,8 @@ class ToolServiceTest(unittest.TestCase):
         self.tool_registry.execute.return_value = output
 
         results = self.create_service().execute_tool_calls(
-            [ToolCall("bash", {"commands": ["first", "second"]})]
+            [ToolCall("bash", {"commands": ["first", "second"]})],
+            self.permitted_tools
         )
 
         self.assertEqual(results[0].output, output)
@@ -219,7 +212,8 @@ class ToolServiceTest(unittest.TestCase):
         self.tool_registry.execute.side_effect = ["output", RuntimeError("failed")]
 
         results = self.create_service(callback).execute_tool_calls(
-            [ToolCall("read_file"), ToolCall("bash")]
+            [ToolCall("read_file"), ToolCall("bash")],
+            self.permitted_tools
         )
 
         self.assertEqual(callback.call_count, 2)

@@ -29,24 +29,6 @@ def build_tool_parameters(
     return tool_parameters_objects
 
 
-def build_tools_context(tools: list[Tool]) -> str:
-    """Build provider-independent tool usage instructions without schemas."""
-    if not tools:
-        return "No tools are currently available."
-
-    return """
-            Use a tool only when it is necessary to fulfill the user's explicit request.
-
-            Do not use tools for greetings, casual conversation, acknowledgements, or questions that can be answered directly.
-
-            Do not inspect files or execute commands unless the user's request requires it.
-
-            Do not claim that a tool succeeded unless it was actually executed.
-
-            Follow each tool's parameter schema and return only declared parameters.
-        """
-
-
 def build_text_tools_context(tool_definitions: list[ToolDefinition]) -> str:
     """Render structured schemas for text-only provider compatibility."""
     if not tool_definitions:

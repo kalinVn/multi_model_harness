@@ -5,13 +5,14 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 from harness.builder.tool_parameters_builder import build_tool_parameters
+from harness.config.response.model_response_config import MODEL_RESPONSE_INSTRUCTION
 from harness.domain.message import Message
 from harness.domain.tool_call import ToolCall
 from harness.domain.tool_result import ToolResult
 from harness.mappers.google_mapper import map_messages as google_messages
 from harness.mappers.openai_mapper import map_messages as openai_messages
 from harness.models.response import ModelResponse
-from harness.models.response_instruction import MODEL_RESPONSE_INSTRUCTION, MODEL_RESPONSE_SCHEMA
+from harness.models.response_instruction import MODEL_RESPONSE_SCHEMA
 from harness.parser.response_parser import prepare_model_response
 from harness.providers.google_client import GeminiClient
 from harness.providers.openai_client import OpenAIClient
@@ -138,18 +139,19 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
             variants_by_name["git"]["properties"]["arguments"]["properties"]["commands"]["items"]
         )
 
-    def test_mappers_explicitly_disable_empty_tool_catalog(self):
+    def test_mappers_omit_tool_catalog_when_no_tools_are_available(self):
         messages = [
-            Message(role="system", content="Use tools", type="tools_instruction"),
+            Message(role="system", content="Combined instructions", type="system_instruction"),
             Message(role="user", content="Say hello")
         ]
 
         _, google_instruction = google_messages(messages, [])
         openai_mapped = openai_messages(messages, [])
 
-        self.assertIn("No tools are currently available.", google_instruction)
-        self.assertNotIn("Use tools", google_instruction)
-        self.assertEqual(openai_mapped[0]["content"], "No tools are currently available.")
+        self.assertIn("Combined instructions", google_instruction)
+        self.assertNotIn("Available tools:", google_instruction)
+        self.assertEqual(openai_mapped[0]["content"], "Combined instructions")
+        self.assertNotIn("Available tools:", "\n".join(message["content"] for message in openai_mapped))
 
     def test_gemini_preserves_command_response_inside_shared_text_field(self):
         command_response = '{"answer":"Done","command_summary":"Completed."}'
@@ -224,6 +226,22 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
             self.assertIn(f"Tool: {schema['name']}", instruction)
         self.assertIn("Tool: git", instruction)
         self.assertIn("commands", instruction)
+
+    def test_openai_renders_permitted_tools_as_text(self):
+        registry = ToolRegistry()
+        register_tools(registry)
+        schemas = build_tool_parameters(registry.list_tools())
+
+        mapped = openai_messages(
+            [Message(role="user", content="Continue")],
+            schemas
+        )
+
+        catalog = mapped[-2]
+        self.assertEqual(catalog["role"], "system")
+        for schema in schemas:
+            self.assertIn(f"Tool: {schema['name']}", catalog["content"])
+        self.assertEqual(mapped[-1], {"role": "system", "content": MODEL_RESPONSE_INSTRUCTION})
 
     def test_adapters_return_contract_and_propagate_invalid_responses(self):
         raw = self.response_json(

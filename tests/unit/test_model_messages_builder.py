@@ -8,6 +8,7 @@ from harness.builder.tool_result_context_builder import (
     TOOL_RESULTS_CONTEXT_FOOTER,
     TOOL_RESULTS_CONTEXT_HEADER,
 )
+from harness.config.response.command_response_config import COMMAND_RESPONSE_FORMAT_INSTRUCTIONS
 from harness.domain.message import Message
 from harness.domain.tool_call import ToolCall
 from harness.domain.tool_result import ToolResult
@@ -17,25 +18,25 @@ from harness.models.tool_result_summary import ToolResultSummary
 from harness.agents.main_orchestrator import MainOrchestrator
 from harness.parser.command_parser import ParsedCommand
 from harness.session_manager import SessionManager
+from tests.unit.model_client_mock import allow_context
 
 
 class ModelMessageBuilderTest(unittest.TestCase):
-    def test_create_model_messages_limits_history_and_preserves_initial_system_messages(self):
+    def test_create_model_messages_preserves_complete_history(self):
         messages = [
             Message(role="system", content="Instructions"),
-            Message(role="system", content="Tools", type="tools_instruction"),
             Message(role="user", content="old request"),
             Message(role="assistant", content="old response"),
             Message(role="user", content="current request"),
         ]
 
-        model_messages = ModelMessageBuilder(
-            max_history_messages=2,
-        ).create_model_messages(messages, None, Mock())
+        original = deepcopy(messages)
+        model_messages = ModelMessageBuilder().create_model_messages(messages, None, Mock())
 
-        self.assertEqual(model_messages, messages[:2] + messages[-2:])
+        self.assertEqual(model_messages, messages)
+        self.assertEqual(messages, original)
 
-    def test_history_limit_keeps_request_during_long_tool_call_sequence(self):
+    def test_create_model_messages_preserves_long_tool_call_sequence(self):
         request = Message(role="user", content="add and commit changes")
         messages = [Message(role="system", content="Instructions"), request]
         for index in range(3):
@@ -48,13 +49,15 @@ class ModelMessageBuilderTest(unittest.TestCase):
                 ),
             ])
 
-        model_messages = ModelMessageBuilder(
-            max_history_messages=3,
-        ).create_model_messages(messages, None, Mock())
+        original = deepcopy(messages)
+        model_messages = ModelMessageBuilder().create_model_messages(messages, None, Mock())
 
         self.assertIs(model_messages[1], request)
-        self.assertEqual(len(model_messages), 5)
-        self.assertTrue(any("output 2" in message.content for message in model_messages))
+        self.assertEqual(len(model_messages), len(messages) + 1)
+        for index in range(3):
+            self.assertTrue(any(f"tool call {index}" in message.content for message in model_messages))
+            self.assertTrue(any(f"output {index}" in message.content for message in model_messages))
+        self.assertEqual(messages, original)
 
     def test_compose_limits_tool_result_content_including_errors(self):
         result = ToolResult(
@@ -77,7 +80,10 @@ class ModelMessageBuilderTest(unittest.TestCase):
 
     def test_create_model_messages_adds_command_instructions_in_order(self):
         messages = [
-            Message(role="system", content="Instructions"),
+            Message(
+                role="system",
+                content=f"Instructions\n\n{COMMAND_RESPONSE_FORMAT_INSTRUCTIONS}"
+            ),
             Message(role="user", content="execute command review"),
         ]
         original = deepcopy(messages)
@@ -95,37 +101,41 @@ class ModelMessageBuilderTest(unittest.TestCase):
             ParsedCommand(name="review", arguments=[]),
         )
         self.assertEqual(model_messages[:2], messages)
-        self.assertIn("`command_summary`", model_messages[-2].content)
         self.assertEqual(model_messages[-1], command_context)
+        self.assertEqual(
+            sum(
+                "COMMAND RESPONSE FORMAT:" in message.content
+                for message in model_messages
+            ),
+            1
+        )
         self.assertEqual(messages, original)
 
-    def test_create_model_messages_filters_tools_when_disabled(self):
+    def test_create_model_messages_preserves_command_tools_without_mutation(self):
         messages = [
-            Message(role="system", content="Tools", type="tools_instruction"),
-            Message(role="system", content="Tools", type="system_instruction"),
-            Message(role="user", content="Continue"),
+            Message(role="system", content="Combined instructions", type="system_instruction"),
+            Message(role="user", content="execute command review")
         ]
         original = deepcopy(messages)
+        command_context = Message(
+            role="system",
+            content="Command instructions",
+            available_tool_names=("read_file", "bash")
+        )
         command_service = Mock()
+        command_service.prepare_command_context.return_value = command_context
         builder = ModelMessageBuilder()
+        parsed_command = ParsedCommand(name="review", arguments=[])
 
-        with_tools = builder.create_model_messages(
+        model_messages = builder.create_model_messages(
             messages,
-            None,
-            command_service,
-            include_tools=True
-        )
-        without_tools = builder.create_model_messages(
-            messages,
-            None,
-            command_service,
-            include_tools=False
+            parsed_command,
+            command_service
         )
 
-        self.assertEqual(with_tools, messages)
-        self.assertEqual(without_tools, messages[1:])
+        self.assertIs(model_messages[-1], command_context)
         self.assertEqual(messages, original)
-        command_service.prepare_command_context.assert_not_called()
+        self.assertEqual(command_context.available_tool_names, ("read_file", "bash"))
 
     def test_tool_results_generate_unique_ids_and_allow_summary_assignment(self):
         first = ToolResult("read_file", "contents")
@@ -352,7 +362,7 @@ class ModelMessageBuilderTest(unittest.TestCase):
     def test_runner_keeps_and_sends_unsummarized_results_across_turns(self):
         for success in (True, False):
             with self.subTest(success=success):
-                client = Mock()
+                client = allow_context(Mock())
                 client.generate.side_effect = [
                     ModelResponse(tool_calls=[ToolCall("read_file", {"paths": ["config.py"]})]),
                     ModelResponse(text="Done"),
@@ -402,7 +412,7 @@ class ModelMessageBuilderTest(unittest.TestCase):
             "Previous summary.",
             id="previous-id",
         )
-        client = Mock()
+        client = allow_context(Mock())
         client.generate.side_effect = [
             ModelResponse(tool_result_output_requests=[previous.id]),
             ModelResponse(text="Done"),
@@ -458,7 +468,7 @@ class ModelMessageBuilderTest(unittest.TestCase):
                 MainOrchestrator.MAX_TOOL_RESULT_OUTPUT_REQUEST_STEPS + 1
             )
         ]
-        client = Mock()
+        client = allow_context(Mock())
         client.generate.side_effect = [
             ModelResponse(tool_result_output_requests=[result.id])
             for result in previous_results
@@ -493,7 +503,7 @@ class ModelMessageBuilderTest(unittest.TestCase):
             "Previous summary.",
             id="previous-id",
         )
-        client = Mock()
+        client = allow_context(Mock())
         client.generate.side_effect = [
             ModelResponse(
                 tool_calls=[ToolCall("read_file", {"paths": ["next.py"]})],
@@ -540,7 +550,7 @@ class ModelMessageBuilderTest(unittest.TestCase):
         )
 
     def test_runner_publishes_multiple_tool_results_once_in_execution_order(self):
-        client = Mock()
+        client = allow_context(Mock())
         client.generate.side_effect = [
             ModelResponse(
                 tool_calls=[
@@ -575,7 +585,7 @@ class ModelMessageBuilderTest(unittest.TestCase):
         self.assertEqual(second.summary, "")
 
     def test_runner_publishes_each_result_before_executing_the_next_tool(self):
-        client = Mock()
+        client = allow_context(Mock())
         client.generate.side_effect = [
             ModelResponse(
                 tool_calls=[
@@ -602,7 +612,7 @@ class ModelMessageBuilderTest(unittest.TestCase):
         self.assertEqual(listener.call_count, 2)
 
     def test_command_context_and_final_response_are_preserved(self):
-        client = Mock()
+        client = allow_context(Mock())
         client.generate.side_effect = [
             ModelResponse(tool_calls=[ToolCall("read_file", {"paths": ["config.py"]})]),
             ModelResponse(text='{"answer": "Done", "command_summary": "Read configuration."}'),
@@ -637,7 +647,7 @@ class ModelMessageBuilderTest(unittest.TestCase):
         self.assertEqual(published_result.output, "full configuration")
 
     def test_invalid_command_response_is_retried_without_entering_history(self):
-        client = Mock()
+        client = allow_context(Mock())
         client.generate.side_effect = [
             ModelResponse(text=""),
             ModelResponse(
@@ -662,12 +672,7 @@ class ModelMessageBuilderTest(unittest.TestCase):
         self.assertEqual(client.generate.call_args_list[1].kwargs["tools"], [])
         retry_messages = client.generate.call_args_list[1].args[0]
         self.assertIn(command_context, retry_messages)
-        self.assertFalse(
-            any(
-                message.type == "tools_instruction"
-                for message in retry_messages
-            )
-        )
+        self.assertIsNone(command_context.available_tool_names)
         self.assertTrue(
             any("previous command response" in message.content for message in retry_messages)
         )
@@ -686,7 +691,7 @@ class ModelMessageBuilderTest(unittest.TestCase):
         )
 
     def test_summary_only_command_response_is_retried_for_final_answer(self):
-        client = Mock()
+        client = allow_context(Mock())
         client.generate.side_effect = [
             ModelResponse(tool_calls=[ToolCall(
                 "write_file",

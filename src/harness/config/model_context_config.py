@@ -1,0 +1,3 @@
+OPENAI_MODEL_CONTEXT_LIMITS = {
+    "gpt-5.5": (1_050_000, 128_000)
+}
