@@ -29,9 +29,10 @@ from harness.validators.tool_call_validator import ToolCallValidator
 
 
 class MainOrchestrator:
-    MAX_TOOL_STEPS = 20
+    MAX_TOOL_STEPS = 60
     MAX_COMMAND_RESPONSE_RETRIES = 2
     MAX_TOOL_RESULT_OUTPUT_REQUEST_STEPS = 3
+    MAX_TOOL_RESULT_SUMMARY_RETRIES = 2
 
     def __init__(
         self,
@@ -113,10 +114,16 @@ class MainOrchestrator:
         ToolCallValidator.validate(state.response.tool_calls, available_tools)
 
         session.apply_tool_result_summaries(state.response.tool_result_summaries)
-        requested_tool_result_ids = self._tool_service.get_requested_tool_result_ids(
+        requested_tool_result_ids = self._tool_service.get_requested_tool_result_ids(session, state.response)
+
+        summary_result = self._handle_missing_tool_result_summaries(
+            state,
             session,
-            state.response
+            requested_tool_result_ids,
+            available_tools
         )
+        if summary_result is not None:
+            return summary_result
 
         if not state.response.tool_calls:
             return self._handle_no_tool_calls(
@@ -125,12 +132,57 @@ class MainOrchestrator:
                 requested_tool_result_ids,
                 available_tools
             )
+
         return self._handle_tool_calls(
             state,
             session,
             requested_tool_result_ids,
             available_tools
         )
+
+    def _handle_missing_tool_result_summaries(
+        self,
+        state: LoopState,
+        session: Session,
+        requested_tool_result_ids: list[str],
+        available_tools: list[ToolDefinition]
+    ) -> str | None:
+        summary_requested = any(message.type == "tool_result_summary" for message in state.model_messages)
+        missing_summary_ids = session.get_missing_tool_result_summary_ids()
+
+        if not summary_requested or not missing_summary_ids or state.response.tool_calls:
+            state.tool_result_summary_retries = 0
+
+            return None
+
+        if state.tool_result_summary_retries >= self.MAX_TOOL_RESULT_SUMMARY_RETRIES:
+            state.tool_result_summary_retries = 0
+
+            return None
+
+        state.tool_result_summary_retries += 1
+        state.model_messages = self._model_messages_builder.create_model_messages(
+            session.messages,
+            state.parsed_command,
+            self._command_service
+        )
+        state.model_messages = self._tool_service.update_model_messages_by_requested_tool_result_ids(
+            state.model_messages,
+            requested_tool_result_ids
+        )
+        state.model_messages.append(self._build_missing_tool_result_summary_message(missing_summary_ids))
+
+        return self._loop(state, session, available_tools)
+
+    @staticmethod
+    def _build_missing_tool_result_summary_message(missing_summary_ids: list[str]) -> Message:
+        content = (
+            "The model did not return valid summaries for these tool result IDs: "
+            + ", ".join(missing_summary_ids)
+            + ". Please add the missing summaries to tool_result_summaries."
+        )
+
+        return Message(role="system", type="tool_result_summary", content=content)
 
     def _handle_no_tool_calls(
         self,
@@ -187,16 +239,10 @@ class MainOrchestrator:
         tool_call_message = self._tool_service.prepare_tool_call_message(state.response.tool_calls)
         session.add_message(tool_call_message)
 
-        tool_results = self._tool_service.execute_tool_calls(
-            state.response.tool_calls,
-            available_tools
-        )
+        tool_results = self._tool_service.execute_tool_calls(state.response.tool_calls, available_tools)
+        tool_result_message = self._tool_service.prepare_tool_result_message(tool_results)
 
-        tool_result_message = self._tool_service.prepare_tool_result_message(
-            tool_results
-        )
         session.add_message(tool_result_message)
-
         state.tool_steps += 1
 
         state.model_messages = self._model_messages_builder.create_model_messages(
@@ -230,6 +276,7 @@ class MainOrchestrator:
         # without any command-specific processing.
         if parsed_command is None:
             session.add_message(Message(role="assistant", type="assistant_message", content=response.text))
+
             return response.text
 
         # Parse the response and verify that it has the expected structure.

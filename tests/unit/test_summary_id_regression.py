@@ -23,7 +23,11 @@ class SummaryIDRegressionTest(unittest.TestCase):
                                               dict(id=ids[0], summary="first")])
         client = allow_context(Mock())
         client.generate.side_effect = [prepare_model_response(json.dumps(payload)),
-            prepare_model_response(json.dumps(dict(text="Done", tool_calls=[], tool_result_summaries=[])))]
+            prepare_model_response(json.dumps(dict(
+                text="Done",
+                tool_calls=[],
+                tool_result_summaries=[dict(id="future-id", summary="future")]
+            )))]
         with patch.object(SessionManager, "_load_system_prompt", return_value="Instructions"):
             runner = MainOrchestrator(client)
         session = runner._session_manager.current_session
@@ -40,7 +44,7 @@ class SummaryIDRegressionTest(unittest.TestCase):
             self.assertEqual(runner.handle(Request.create("Continue")), "Done")
         stored = [r for m in session.messages for r in m.tool_results]
         self.assertEqual([r.id for r in stored], ids + ["future-id"])
-        self.assertEqual([r.summary for r in stored], ["first", "second", ""])
+        self.assertEqual([r.summary for r in stored], ["first", "second", "future"])
         self.assertEqual([r.output for r in results], ["raw 0", "raw 1"])
 
     def test_command_json_stays_inside_text(self):

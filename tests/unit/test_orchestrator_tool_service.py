@@ -11,11 +11,22 @@ from harness.models.errors import ContextWindowExceeded
 from harness.models.request import Request
 from harness.models.response import ModelResponse
 from harness.session_manager import SessionManager
-from tests.unit.model_client_mock import allow_context
+from tests.unit.model_client_mock import add_tool_result_summaries, allow_context
 
 
 class MainOrchestratorToolServiceIntegrationTest(unittest.TestCase):
     def create_orchestrator(self, client: Mock, on_tool_result=None) -> MainOrchestrator:
+        side_effect = client.generate.side_effect
+        if side_effect is not None and not callable(side_effect):
+            def generate(messages, tools=None):
+                response = next(side_effect)
+                if not response.tool_calls:
+                    response = add_tool_result_summaries(response, messages)
+
+                return response
+
+            client.generate.side_effect = generate
+
         with patch.object(
             SessionManager,
             "_load_system_prompt",

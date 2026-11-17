@@ -25,6 +25,16 @@ class Session:
 
         return None
 
+    def get_missing_tool_result_summary_ids(self) -> list[str]:
+        """Return IDs for stored tool results that do not have a summary."""
+
+        return [
+            result.id
+            for message in self.messages
+            for result in message.tool_results
+            if not result.summary.strip()
+        ]
+
     def apply_tool_result_summaries(
         self,
         summaries: list[ToolResultSummary],
@@ -33,5 +43,5 @@ class Session:
         for summary in summaries:
             for message in self.messages:
                 for result in message.tool_results:
-                    if result.id == summary.id:
+                    if result.id == summary.id and not result.summary.strip() and summary.summary.strip():
                         result.summary = summary.summary

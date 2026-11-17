@@ -12,6 +12,7 @@ class LoopState:
     tool_steps: int = 0
     command_response_retries: int = 0
     tool_result_output_request_steps: int = 0
+    tool_result_summary_retries: int = 0
     model_messages: list[Message] = field(default_factory=list)
     response: ModelResponse | None = None
     parsed_command: ParsedCommand | None = None

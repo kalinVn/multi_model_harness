@@ -204,6 +204,23 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         self.assertEqual(mapped[:-1], [{"role": message.role, "content": message.content} for message in messages])
         self.assertEqual(mapped[-1], {"role": "system", "content": MODEL_RESPONSE_INSTRUCTION})
 
+    def test_mappers_include_tool_result_summary_request(self):
+        summary_request = Message(
+            role="system",
+            type="tool_result_summary",
+            content="Summarize tool result ID: original-id"
+        )
+        messages = [Message(role="user", content="Continue"), summary_request]
+
+        _, google_instruction = google_messages(messages)
+        openai_mapped = openai_messages(messages)
+
+        self.assertIn(summary_request.content, google_instruction)
+        self.assertIn(
+            {"role": "system", "content": summary_request.content},
+            openai_mapped
+        )
+
     def test_gemini_preserves_ordinary_system_tool_text(self):
         catalog_text = "Available tools:\n\nTool: fake\nDescription: Ordinary system content."
 
@@ -255,10 +272,10 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
                 client._model = "test-model"
                 endpoint = client._client.models.generate_content if cls is GeminiClient else client._client.responses.create
                 endpoint.return_value = SimpleNamespace(text=raw) if cls is GeminiClient else Mock(output_text=raw)
-                self.assertEqual(
-                    client.generate([Message(role="user", content="Continue")]),
-                    prepare_model_response(raw)
-                )
+                response = client.generate([Message(role="user", content="Continue")])
+                self.assertEqual(response, prepare_model_response(raw))
+                self.assertEqual(response.tool_result_summaries[0].id, "original-id")
+                self.assertEqual(response.tool_result_summaries[0].summary, "Read previous file.")
 
                 endpoint.return_value = SimpleNamespace(text="invalid") if cls is GeminiClient else Mock(output_text="invalid")
                 with self.assertRaises(ValueError):

@@ -33,26 +33,10 @@ class ModelMessageBuilder:
         if parsed_command is not None:
             command_message = command_service.prepare_command_context(parsed_command)
 
-        model_messages = self.compose_model_messages(session_messages)
-
-        if command_message is not None:
-            model_messages.append(command_message)
-
-        return model_messages
-
-    def compose_model_messages(self, messages: list[Message]) -> list[Message]:
-        """Process all messages and prepare the model context.
-
-        For messages with tool_results, use the summary when one exists or the
-        full output otherwise. Collect the IDs of tool results without a
-        summary and add instructions asking the model to summarize them. The
-        original session messages are not modified.
-        """
-
         model_messages: list[Message] = []
 
         tool_result_ids_to_summarize = self._add_tool_results_to_model_messages(
-            messages,
+            session_messages,
             model_messages
         )
 
@@ -60,6 +44,9 @@ class ModelMessageBuilder:
             model_messages,
             tool_result_ids_to_summarize
         )
+
+        if command_message is not None:
+            model_messages.append(command_message)
 
         return model_messages
 
