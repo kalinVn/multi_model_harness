@@ -105,6 +105,24 @@ Keep the docstring directly below the function declaration.
 
 Keep short calls on one line.
 
+Do not put complex expressions, conditional expressions, or large constructor calls directly inside methods such as `append()`.
+
+Prepare or update the value first, then pass the simple value to the method. Prefer a clear `if` statement when the value depends on a condition.
+
+WRONG:
+
+~~~python
+messages.append(message if content == message.content else replace(message, content=content))
+~~~
+
+CORRECT:
+
+~~~python
+if content != message.content:
+    message = replace(message, content=content)
+messages.append(message)
+~~~
+
 WRONG:
 
 ~~~python

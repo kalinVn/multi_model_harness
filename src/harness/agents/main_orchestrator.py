@@ -161,14 +161,10 @@ class MainOrchestrator:
             return None
 
         state.tool_result_summary_retries += 1
-        state.model_messages = self._model_messages_builder.create_model_messages(
-            session.messages,
-            state.parsed_command,
-            self._command_service
-        )
-        state.model_messages = self._tool_service.update_model_messages_by_requested_tool_result_ids(
-            state.model_messages,
-            requested_tool_result_ids
+        state.model_messages = self._model_messages_builder.refresh_tool_result_contexts(
+            model_messages=state.model_messages,
+            requested_output_ids=requested_tool_result_ids,
+            missing_summary_ids=missing_summary_ids
         )
         state.model_messages.append(self._build_missing_tool_result_summary_message(missing_summary_ids))
 
@@ -223,6 +219,7 @@ class MainOrchestrator:
 
         return self._loop(state, session, available_tools=[])
 
+
     def _handle_tool_calls(
         self,
         state: LoopState,
@@ -257,6 +254,7 @@ class MainOrchestrator:
         )
 
         return self._loop(state, session, available_tools)
+
 
     def _process_response(
         self,

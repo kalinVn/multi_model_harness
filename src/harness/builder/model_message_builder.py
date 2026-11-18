@@ -5,19 +5,18 @@ from harness.builder.tool_result_context_builder import (
     build_tool_results_context,
     has_tool_result_summary,
 )
+from harness.config.model_context_config import MAX_TOOL_RESULT_CHARS
 from harness.domain.message import Message
 from harness.parser.command_parser import ParsedCommand
 from harness.service.command_service import CommandService
 
 
 class ModelMessageBuilder:
-    DEFAULT_MAX_TOOL_RESULT_CHARS = 12_000
-
     def __init__(self, max_tool_result_chars: int | None = None) -> None:
         self._max_tool_result_chars = self._read_positive_limit(
             "HARNESS_MAX_TOOL_RESULT_CHARS",
             max_tool_result_chars,
-            self.DEFAULT_MAX_TOOL_RESULT_CHARS
+            MAX_TOOL_RESULT_CHARS
         )
 
     def create_model_messages(
@@ -88,6 +87,56 @@ class ModelMessageBuilder:
             return model_messages
 
         return updated_model_messages
+
+    def refresh_tool_result_contexts(
+        self,
+        model_messages: list[Message],
+        requested_output_ids: list[str],
+        missing_summary_ids: list[str]
+    ) -> list[Message]:
+        """Refresh ToolResult content and replace transient summary instructions."""
+
+        refreshed_messages: list[Message] = []
+        missing_summary_id_set = set(missing_summary_ids)
+        tool_result_ids_to_summarize: list[str] = []
+
+        for message in model_messages:
+            for tool_result in message.tool_results:
+                if tool_result.id in missing_summary_id_set and not has_tool_result_summary(tool_result):
+                    tool_result_ids_to_summarize.append(tool_result.id)
+
+        summary_instruction_added = False
+
+        for message in model_messages:
+            if message.type == "tool_result_summary":
+                if not summary_instruction_added:
+                    self._add_tool_result_summary_instructions_to_model_messages(
+                        refreshed_messages,
+                        tool_result_ids_to_summarize
+                    )
+                    summary_instruction_added = True
+                continue
+
+            if not message.has_tool_results():
+                refreshed_messages.append(message)
+                continue
+
+            content = build_tool_results_context(
+                list(message.tool_results),
+                requested_output_ids,
+                max_output_chars=self._max_tool_result_chars
+            )
+            if content != message.content:
+                message = replace(message, content=content)
+            refreshed_messages.append(message)
+
+        if not summary_instruction_added:
+            self._add_tool_result_summary_instructions_to_model_messages(
+                refreshed_messages,
+                tool_result_ids_to_summarize
+            )
+
+        return refreshed_messages
 
     def _add_tool_results_to_model_messages(
         self,

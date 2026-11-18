@@ -8,6 +8,7 @@ from harness.builder.tool_result_context_builder import (
     TOOL_RESULTS_CONTEXT_FOOTER,
     TOOL_RESULTS_CONTEXT_HEADER,
 )
+from harness.config.model_context_config import MAX_TOOL_RESULT_CHARS
 from harness.config.response.command_response_config import COMMAND_RESPONSE_FORMAT_INSTRUCTIONS
 from harness.domain.message import Message
 from harness.domain.tool_call import ToolCall
@@ -77,6 +78,25 @@ class ModelMessageBuilderTest(unittest.TestCase):
         self.assertIn("failure-xxxxxxxx", model_messages[0].content)
         self.assertIn("tool result truncated", model_messages[0].content)
         self.assertNotIn(result.output, model_messages[0].content)
+
+    def test_default_limit_truncates_context_and_keeps_summary_request(self):
+        result = ToolResult(
+            "bash",
+            "x" * (MAX_TOOL_RESULT_CHARS + 10),
+            id="large-bash-result"
+        )
+        message = Message(role="user", content="Stored output", tool_results=(result,))
+        original = deepcopy(message)
+
+        model_messages = ModelMessageBuilder().create_model_messages([message], None, Mock())
+
+        self.assertIn("Output:\n" + "x" * MAX_TOOL_RESULT_CHARS, model_messages[0].content)
+        self.assertIn("[tool result truncated: 10 characters omitted]", model_messages[0].content)
+        self.assertEqual(model_messages[-1].type, "tool_result_summary")
+        self.assertIn(result.id, model_messages[-1].content)
+        self.assertEqual(message, original)
+        self.assertEqual(result.output, "x" * (MAX_TOOL_RESULT_CHARS + 10))
+        self.assertEqual(result.summary, "")
 
     def test_create_model_messages_adds_command_instructions_in_order(self):
         messages = [
@@ -364,6 +384,108 @@ class ModelMessageBuilderTest(unittest.TestCase):
         self.assertIn(second.output, updated[1].content)
         self.assertNotIn(second.summary, updated[1].content)
         self.assertEqual(len(updated), len(model_messages))
+
+    def test_refresh_tool_result_contexts_updates_summaries_and_preserves_unrelated_messages(self):
+        summarized = ToolResult("read_file", "summarized output", id="summarized-id")
+        requested = ToolResult("bash", "requested output", id="requested-id")
+        missing = ToolResult("git", "missing summary output", id="missing-id")
+        system_message = Message(role="system", content="Instructions")
+        tool_result_message = Message(
+            role="user",
+            content="Original tool context",
+            tool_results=(summarized, requested, missing),
+            type="tool_result"
+        )
+        command_context = Message(role="system", content="Command context", type="command_instruction")
+        command_retry = Message(role="system", content="Command retry", type="command_instruction")
+        command_service = Mock()
+        command_service.prepare_command_context.return_value = command_context
+        builder = ModelMessageBuilder()
+        model_messages = builder.create_model_messages(
+            [system_message, tool_result_message],
+            ParsedCommand(name="review", arguments=[]),
+            command_service
+        )
+        model_messages.extend([
+            command_retry,
+            Message(role="system", content="Old summary retry", type="tool_result_summary")
+        ])
+        summarized.summary = "Saved summary."
+        requested.summary = "Requested summary."
+        session_snapshot = deepcopy([system_message, tool_result_message])
+
+        refreshed = builder.refresh_tool_result_contexts(
+            model_messages=model_messages,
+            requested_output_ids=[requested.id, missing.id],
+            missing_summary_ids=[missing.id]
+        )
+
+        content = refreshed[1].content
+        self.assertIn(summarized.summary, content)
+        self.assertNotIn(summarized.output, content)
+        self.assertIn(requested.output, content)
+        self.assertNotIn(requested.summary, content)
+        self.assertIn(missing.output, content)
+        summary_instructions = [message for message in refreshed if message.type == "tool_result_summary"]
+        self.assertEqual(len(summary_instructions), 1)
+        self.assertIn(missing.id, summary_instructions[0].content)
+        self.assertNotIn(summarized.id, summary_instructions[0].content)
+        self.assertNotIn(requested.id, summary_instructions[0].content)
+        self.assertNotIn("Old summary retry", [message.content for message in refreshed])
+        self.assertEqual(refreshed.index(summary_instructions[0]), 2)
+        self.assertIs(refreshed[3], command_context)
+        self.assertIs(refreshed[4], command_retry)
+        self.assertEqual([system_message, tool_result_message], session_snapshot)
+        self.assertEqual(summarized.output, "summarized output")
+        self.assertEqual(requested.output, "requested output")
+        self.assertEqual(missing.output, "missing summary output")
+
+        repeated = builder.refresh_tool_result_contexts(
+            model_messages=refreshed,
+            requested_output_ids=[requested.id, missing.id],
+            missing_summary_ids=[missing.id]
+        )
+
+        self.assertEqual(repeated, refreshed)
+        self.assertIs(repeated[0], system_message)
+        self.assertIs(repeated[3], command_context)
+        self.assertIs(repeated[4], command_retry)
+
+    def test_refresh_tool_result_contexts_matches_previous_rebuild_and_output_overlay(self):
+        summarized = ToolResult("read_file", "summarized output", id="summarized-id")
+        requested = ToolResult("bash", "requested output", id="requested-id")
+        missing = ToolResult("git", "missing summary output", id="missing-id")
+        session_messages = [
+            Message(role="system", content="Instructions"),
+            Message(
+                role="user",
+                content="Stored tool results",
+                tool_results=(summarized, requested, missing),
+                type="tool_result"
+            )
+        ]
+        command_context = Message(role="system", content="Command context", type="command_instruction")
+        command_service = Mock()
+        command_service.prepare_command_context.return_value = command_context
+        parsed_command = ParsedCommand(name="review", arguments=[])
+        builder = ModelMessageBuilder()
+        existing = builder.create_model_messages(session_messages, parsed_command, command_service)
+        existing.append(Message(role="system", content="Old summary retry", type="tool_result_summary"))
+        summarized.summary = "Saved summary."
+        requested.summary = "Requested summary."
+
+        refreshed = builder.refresh_tool_result_contexts(
+            model_messages=existing,
+            requested_output_ids=[requested.id],
+            missing_summary_ids=[missing.id]
+        )
+        rebuilt = builder.create_model_messages(session_messages, parsed_command, command_service)
+        expected = builder.update_model_messages_by_tool_result_output_requests_ids(
+            rebuilt,
+            [requested.id]
+        )
+
+        self.assertEqual(refreshed, expected)
 
     def test_runner_saves_and_reuses_tool_result_summaries_across_turns(self):
         for success in (True, False):

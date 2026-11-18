@@ -88,6 +88,63 @@ class MainOrchestratorToolResultSummariesTest(unittest.TestCase):
                         for message in retry_context
                     )
                 )
+                self.assertEqual(
+                    sum(message.type == "tool_result_summary" for message in retry_context),
+                    2
+                )
+
+    def test_summary_retry_refresh_preserves_command_context_without_reloading_it(self):
+        result_id = "command-result-id"
+        command_context = Message(
+            role="system",
+            content="Command context",
+            type="command_instruction",
+            available_tool_names=("bash",)
+        )
+        client = allow_context(Mock())
+        client.generate.side_effect = [
+            ModelResponse(tool_calls=[ToolCall("bash", {"commands": ["ls -R"]})]),
+            ModelResponse(text='{"answer":"Early","command_summary":"Early response."}'),
+            ModelResponse(
+                text='{"answer":"Done","command_summary":"Listed the project."}',
+                tool_result_summaries=[ToolResultSummary(result_id, "Listed the project tree.")]
+            )
+        ]
+        with (
+            patch.object(SessionManager, "_load_system_prompt", return_value="Instructions"),
+            patch(
+                "harness.service.command_service.get_command_message_obj",
+                return_value=command_context
+            ) as get_command_message
+        ):
+            runner = MainOrchestrator(client)
+            runner._tool_registry.execute = Mock(return_value="complete directory tree")
+
+            with patch("harness.domain.tool_result.uuid4", return_value=result_id):
+                response = runner.handle(Request.create("execute command review"))
+
+        self.assertEqual(response, "Done")
+        self.assertEqual(get_command_message.call_count, 2)
+        retry_context = client.generate.call_args_list[2].args[0]
+        summary_instructions = [
+            message
+            for message in retry_context
+            if message.type == "tool_result_summary"
+        ]
+        self.assertEqual(len(summary_instructions), 2)
+        self.assertEqual(sum(message is command_context for message in retry_context), 1)
+        generic_instruction = next(
+            message
+            for message in summary_instructions
+            if "concise semantic summary" in message.content
+        )
+        retry_instruction = next(
+            message
+            for message in summary_instructions
+            if "Please add the missing summaries" in message.content
+        )
+        self.assertLess(retry_context.index(generic_instruction), retry_context.index(command_context))
+        self.assertLess(retry_context.index(command_context), retry_context.index(retry_instruction))
 
     def test_continues_after_repeated_missing_tool_result_summaries(self):
         result_id = "missing-summary-id"
@@ -116,6 +173,11 @@ class MainOrchestratorToolResultSummariesTest(unittest.TestCase):
         self.assertEqual(result.output, "complete directory tree")
         self.assertEqual(runner._session_manager.current_session.messages[-1].type, "assistant_message")
         runner._tool_registry.execute.assert_called_once_with("bash", {"commands": ["ls -R"]})
+        for call in client.generate.call_args_list[2:]:
+            self.assertEqual(
+                sum(message.type == "tool_result_summary" for message in call.args[0]),
+                2
+            )
 
     def test_applies_summaries_before_final_response_or_new_tool_execution(self):
         for has_tool_calls in (False, True):

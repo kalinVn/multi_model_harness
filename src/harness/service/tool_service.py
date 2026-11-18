@@ -76,6 +76,7 @@ class ToolService:
                 )
 
             tool_results.append(tool_result)
+
             if self._on_tool_result is not None:
                 self._on_tool_result(tool_result)
 
