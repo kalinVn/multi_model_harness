@@ -11,6 +11,7 @@ from harness.domain.message import Message
 from harness.domain.session import Session
 from harness.domain.tool_result import ToolResult
 from harness.loader.command_loader import CommandLoader
+from harness.loader.skill_loader import SkillLoader
 from harness.models.errors import UnknownCommandError
 from harness.models.model_client import ModelClient
 from harness.models.request import Request
@@ -19,10 +20,12 @@ from harness.models.tool_definition import ToolDefinition
 from harness.parser.command_parser import ParsedCommand, parse_command
 from harness.parser.command_response_parser import parse_command_response
 from harness.resolver.command_resolver import CommandResolver
+from harness.registry.agent_registry import AgentRegistry
 from harness.service.command_service import CommandService
 from harness.service.context_manager import ContextManager
 from harness.service.tool_service import ToolService
 from harness.session_manager import SessionManager
+from harness.skills.skill_registry import SkillRegistry
 from harness.tools.register_tools import register_tools
 from harness.tools.tool_registry import ToolRegistry
 from harness.validators.tool_call_validator import ToolCallValidator
@@ -46,6 +49,7 @@ class MainOrchestrator:
         self._on_tool_result = on_tool_result
         self._project_root = project_root or Path.cwd()
         commands_directory = self._project_root / ".caisa" / "commands"
+        skills_directory = self._project_root / ".caisa" / "skills"
         self._command_resolver = CommandResolver(commands_directory)
         self._command_loader = CommandLoader()
         self._tool_registry = ToolRegistry()
@@ -62,6 +66,18 @@ class MainOrchestrator:
             tool_registry=self._tool_registry,
             model_message_builder=self._model_messages_builder,
             on_tool_result=self._on_tool_result
+        )
+        self._skill_registry = SkillRegistry()
+        skills = SkillLoader().load_directory(skills_directory)
+
+        for skill in skills:
+            self._skill_registry.register(skill)
+
+        self._agent_registry = AgentRegistry(
+            model_client=self._model_client,
+            tool_service=self._tool_service,
+            tool_definitions=self._tool_parameters,
+            skill_registry=self._skill_registry
         )
         self._session_manager = SessionManager(
             project_root=self._project_root,
@@ -111,6 +127,7 @@ class MainOrchestrator:
             state.model_messages,
             tools=available_tools
         )
+
         ToolCallValidator.validate(state.response.tool_calls, available_tools)
 
         session.apply_tool_result_summaries(state.response.tool_result_summaries)
@@ -317,6 +334,7 @@ class MainOrchestrator:
             state.parsed_command,
             self._command_service
         )
+        
         model_messages.append(build_command_response_retry_context())
 
         return model_messages

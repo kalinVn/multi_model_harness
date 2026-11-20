@@ -44,9 +44,18 @@ class ToolService:
         if command_tool_names is None:
             return tool_parameters
 
-        allowed_names = set(command_tool_names)
+        return self.get_available_tools_by_names(tool_parameters, command_tool_names)
 
-        return [tool for tool in tool_parameters if tool["name"] in allowed_names]
+    @staticmethod
+    def get_available_tools_by_names(
+        tool_definitions: list[ToolDefinition],
+        allowed_tool_names: tuple[str, ...]
+    ) -> list[ToolDefinition]:
+        """Return tool definitions whose names are explicitly allowed."""
+
+        allowed_names = set(allowed_tool_names)
+
+        return [tool for tool in tool_definitions if tool["name"] in allowed_names]
 
     def execute_tool_calls(
         self,

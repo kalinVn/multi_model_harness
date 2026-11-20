@@ -105,6 +105,23 @@ Keep the docstring directly below the function declaration.
 
 Keep short calls on one line.
 
+Keep an assignment and its function call on one line when the method name and arguments remain readable.
+
+WRONG:
+
+~~~python
+available_tools = self._tool_service.get_available_tools_by_names(
+    self._tool_definitions,
+    self._agent.allowed_tools
+)
+~~~
+
+CORRECT:
+
+~~~python
+available_tools = self._tool_service.get_available_tools_by_names(self._tool_definitions, self._agent.allowed_tools)
+~~~
+
 Do not put complex expressions, conditional expressions, or large constructor calls directly inside methods such as `append()`.
 
 Prepare or update the value first, then pass the simple value to the method. Prefer a clear `if` statement when the value depends on a condition.
@@ -186,6 +203,36 @@ Follow these conventions:
 - Separate independent if statements and logical operations with blank lines.
 - Add a blank line before a final return when it improves readability.
 - Do not add blank lines mechanically after every statement.
+
+Keep related variable assignments together at the beginning of the current function, loop, or conditional block whenever their dependencies allow it.
+
+Insert one blank line after the assignment group before an `if`, `return`, or the next logical step. Separate distinct processing steps with one blank line so the control flow remains visible.
+
+WRONG:
+
+~~~python
+for _ in range(agent.max_steps):
+    messages = self.observe(messages)
+    response = self.think(messages, available_tools)
+    tool_calls = self.decide(response)
+    if not tool_calls:
+        return response.text
+    self.action(messages, tool_calls, available_tools)
+~~~
+
+CORRECT:
+
+~~~python
+for _ in range(agent.max_steps):
+    messages = self.observe(messages)
+    response = self.think(messages, available_tools)
+    tool_calls = self.decide(response)
+
+    if not tool_calls:
+        return response.text
+
+    self.action(messages, tool_calls, available_tools)
+~~~
 
 ### 8. Imports
 

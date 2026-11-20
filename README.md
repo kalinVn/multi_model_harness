@@ -35,6 +35,13 @@ The orchestrator sends each batch of results, including failures, back to the
 model and continues until the model returns a final response or the configured
 iteration limit is reached.
 
+## Tool availability
+
+Tool permission filtering belongs to `ToolService`. Orchestrators and agents
+must pass the complete tool definitions and the explicitly allowed tool names
+to the service instead of duplicating filtering comprehensions in their own
+code.
+
 ## Git tool
 
 The `git` tool provides a restricted interface to the Git repository configured
@@ -181,6 +188,5 @@ execute command test_write_file
 
 
   
-
 
 

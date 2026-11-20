@@ -5,6 +5,7 @@ from harness.config.git_tool_config import (
     GIT_REMOTE_OPERATIONS_ENVIRONMENT_VARIABLE,
     GIT_WRITE_OPERATIONS_ENVIRONMENT_VARIABLE,
 )
+from harness.tools.list_directory_tool import ListDirectoryTool
 from harness.tools.read_file_tool import (
     ReadFileTool,
 )
@@ -25,6 +26,8 @@ def register_tools(
     working_directory: Path | None = None,
 ) -> None:
     registry.register(ReadFileTool())
+
+    registry.register(ListDirectoryTool(working_directory=working_directory))
 
     registry.register(WriteFileTool())
 
