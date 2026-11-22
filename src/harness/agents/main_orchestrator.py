@@ -10,6 +10,7 @@ from harness.domain.loop_state import LoopState
 from harness.domain.message import Message
 from harness.domain.session import Session
 from harness.domain.tool_result import ToolResult
+from harness.loader.agent_loader import AgentLoader
 from harness.loader.command_loader import CommandLoader
 from harness.loader.skill_loader import SkillLoader
 from harness.models.errors import UnknownCommandError
@@ -49,6 +50,7 @@ class MainOrchestrator:
         self._on_tool_result = on_tool_result
         self._project_root = project_root or Path.cwd()
         commands_directory = self._project_root / ".caisa" / "commands"
+        agents_directory = self._project_root / ".caisa" / "agents"
         skills_directory = self._project_root / ".caisa" / "skills"
         self._command_resolver = CommandResolver(commands_directory)
         self._command_loader = CommandLoader()
@@ -73,12 +75,15 @@ class MainOrchestrator:
         for skill in skills:
             self._skill_registry.register(skill)
 
+        agents = AgentLoader().load_directory(agents_directory)
         self._agent_registry = AgentRegistry(
             model_client=self._model_client,
             tool_service=self._tool_service,
             tool_definitions=self._tool_parameters,
-            skill_registry=self._skill_registry
+            skill_registry=self._skill_registry,
+            agent_definitions=agents
         )
+        self._planner = self._agent_registry.get("planner")
         self._session_manager = SessionManager(
             project_root=self._project_root,
             tool_registry=self._tool_registry

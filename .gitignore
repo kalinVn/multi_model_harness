@@ -70,5 +70,7 @@ dist/
 # Machine-specific IDE and OS files.
 .idea/
 .vscode/
+/.codex/
+/docs/
 .DS_Store
 Thumbs.db

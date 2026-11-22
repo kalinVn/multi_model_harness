@@ -1,82 +1,272 @@
+# CAISA.md
 
-## Project
+# Tennis AI Coach
 
-Build a web application for an artist to showcase and manage their artwork.
+## Purpose
 
-The application should include:
+Tennis AI Coach is a commercial subscription-based platform that observes a tennis player through a camera and provides low-latency coaching through headphones.
 
-- Public website
-- Artist portfolio
-- Artwork gallery
-- Artwork detail pages
-- Artist information
-- Admin panel
-- Artwork management
-- Image upload
-- Categories
-- Basic search and filtering
+caisa must:
+1. Read this file before significant work.
+2. Inspect existing code before modifying it.
+3. Load only documentation relevant to the current task.
+4. Use specialized agents when appropriate.
+5. Preserve existing architecture unless change is justified.
 
-## Backend
+Detailed knowledge belongs in `docs/`, `.caisa/agents/`, `.caisa/rules/`, and `.caisa/skills/`.
 
-Use:
+---
 
-- Python
-- MySQL
-- Redis
+## Architecture
 
-The backend should provide a clean API for the frontend.
+Core realtime pipeline:
 
-Keep the architecture simple, modular, and easy to understand.
+```text
+Camera
+→ Vision Engine
+→ Structured State
+→ Coach Engine
+→ Instruction
+→ Audio
+```
 
-## Frontend
+Vision answers: **What is happening?**
 
-Use:
+Coach Engine answers: **What should the player do?**
 
+Keep perception and coaching logic separate.
+
+Major domains:
+
+- Client
+- Admin
+- API / Auth / Payments
+- Realtime
+- Vision
+- Coach Engine
+- Training
+- Analysis
+- Audio
+
+---
+
+## Technology
+
+Frontend:
 - Vue 3
+- ES6
+- Vue Router
+- Vite
+- `vite.config.ts` — development server and build configuration
+- Pinia — state management
 - HTML5
-- CSS
+- CSS3 / SCSS
+- HTML5 Canvas API — video overlays, pose landmarks, trajectories and visual feedback
+- pixi.js
+- MediaDevices API — camera access
+- ESLint — static code analysis and code-quality rules
+- Prettier — code formatting
+- Vitest — unit and component tests
+- Playwright — end-to-end and browser testing
 
-Build a clean and responsive user interface.
+Backend:
+- Python
+- FastAPI
+- Pydantic
 
-Avoid unnecessary frontend complexity.
+Data:
+- PostgreSQL
+- SQLAlchemy + Alembic
+- Redis
+- S3-compatible object storage
 
-## Admin Panel
+Platform:
+- WebSockets
+- Stripe
+- Docker + Docker Compose
+- kubernetes
+- aws
+- github action
 
-The admin panel should allow the artist to:
+Authentication:
+- Email/password
+- Google
+- Apple
+- 2FA
 
-- Create artwork
-- Edit artwork
-- Delete artwork
-- Upload artwork images
-- Manage artwork information
-- Manage categories
-- View existing artwork
 
-## Engineering Rules
 
-- Prefer simple solutions.
-- Do not over-engineer.
-- Keep files small and focused.
-- Use clear names.
-- Keep business logic separate from infrastructure code.
-- Reuse existing code when appropriate.
-- Do not introduce new dependencies unless necessary.
-- Do not modify unrelated code.
-- Never expose secrets, passwords, API keys, or environment variables.
-- Never commit `.env` files or credentials.
+Do not replace core technologies without justification.
 
-## Working With The Project
+---
 
-Before making changes:
+## Docker
 
-1. Understand the existing project structure.
-2. Inspect the relevant files.
-3. Reuse existing architecture and conventions.
-4. Make the smallest reasonable change.
-5. Explain important architectural decisions when necessary.
 
-When asked to modify code, work with the existing project rather than rebuilding unrelated parts.
+Docker configuration belongs in:
 
-## Goal
+`infrastructure/docker/`
 
-Help build this application incrementally while keeping the codebase simple, understandable, maintainable, and production-oriented.
+Detailed instructions:
+
+`docs/infrastructure/docker.md`
+
+---
+
+## Realtime & AI
+
+Latency is a first-class requirement.
+
+Use lightweight ML models primarily for perception:
+
+- pose
+- ball
+- racket
+- court
+
+Prefer deterministic algorithms where practical for:
+
+- tracking
+- geometry
+- trajectory
+- rally state
+- stroke state
+- coaching decisions
+
+Do not put an LLM in the per-frame realtime path.
+
+Never fabricate vision data or coaching decisions when confidence is insufficient.
+
+---
+
+## Security & Data
+
+Never commit secrets or expose credentials.
+
+Never store plaintext passwords.
+
+Authorization must be enforced server-side.
+
+Stripe webhooks must be verified and idempotent.
+
+PostgreSQL is the persistent source of truth.
+
+Redis is for cache and temporary/realtime state.
+
+Large videos and binary files belong in object storage.
+
+---
+
+## Agents
+
+Agents live in `.caisa/agents/`.
+
+Use the appropriate specialized agent for each task.
+
+Core agents cover:
+
+- architecture
+- frontend
+- backend
+- auth
+- database
+- payments
+- admin
+- vision
+- realtime
+- tennis coaching
+- training
+- analysis
+- audio
+- security
+- testing
+- performance
+- devops
+- kubernetes
+- ci/cd
+
+Infrastructure agents:
+- Testing Infrastructure Agent
+- Verification Infrastructure Agent
+- Code Review Infrastructure Agent
+
+
+Agents must respect domain boundaries and shared contracts.
+
+---
+
+## Commands
+
+Commands live in `.caisa/commands/`.
+
+Primary commands:
+
+- `/build-up`
+- `/update-app`
+- `/analyze-project`
+- `/code-review`
+- `/refactor`
+- `/fix-errors`
+- `/run-tests`
+/
+
+`/build-up` orchestrates major implementation work.
+
+`/update-app` applies changes to the existing application.
+- `/setup-infrastructure`
+- `/setup-production`
+---
+
+## Context
+
+Load context progressively:
+
+```text
+caisa.md
+→ Task
+→ Relevant Agent
+→ Relevant Rules / Skills
+→ Relevant Docs
+→ Relevant Code
+```
+
+Never load the entire documentation tree unnecessarily.
+
+---
+
+## Development Rules
+
+Before implementation:
+
+- understand the task
+- inspect existing code
+- identify affected domains
+- load relevant context
+
+After implementation:
+
+- validate contracts
+- run relevant tests
+- check security
+- check realtime performance when applicable
+- update affected documentation
+
+Never rewrite unrelated working code.
+
+Never disable tests just to make a build pass.
+
+Fix root causes.
+
+---
+
+## Priorities
+
+Prioritize:
+
+**Correctness → Security → Latency → Reliability → Maintainability → Scalability → Cost**
+
+Prefer:
+
+**simple → measurable → tested → improved**
+
+Build a production system, not a demo.

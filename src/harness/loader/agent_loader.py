@@ -7,6 +7,22 @@ from harness.validators.agent_validator import AgentValidator
 
 
 class AgentLoader:
+    def load_directory(self, agents_directory: Path) -> list[Agent]:
+        if not agents_directory.is_dir():
+            return []
+
+        agents = []
+
+        for agent_path in sorted(agents_directory.glob("*.md")):
+            agent = self.load(agent_path)
+
+            if isinstance(agent, Message):
+                raise ValueError(f"Invalid agent definition {agent_path}: {agent.content}")
+
+            agents.append(agent)
+
+        return agents
+
     def load(self, agent_path: Path) -> Agent | Message:
         sections = MarkdownLoader.load(agent_path)
         name = sections.get("Name", "").strip()
