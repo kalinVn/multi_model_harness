@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from harness.domain.agent import Agent
 from harness.domain.message import Message
 from harness.domain.tool_call import ToolCall
@@ -15,13 +17,23 @@ class BaseAgent:
         model_client: ModelClient,
         tool_service: ToolService,
         tool_definitions: list[ToolDefinition],
-        skill_registry: SkillRegistry
+        skill_registry: SkillRegistry,
+        agent_id: str | None = None
     ) -> None:
+        self._agent_id = agent_id or str(uuid4())
         self._agent = agent
         self._model_client = model_client
         self._tool_service = tool_service
         self._tool_definitions = tool_definitions
         self._skill_registry = skill_registry
+
+    @property
+    def agent_id(self) -> str:
+        return self._agent_id
+
+    @property
+    def agent_type(self) -> str:
+        return self._agent.name
 
     @property
     def name(self) -> str:
