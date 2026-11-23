@@ -6,6 +6,5 @@ from uuid import uuid4
 class ToolResult:
     name: str
     output: str
-    summary: str = ""
     success: bool = True
     id: str = field(default_factory=lambda: str(uuid4()))

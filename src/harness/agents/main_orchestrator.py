@@ -36,7 +36,6 @@ class MainOrchestrator:
     MAX_TOOL_STEPS = 60
     MAX_COMMAND_RESPONSE_RETRIES = 2
     MAX_TOOL_RESULT_OUTPUT_REQUEST_STEPS = 3
-    MAX_TOOL_RESULT_SUMMARY_RETRIES = 2
 
     def __init__(
         self,
@@ -81,9 +80,11 @@ class MainOrchestrator:
             tool_service=self._tool_service,
             tool_definitions=self._tool_parameters,
             skill_registry=self._skill_registry,
-            agent_definitions=agents
+            agent_definitions=agents,
+            project_root=self._project_root
         )
         self._planner = self._agent_registry.get("planner")
+        self._context_memory_agent = self._agent_registry.get("context_memory")
         self._session_manager = SessionManager(
             project_root=self._project_root,
             tool_registry=self._tool_registry
@@ -97,13 +98,14 @@ class MainOrchestrator:
             return "Please enter a message."
 
         session = self._session_manager.current_session
+        session.begin_or_resume_task()
         user_message = Message(role="user", type="user_message", content=request.message)
         session.add_message(user_message)
         state.parsed_command = parse_command(request.message)
 
         try:
             state.model_messages = self._model_messages_builder.create_model_messages(
-                session.messages,
+                session.get_model_context_messages(),
                 state.parsed_command,
                 self._command_service
             )
@@ -113,7 +115,65 @@ class MainOrchestrator:
 
             return message
 
-        return self._loop(state, session)
+        result = self._loop(state, session)
+        state.execution_finished = True
+        session.task_status = state.response.task_status if state.response is not None else None
+
+        if self._is_task_completed(state, session):
+            self._update_context_memory(session)
+        elif session.task_status == "completed":
+            session.task_status = "in_progress"
+            session.completion_uncertainty = "Reported completion conflicts with active execution evidence."
+        else:
+            session.completion_uncertainty = None
+
+        return result
+
+    @staticmethod
+    def _is_task_completed(state: LoopState, session: Session) -> bool:
+        if not state.execution_finished or state.response is None:
+            return False
+
+        if state.response.task_status != "completed" or state.response.tool_calls:
+            return False
+
+        task_messages = session.get_active_task_messages()
+        if not task_messages:
+            return False
+
+        final_message = task_messages[-1]
+        if final_message.type != "assistant_message" or not final_message.content.strip():
+            return False
+
+        return True
+
+    def _update_context_memory(self, session: Session) -> None:
+        if session.memory_update_completed:
+            return
+
+        task_messages = session.get_active_task_messages()
+        tool_results = [
+            tool_result
+            for message in task_messages
+            for tool_result in message.tool_results
+        ]
+
+        try:
+            if session.context_memory_summary is None:
+                summary = self._context_memory_agent.create_summary(session.id, task_messages)
+            else:
+                summary = self._context_memory_agent.update_summary(
+                    session.context_memory_summary,
+                    task_messages,
+                    tool_results
+                )
+        except Exception as error:
+            session.memory_update_error = str(error)
+            session.memory_update_completed = False
+
+            return
+
+        session.mark_memory_updated(summary)
 
     def _loop(self, state: LoopState, session: Session, available_tools: list[ToolDefinition] | None = None) -> str:
         if available_tools is None:
@@ -135,17 +195,7 @@ class MainOrchestrator:
 
         ToolCallValidator.validate(state.response.tool_calls, available_tools)
 
-        session.apply_tool_result_summaries(state.response.tool_result_summaries)
         requested_tool_result_ids = self._tool_service.get_requested_tool_result_ids(session, state.response)
-
-        summary_result = self._handle_missing_tool_result_summaries(
-            state,
-            session,
-            requested_tool_result_ids,
-            available_tools
-        )
-        if summary_result is not None:
-            return summary_result
 
         if not state.response.tool_calls:
             return self._handle_no_tool_calls(
@@ -161,46 +211,6 @@ class MainOrchestrator:
             requested_tool_result_ids,
             available_tools
         )
-
-    def _handle_missing_tool_result_summaries(
-        self,
-        state: LoopState,
-        session: Session,
-        requested_tool_result_ids: list[str],
-        available_tools: list[ToolDefinition]
-    ) -> str | None:
-        summary_requested = Message.contains_type(state.model_messages, "tool_result_summary")
-        missing_summary_ids = session.get_missing_tool_result_summary_ids()
-
-        if not summary_requested or not missing_summary_ids or state.response.tool_calls:
-            state.tool_result_summary_retries = 0
-
-            return None
-
-        if state.tool_result_summary_retries >= self.MAX_TOOL_RESULT_SUMMARY_RETRIES:
-            state.tool_result_summary_retries = 0
-
-            return None
-
-        state.tool_result_summary_retries += 1
-        state.model_messages = self._model_messages_builder.refresh_tool_result_contexts(
-            model_messages=state.model_messages,
-            requested_output_ids=requested_tool_result_ids,
-            missing_summary_ids=missing_summary_ids
-        )
-        state.model_messages.append(self._build_missing_tool_result_summary_message(missing_summary_ids))
-
-        return self._loop(state, session, available_tools)
-
-    @staticmethod
-    def _build_missing_tool_result_summary_message(missing_summary_ids: list[str]) -> Message:
-        content = (
-            "The model did not return valid summaries for these tool result IDs: "
-            + ", ".join(missing_summary_ids)
-            + ". Please add the missing summaries to tool_result_summaries."
-        )
-
-        return Message(role="system", type="tool_result_summary", content=content)
 
     def _handle_no_tool_calls(
         self,
@@ -241,7 +251,6 @@ class MainOrchestrator:
 
         return self._loop(state, session, available_tools=[])
 
-
     def _handle_tool_calls(
         self,
         state: LoopState,
@@ -264,11 +273,10 @@ class MainOrchestrator:
         session.add_message(tool_result_message)
         state.tool_steps += 1
 
-        state.model_messages = self._model_messages_builder.create_model_messages(
-            session.messages,
-            state.parsed_command,
-            self._command_service
+        new_model_messages = self._model_messages_builder.prepare_new_messages(
+            [tool_call_message, tool_result_message]
         )
+        state.model_messages.extend(new_model_messages)
 
         state.model_messages = self._tool_service.update_model_messages_by_requested_tool_result_ids(
             state.model_messages,
@@ -276,7 +284,6 @@ class MainOrchestrator:
         )
 
         return self._loop(state, session, available_tools)
-
 
     def _process_response(
         self,
@@ -306,21 +313,10 @@ class MainOrchestrator:
 
         # A non-None parsed response is valid and can be saved to the session.
         if parsed_response is not None:
-
-            answer, command_summary = parsed_response
-
-            # Save command_summary as a system message.
-            command_summary_message = (
-                self._command_service.prepare_command_summary_message(
-                    parsed_command,
-                    command_summary
-                )
-            )
-            session.add_message(command_summary_message)
-            session.add_message(Message(role="assistant", type="assistant_message", content=answer))
+            session.add_message(Message(role="assistant", type="assistant_message", content=parsed_response))
 
             # Return the final text intended for the user.
-            return answer
+            return parsed_response
 
         # Once all response-correction attempts are exhausted, save the error
         # message in the session history and return it to the user.
@@ -334,12 +330,7 @@ class MainOrchestrator:
 
             return message
 
-        model_messages = self._model_messages_builder.create_model_messages(
-            session.messages,
-            state.parsed_command,
-            self._command_service
-        )
-        
+        model_messages = list(state.model_messages)
         model_messages.append(build_command_response_retry_context())
 
         return model_messages

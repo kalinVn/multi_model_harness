@@ -13,11 +13,11 @@ class MessageTest(unittest.TestCase):
                 "user_message",
                 "assistant_message",
                 "system_instruction",
+                "context_memory",
                 "tools_instruction",
                 "command_instruction",
                 "tool_call",
                 "tool_result",
-                "tool_result_summary",
                 "error"
             }
         )
@@ -60,16 +60,6 @@ class MessageTest(unittest.TestCase):
         self.assertTrue(message.has_requested_tool_results(["second-id"]))
         self.assertFalse(message.has_requested_tool_results(["unknown-id"]))
         self.assertFalse(message.has_requested_tool_results([]))
-
-    def test_contains_type(self):
-        messages = [
-            Message(role="user", content="Task", type="user_message"),
-            Message(role="system", content="Summarize", type="tool_result_summary")
-        ]
-
-        self.assertTrue(Message.contains_type(messages, "tool_result_summary"))
-        self.assertFalse(Message.contains_type(messages, "error"))
-        self.assertFalse(Message.contains_type([], "tool_result_summary"))
 
     def test_contains_non_system_message(self):
         system_messages = [Message(role="system", content="Rules")]

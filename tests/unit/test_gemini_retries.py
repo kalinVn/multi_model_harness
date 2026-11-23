@@ -26,7 +26,7 @@ class GeminiRetriesTest(unittest.TestCase):
     def response(self, code):
         if code == 200:
             body = {"candidates": [{"content": {"role": "model", "parts": [{
-                "text": '{"text":"Done","tool_calls":[],"tool_result_summaries":[]}'
+                "text": '{"text":"Done","tool_calls":[]}'
             }]}}]}
         else:
             body = {"error": {"code": code, "message": "Provider failure"}}

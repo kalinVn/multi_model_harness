@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from harness.agents.base_agent import BaseAgent
 from harness.domain.agent import Agent
 from harness.factory.agents_factory import AgentFactory
@@ -14,7 +16,8 @@ class AgentRegistry:
         tool_service: ToolService | None = None,
         tool_definitions: list[ToolDefinition] | None = None,
         skill_registry: SkillRegistry | None = None,
-        agent_definitions: list[Agent] | None = None
+        agent_definitions: list[Agent] | None = None,
+        project_root: Path | None = None
     ) -> None:
         self._agents: dict[str, BaseAgent] = {}
 
@@ -24,7 +27,13 @@ class AgentRegistry:
         if tool_service is None or skill_registry is None:
             raise ValueError("Legacy registry initialization requires all agent dependencies.")
 
-        factory = AgentFactory(model_client, tool_service, tool_definitions or [], skill_registry)
+        factory = AgentFactory(
+            model_client,
+            tool_service,
+            tool_definitions or [],
+            skill_registry,
+            project_root=project_root
+        )
         agents = [factory.create_planner(), factory.create_context_memory()]
         agents.extend(factory.create(definition) for definition in agent_definitions or [])
 

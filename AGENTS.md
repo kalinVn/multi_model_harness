@@ -171,7 +171,6 @@ WRONG:
 return ModelResponse(
     text=parsed_response.text,
     tool_calls=native_calls,
-    tool_result_summaries=parsed_response.tool_result_summaries,
     tool_result_output_requests=(
         parsed_response.tool_result_output_requests
     ),
@@ -184,7 +183,6 @@ CORRECT:
 return ModelResponse(
     text=parsed_response.text,
     tool_calls=native_calls,
-    tool_result_summaries=parsed_response.tool_result_summaries,
     tool_result_output_requests=parsed_response.tool_result_output_requests
 )
 ~~~
@@ -307,13 +305,13 @@ When a collection query has domain meaning, expose it through the model that own
 WRONG:
 
 ~~~python
-summary_requested = any(message.type == "tool_result_summary" for message in messages)
+agent_exists = any(agent.name == requested_name for agent in agents)
 ~~~
 
 CORRECT:
 
 ~~~python
-summary_requested = Message.contains_type(messages, "tool_result_summary")
+agent_exists = Agent.contains_name(agents, requested_name)
 ~~~
 
 Avoid lambdas in production control flow and domain filtering. Use a named method or an explicit loop so the responsibility and stopping condition are visible.

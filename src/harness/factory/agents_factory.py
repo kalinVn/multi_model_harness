@@ -1,6 +1,8 @@
+from pathlib import Path
 from uuid import uuid4
 
 from harness.agents.base_agent import BaseAgent
+from harness.agents.context_memory_agent import ContextMemoryAgent
 from harness.agents.planner_agent import PlannerAgent
 from harness.config.agents import context_memory_instructions, planner_instructions
 from harness.domain.agent import Agent
@@ -16,12 +18,14 @@ class AgentFactory:
         model_client: ModelClient,
         tool_service: ToolService,
         tool_definitions: list[ToolDefinition],
-        skill_registry: SkillRegistry
+        skill_registry: SkillRegistry,
+        project_root: Path | None = None
     ) -> None:
         self._model_client = model_client
         self._tool_service = tool_service
         self._tool_definitions = tool_definitions
         self._skill_registry = skill_registry
+        self._project_root = project_root or Path.cwd()
 
     def create(self, agent: Agent) -> BaseAgent:
         return BaseAgent(
@@ -51,12 +55,23 @@ class AgentFactory:
             agent_id=str(uuid4())
         )
 
-    def create_context_memory(self) -> BaseAgent:
+    def create_context_memory(self) -> ContextMemoryAgent:
         context_memory = Agent(
-            name="context-memory",
-            description="Summarize the important context for a specific task.",
+            name="context_memory",
+            description="Create and incrementally update structured conversation memory.",
             instructions=context_memory_instructions.INSTRUCTIONS,
             max_steps=1
         )
 
-        return self.create(context_memory)
+        global_instructions_path = self._project_root / ".caisa" / "CAISA.md"
+        global_instructions = global_instructions_path.read_text(encoding="utf-8")
+
+        return ContextMemoryAgent(
+            context_memory,
+            self._model_client,
+            self._tool_service,
+            self._tool_definitions,
+            self._skill_registry,
+            agent_id=str(uuid4()),
+            global_instructions=global_instructions
+        )

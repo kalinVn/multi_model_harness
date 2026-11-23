@@ -4,8 +4,6 @@ from pathlib import Path
 from unittest.mock import Mock
 
 from harness.domain.command import Command
-from harness.domain.message import Message
-from harness.domain.session import Session
 from harness.parser.command_parser import ParsedCommand
 from harness.service.command_service import CommandService
 
@@ -22,28 +20,6 @@ class CommandServiceTest(unittest.TestCase):
             command_loader=command_loader or Mock(),
             tool_registry=tool_registry or Mock(),
         )
-
-    def test_prepare_command_summary_message_has_no_session_side_effect(self):
-        service = self.create_service()
-        session = Session()
-
-        message = service.prepare_command_summary_message(
-            ParsedCommand(name="review", arguments=[]),
-            "Reviewed the project.",
-        )
-
-        self.assertEqual(
-            message,
-            Message(
-                role="system",
-                content=(
-                    "Command execution summary: review was executed. Result: "
-                    "Reviewed the project."
-                ),
-                type="command_instruction"
-            ),
-        )
-        self.assertEqual(session.messages, [])
 
     def test_prepare_command_context_reuses_existing_dependencies(self):
         command_path = Path("/project/.caisa/commands/review.md")

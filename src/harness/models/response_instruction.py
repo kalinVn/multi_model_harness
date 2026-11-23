@@ -16,21 +16,14 @@ MODEL_RESPONSE_SCHEMA = {
                 "required": ["tool", "arguments"]
             }
         },
-        "tool_result_summaries": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "id": {"type": "string"},
-                    "summary": {"type": "string"}
-                },
-                "required": ["id", "summary"]
-            }
-        },
         "tool_result_output_requests": {
             "type": "array",
             "items": {"type": "string"}
+        },
+        "task_status": {
+            "type": "string",
+            "enum": ["in_progress", "completed", "blocked"]
         }
     },
-    "required": ["text", "tool_calls", "tool_result_summaries"]
+    "required": ["text", "tool_calls", "task_status"]
 }

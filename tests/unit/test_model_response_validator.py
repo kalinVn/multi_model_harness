@@ -21,15 +21,13 @@ class ModelResponseValidatorTest(unittest.TestCase):
 
         self.assertEqual(
             str(raised.exception),
-            "response must contain text, tool_calls, and "
-            "tool_result_summaries",
+            "response must contain text and tool_calls"
         )
 
     def test_response_fields_accept_unrecognized_fields(self):
         ModelResponseValidator.validate_response_fields({
             "text": "",
             "tool_calls": [],
-            "tool_result_summaries": [],
             "metadata": {"provider": "test"}
         })
 

@@ -30,19 +30,3 @@ class CommandService:
             tool_registry=self._tool_registry,
             command_loader=self._command_loader,
         )
-
-    def prepare_command_summary_message(
-        self,
-        parsed_command: ParsedCommand,
-        command_summary: str,
-    ) -> Message:
-        """Build the system message that summarizes a completed command."""
-        return Message(
-            role="system",
-            type="command_instruction",
-            content=(
-                "Command execution summary: "
-                f"{parsed_command.name} was executed. Result: "
-                f"{command_summary}"
-            ),
-        )

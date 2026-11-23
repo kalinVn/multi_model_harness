@@ -9,10 +9,6 @@ TOOL_RESULTS_CONTEXT_FOOTER = (
 )
 
 
-def has_tool_result_summary(tool_result: ToolResult) -> bool:
-    return bool(tool_result.summary and tool_result.summary.strip())
-
-
 def _add_tool_result_output_to_context_paragraphs(
     context_paragraphs: list[str],
     tool_result: ToolResult,
@@ -27,23 +23,6 @@ def _add_tool_result_output_to_context_paragraphs(
                 f"Success: {tool_result.success}",
                 "Output:",
                 output,
-            ]
-        )
-    )
-
-
-def _add_tool_result_summary_to_context_paragraphs(
-    context_paragraphs: list[str],
-    tool_result: ToolResult
-) -> None:
-    context_paragraphs.append(
-        "\n".join(
-            [
-                f"Tool result ID: {tool_result.id}",
-                f"Tool: {tool_result.name}",
-                f"Success: {tool_result.success}",
-                "Summary:",
-                tool_result.summary,
             ]
         )
     )
@@ -75,15 +54,7 @@ def build_tool_results_context(
             _add_tool_result_output_to_context_paragraphs(
                 context_paragraphs,
                 tool_result,
-                max_output_chars
-            )
-
-            continue
-
-        if has_tool_result_summary(tool_result):
-            _add_tool_result_summary_to_context_paragraphs(
-                context_paragraphs,
-                tool_result
+                len(tool_result.output)
             )
 
             continue

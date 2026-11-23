@@ -5,7 +5,7 @@ these three required fields:
 {
   "text": "",
   "tool_calls": [],
-  "tool_result_summaries": []
+  "task_status": "in_progress"
 }
 
 You may also include this optional field:
@@ -20,21 +20,21 @@ Rules:
 2. Put requested tool calls in "tool_calls".
    Each call must contain a nonempty string "tool" and an object "arguments".
 
-3. Summarize previously executed tool results in
-   "tool_result_summaries".
-   Each summary must contain the original tool
-   result "id" (a nonempty string) and a string "summary".
-
-4. Never invent tool result IDs or claim that
+3. Never invent tool result IDs or claim that
    an unexecuted tool has completed.
 
-5. To request the complete output for a summarized tool
+4. Set "task_status" to exactly one of:
+   - "in_progress" when the user task still requires work or a follow-up execution.
+   - "completed" only when the entire user task is finished, not merely the current response.
+   - "blocked" when progress requires user information, permission, or external intervention.
+   A tool-free response does not by itself mean the task is completed.
+
+5. To request the complete output for a previous tool
    result, put its original ID in
    "tool_result_output_requests". Omit this optional field
    when no complete outputs are needed.
 
-6. Use empty arrays when there are no tool calls
-   or summaries.
+6. Use an empty array when there are no tool calls.
 
 7. Return JSON only, without Markdown code fences
    or explanatory text outside the JSON.

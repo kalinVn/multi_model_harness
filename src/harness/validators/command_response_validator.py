@@ -6,10 +6,10 @@ class CommandResponseValidator:
 
     def validate(self, response_text: str) -> bool:
         """
-        Validate that command JSON has string answer and non-empty summary fields.
+        Validate that command JSON has exactly one string answer field.
 
-        Example (valid): '{"answer": "Done", "command_summary": "Updated file"}'.
-        Example (invalid): '{"answer": "Done", "command_summary": ""}'.
+        Example (valid): '{"answer": "Done"}'.
+        Example (invalid): '{"answer": 1}'.
         Result: False for invalid data; this method does not raise validation errors.
         """
         try:
@@ -20,13 +20,7 @@ class CommandResponseValidator:
         if not isinstance(payload, dict):
             return False
 
-        answer = payload.get("answer")
-        command_summary = payload.get("command_summary")
-
-        if not isinstance(answer, str):
+        if set(payload) != {"answer"}:
             return False
 
-        if not isinstance(command_summary, str) or not command_summary.strip():
-            return False
-
-        return True
+        return isinstance(payload["answer"], str) and bool(payload["answer"].strip())

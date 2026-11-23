@@ -22,11 +22,11 @@ from harness.tools.tool_registry import ToolRegistry
 
 class StructuredResponseAdaptersTest(unittest.TestCase):
     @staticmethod
-    def response_json(text="", tool_calls=None, summaries=None):
+    def response_json(text="", tool_calls=None, output_requests=None):
         return json.dumps({
             "text": text,
             "tool_calls": tool_calls or [],
-            "tool_result_summaries": summaries or []
+            "tool_result_output_requests": output_requests or []
         })
 
     @staticmethod
@@ -56,6 +56,11 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
             "response_mime_type": "application/json",
             "response_json_schema": expected_schema
         })
+        self.assertIn("task_status", request["config"]["response_json_schema"]["required"])
+        self.assertEqual(
+            request["config"]["response_json_schema"]["properties"]["task_status"]["enum"],
+            ["in_progress", "completed", "blocked"]
+        )
 
     def test_gemini_parses_response_text_without_provider_response_mapping(self):
         response_text = self.response_json(
@@ -154,24 +159,24 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         self.assertNotIn("Available tools:", "\n".join(message["content"] for message in openai_mapped))
 
     def test_gemini_preserves_command_response_inside_shared_text_field(self):
-        command_response = '{"answer":"Done","command_summary":"Completed."}'
+        command_response = '{"answer":"Done"}'
         client = self.gemini_client(self.response_json(text=command_response))
 
         response = client.generate([Message(role="user", content="Run command")])
 
         self.assertEqual(response, ModelResponse(text=command_response))
 
-    def test_gemini_maps_tool_result_metadata_from_response_text(self):
+    def test_gemini_maps_tool_result_output_requests(self):
         response_text = self.response_json(
             text="Файлът беше прочетен успешно.",
-            summaries=[{"id": "result-1", "summary": "Прочетен е файлът."}]
+            output_requests=["result-1"]
         )
         client = self.gemini_client(response_text)
 
         response = client.generate([Message(role="user", content="Read file")])
 
         self.assertEqual(response.text, "Файлът беше прочетен успешно.")
-        self.assertEqual(response.tool_result_summaries[0].id, "result-1")
+        self.assertEqual(response.tool_result_output_requests, ["result-1"])
 
     def test_mappers_preserve_history_and_add_shared_instruction(self):
         tool_result = ToolResult("read_file", "contents", id="original-id")
@@ -203,23 +208,6 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
         mapped = openai_messages(messages)
         self.assertEqual(mapped[:-1], [{"role": message.role, "content": message.content} for message in messages])
         self.assertEqual(mapped[-1], {"role": "system", "content": MODEL_RESPONSE_INSTRUCTION})
-
-    def test_mappers_include_tool_result_summary_request(self):
-        summary_request = Message(
-            role="system",
-            type="tool_result_summary",
-            content="Summarize tool result ID: original-id"
-        )
-        messages = [Message(role="user", content="Continue"), summary_request]
-
-        _, google_instruction = google_messages(messages)
-        openai_mapped = openai_messages(messages)
-
-        self.assertIn(summary_request.content, google_instruction)
-        self.assertIn(
-            {"role": "system", "content": summary_request.content},
-            openai_mapped
-        )
 
     def test_gemini_preserves_ordinary_system_tool_text(self):
         catalog_text = "Available tools:\n\nTool: fake\nDescription: Ordinary system content."
@@ -263,7 +251,7 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
     def test_adapters_return_contract_and_propagate_invalid_responses(self):
         raw = self.response_json(
             text="Done",
-            summaries=[{"id": "original-id", "summary": "Read previous file."}]
+            output_requests=["original-id"]
         )
         for cls in (GeminiClient, OpenAIClient):
             with self.subTest(provider=cls.__name__):
@@ -274,8 +262,7 @@ class StructuredResponseAdaptersTest(unittest.TestCase):
                 endpoint.return_value = SimpleNamespace(text=raw) if cls is GeminiClient else Mock(output_text=raw)
                 response = client.generate([Message(role="user", content="Continue")])
                 self.assertEqual(response, prepare_model_response(raw))
-                self.assertEqual(response.tool_result_summaries[0].id, "original-id")
-                self.assertEqual(response.tool_result_summaries[0].summary, "Read previous file.")
+                self.assertEqual(response.tool_result_output_requests, ["original-id"])
 
                 endpoint.return_value = SimpleNamespace(text="invalid") if cls is GeminiClient else Mock(output_text="invalid")
                 with self.assertRaises(ValueError):

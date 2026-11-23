@@ -9,7 +9,7 @@ from harness.agents.main_orchestrator import MainOrchestrator
 from harness.domain.tool_call import ToolCall
 from harness.models.request import Request
 from harness.models.response import ModelResponse
-from tests.unit.model_client_mock import add_tool_result_summaries, allow_context
+from tests.unit.model_client_mock import allow_context
 
 
 class GitToolWorkflowTest(unittest.TestCase):
@@ -46,11 +46,7 @@ class GitToolWorkflowTest(unittest.TestCase):
         response_iterator = iter(responses)
 
         def generate(messages, tools=None):
-            response = next(response_iterator)
-            if not response.tool_calls:
-                response = add_tool_result_summaries(response, messages)
-
-            return response
+            return next(response_iterator)
 
         client.generate.side_effect = generate
         environment = patch.dict(

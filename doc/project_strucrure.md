@@ -51,8 +51,7 @@ caisa_harnes_project/
 │   │   ├── model_client.py
 │   │   ├── request.py
 │   │   ├── response.py
-│   │   ├── response_instruction.py
-│   │   └── tool_result_summary.py
+│   │   └── response_instruction.py
 │   ├── parser/
 │   │   ├── command_parser.py
 │   │   ├── parse_tool_calls.py

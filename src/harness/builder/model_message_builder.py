@@ -1,10 +1,7 @@
 import os
 from dataclasses import replace
 
-from harness.builder.tool_result_context_builder import (
-    build_tool_results_context,
-    has_tool_result_summary,
-)
+from harness.builder.tool_result_context_builder import build_tool_results_context
 from harness.config.model_context_config import MAX_TOOL_RESULT_CHARS
 from harness.domain.message import Message
 from harness.parser.command_parser import ParsedCommand
@@ -27,25 +24,28 @@ class ModelMessageBuilder:
     ) -> list[Message]:
         """Build model context without modifying the session history."""
 
-        command_message = None
+        model_messages = self.prepare_new_messages(session_messages)
 
         if parsed_command is not None:
-            command_message = command_service.prepare_command_context(parsed_command)
+            model_messages.append(command_service.prepare_command_context(parsed_command))
 
-        model_messages: list[Message] = []
+        return model_messages
 
-        tool_result_ids_to_summarize = self._add_tool_results_to_model_messages(
-            session_messages,
-            model_messages
-        )
+    def prepare_new_messages(self, messages: list[Message]) -> list[Message]:
+        """Prepare new session messages for incremental model context."""
 
-        self._add_tool_result_summary_instructions_to_model_messages(
-            model_messages,
-            tool_result_ids_to_summarize
-        )
+        model_messages = []
 
-        if command_message is not None:
-            model_messages.append(command_message)
+        for message in messages:
+            if message.has_tool_results():
+                message = replace(
+                    message,
+                    content=build_tool_results_context(
+                        list(message.tool_results),
+                        max_output_chars=self._max_tool_result_chars
+                    )
+                )
+            model_messages.append(message)
 
         return model_messages
 
@@ -54,15 +54,12 @@ class ModelMessageBuilder:
         model_messages: list[Message],
         tool_result_output_requests: list[str]
     ) -> list[Message]:
-        """Update only contexts with explicitly requested full tool outputs.
-
-        The original session messages remain unchanged.
-        """
+        """Expose complete output for explicitly requested tool results."""
 
         if not tool_result_output_requests:
             return model_messages
 
-        updated_model_messages: list[Message] = []
+        updated_model_messages = []
         model_messages_updated = False
 
         for message in model_messages:
@@ -70,139 +67,20 @@ class ModelMessageBuilder:
                 updated_model_messages.append(message)
                 continue
 
-            updated_content = build_tool_results_context(
+            content = build_tool_results_context(
                 list(message.tool_results),
                 tool_result_output_requests,
                 max_output_chars=self._max_tool_result_chars
             )
-
-            if updated_content == message.content:
-                updated_model_messages.append(message)
-                continue
-
-            updated_model_messages.append(replace(message, content=updated_content))
-            model_messages_updated = True
+            if content != message.content:
+                message = replace(message, content=content)
+                model_messages_updated = True
+            updated_model_messages.append(message)
 
         if not model_messages_updated:
             return model_messages
 
         return updated_model_messages
-
-    def refresh_tool_result_contexts(
-        self,
-        model_messages: list[Message],
-        requested_output_ids: list[str],
-        missing_summary_ids: list[str]
-    ) -> list[Message]:
-        """Refresh ToolResult content and replace transient summary instructions."""
-
-        refreshed_messages: list[Message] = []
-        missing_summary_id_set = set(missing_summary_ids)
-        tool_result_ids_to_summarize: list[str] = []
-
-        for message in model_messages:
-            for tool_result in message.tool_results:
-                if tool_result.id in missing_summary_id_set and not has_tool_result_summary(tool_result):
-                    tool_result_ids_to_summarize.append(tool_result.id)
-
-        summary_instruction_added = False
-
-        for message in model_messages:
-            if message.type == "tool_result_summary":
-                if not summary_instruction_added:
-                    self._add_tool_result_summary_instructions_to_model_messages(
-                        refreshed_messages,
-                        tool_result_ids_to_summarize
-                    )
-                    summary_instruction_added = True
-                continue
-
-            if not message.has_tool_results():
-                refreshed_messages.append(message)
-                continue
-
-            content = build_tool_results_context(
-                list(message.tool_results),
-                requested_output_ids,
-                max_output_chars=self._max_tool_result_chars
-            )
-            if content != message.content:
-                message = replace(message, content=content)
-            refreshed_messages.append(message)
-
-        if not summary_instruction_added:
-            self._add_tool_result_summary_instructions_to_model_messages(
-                refreshed_messages,
-                tool_result_ids_to_summarize
-            )
-
-        return refreshed_messages
-
-    def _add_tool_results_to_model_messages(
-        self,
-        messages: list[Message],
-        model_messages: list[Message]
-    ) -> list[str]:
-        """Process all messages and check whether they contain tool_results.
-
-        For messages with tool_results, inspect each ToolResult. Use a valid
-        summary instead of the full output when available. Otherwise, use the
-        full output and add result.id to tool_result_ids_to_summarize for later
-        summarization. Add the processed message to model_messages. Messages
-        without tool_results are added unchanged. The original session
-        messages are not modified.
-        """
-
-        tool_result_ids_to_summarize: list[str] = []
-
-        for message in messages:
-            if message.has_tool_results():
-                for tool_result in message.tool_results:
-                    if not has_tool_result_summary(tool_result):
-                        tool_result_ids_to_summarize.append(tool_result.id)
-
-                model_messages.append(
-                    replace(
-                        message,
-                        content=build_tool_results_context(
-                            list(message.tool_results),
-                            max_output_chars=self._max_tool_result_chars
-                        )
-                    )
-                )
-            else:
-                model_messages.append(message)
-
-        return tool_result_ids_to_summarize
-
-    def _add_tool_result_summary_instructions_to_model_messages(
-        self,
-        model_messages: list[Message],
-        tool_result_ids_to_summarize: list[str]
-    ) -> None:
-        """Check whether any ToolResult IDs need to be summarized.
-
-        Use the IDs already collected in tool_result_ids_to_summarize. If any
-        exist, append an instruction to model_messages that tells the model
-        which ToolResults require summaries. Do not iterate over every message
-        again or process tool output. The original session messages are not
-        modified.
-        """
-
-        if not tool_result_ids_to_summarize:
-            return
-
-        instruction = (
-            "While continuing the main task, return a concise semantic summary "
-            "for each of these tool result IDs, identifying each summary by its ID: "
-            + ", ".join(tool_result_ids_to_summarize)
-            + ". Aim for 100 to 200 tokens per summary, at most about 250 tokens; "
-            "use fewer tokens for simple results."
-        )
-
-        model_messages.append(
-            Message(role="system", type="tool_result_summary", content=instruction)
-        )
 
     @staticmethod
     def _read_positive_limit(environment_name: str, configured_value: int | None, default: int) -> int:
@@ -211,6 +89,8 @@ class ModelMessageBuilder:
             value = int(raw_value)
         except (TypeError, ValueError) as error:
             raise ValueError(f"{environment_name} must be a positive integer.") from error
+
         if value < 1:
             raise ValueError(f"{environment_name} must be a positive integer.")
+
         return value

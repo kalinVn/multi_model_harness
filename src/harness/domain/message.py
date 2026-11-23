@@ -9,11 +9,11 @@ MessageType = Literal[
     "user_message",
     "assistant_message",
     "system_instruction",
+    "context_memory",
     "tools_instruction",
     "command_instruction",
     "tool_call",
     "tool_result",
-    "tool_result_summary",
     "error"
 ]
 
@@ -36,14 +36,6 @@ class Message:
     ) -> bool:
         for tool_result in self.tool_results:
             if tool_result.id in request_ids:
-                return True
-
-        return False
-
-    @staticmethod
-    def contains_type(messages: list["Message"], message_type: MessageType) -> bool:
-        for message in messages:
-            if message.type == message_type:
                 return True
 
         return False

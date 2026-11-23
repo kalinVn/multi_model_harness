@@ -14,7 +14,7 @@ class ModelResponseValidator:
             Decode the JSON securely and validate all response and nested fields.
         Parameters:
             text: The model response JSON string to validate.
-        Example input: '{"text":"Hello","tool_calls":[],"tool_result_summaries":[]}'
+        Example input: '{"text":"Hello","tool_calls":[]}'
         Example output: None
         Returns: None when the complete model response is valid.
         Raises: ValueError when the JSON or any response field is invalid.
@@ -44,12 +44,6 @@ class ModelResponseValidator:
             StringValidator.validate_string(call["tool"], f"{path}.tool", nonempty=True)
             ModelResponseValidator.validate_call_arguments(call["arguments"], path)
 
-        for index, summary in enumerate(data["tool_result_summaries"]):
-            path = f"tool_result_summaries[{index}]"
-            ModelResponseValidator.validate_fields(summary, ("id", "summary"), path)
-            StringValidator.validate_string(summary["id"], f"{path}.id", nonempty=True)
-            StringValidator.validate_string(summary["summary"], f"{path}.summary")
-
         output_requests_data = data.get("tool_result_output_requests", [])
         ModelResponseValidator.validate_output_request_data(output_requests_data)
         for index, result_id in enumerate(output_requests_data):
@@ -58,6 +52,13 @@ class ModelResponseValidator:
                 f"tool_result_output_requests[{index}]",
                 nonempty=True,
             )
+
+        task_status = data.get("task_status")
+        if task_status is not None and (
+            not isinstance(task_status, str)
+            or task_status not in {"in_progress", "completed", "blocked"}
+        ):
+            raise ValueError("task_status must be in_progress, completed, or blocked")
 
     @staticmethod
     def validate_json_object_pairs(pairs):
@@ -102,7 +103,7 @@ class ModelResponseValidator:
         if not text.strip():
             raise ValueError("Model response is empty; expected a JSON object")
 
-        
+
 
     @staticmethod
     def validate_finite_numbers_data(value) -> None:
@@ -129,29 +130,25 @@ class ModelResponseValidator:
         """
         Validate that a response contains the required fields.
 
-        Example (valid): {"text": "Hello", "tool_calls": [], "tool_result_summaries": []}.
-        Example (invalid): {"text": "Hello", "tool_result_summaries": []}.
+        Example (valid): {"text": "Hello", "tool_calls": []}.
+        Example (invalid): {"text": "Hello"}.
         Result: ValueError because "tool_calls" is missing.
         """
-        required_fields = {"text", "tool_calls", "tool_result_summaries"}
+        required_fields = {"text", "tool_calls"}
         if not isinstance(data, dict) or not required_fields.issubset(data):
-            raise ValueError(
-                "response must contain text, tool_calls, and "
-                "tool_result_summaries"
-            )
-        
+            raise ValueError("response must contain text and tool_calls")
+
     @staticmethod
     def validate_response_list_fields(data) -> None:
         """
-        Validate that tool_calls and tool_result_summaries are lists.
+        Validate that tool_calls is a list.
 
-        Example (valid): {"tool_calls": [], "tool_result_summaries": []}.
-        Example (invalid): {"tool_calls": "none", "tool_result_summaries": []}.
+        Example (valid): {"tool_calls": []}.
+        Example (invalid): {"tool_calls": "none"}.
         Result: ValueError because "tool_calls" is not an array.
         """
-        for field in ("tool_calls", "tool_result_summaries"):
-            if not isinstance(data[field], list):
-                raise ValueError(f"{field} must be an array")
+        if not isinstance(data["tool_calls"], list):
+            raise ValueError("tool_calls must be an array")
 
     @staticmethod
     def validate_call_arguments(arguments, path) -> None:
