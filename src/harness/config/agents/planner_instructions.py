@@ -1,4 +1,19 @@
 
+PLAN_REQUIREMENT_INSTRUCTIONS = """Determine whether the user request requires an execution plan.
+Require a plan when the work has multiple dependent steps, affects several files or components,
+requires architectural or integration decisions, or needs ordered coordination to execute safely.
+Do not require a plan for a direct question, explanation, status check, or a small isolated change.
+
+Analyze only the supplied user request and relevant task context. Do not call tools, inspect files,
+or create or modify anything.
+
+Put exactly one JSON object in the ModelResponse text field with this shape:
+{"requires_plan": true}
+
+Use false instead of true when a plan is unnecessary. Do not add other fields or prose.
+"""
+
+
 INSTRUCTIONS = """Analyze the provided task and determine whether an execution plan is needed.
 Consider the number of steps, dependencies, affected files, architectural decisions, and integrations.
 

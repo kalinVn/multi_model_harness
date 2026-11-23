@@ -33,14 +33,7 @@ class ToolService:
         model_messages: list[Message]
     ) -> list[ToolDefinition]:
         """Return the tool parameters permitted for the current request."""
-        command_tool_names = next(
-            (
-                message.available_tool_names
-                for message in reversed(model_messages)
-                if message.available_tool_names is not None
-            ),
-            None
-        )
+        command_tool_names = Message.get_last_available_tool_names(model_messages)
         if command_tool_names is None:
             return tool_parameters
 

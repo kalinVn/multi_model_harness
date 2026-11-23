@@ -298,6 +298,28 @@ role = (
 )
 ~~~
 
+## Collection Filtering and Predicate Logic
+
+Do not hide domain filtering or lookup logic inside dense one-line `any()`, `all()`, `next()`, `filter()`, `map()`, generator expressions, or lambdas.
+
+When a collection query has domain meaning, expose it through the model that owns that data and implement it with a clear loop and explicit return values.
+
+WRONG:
+
+~~~python
+summary_requested = any(message.type == "tool_result_summary" for message in messages)
+~~~
+
+CORRECT:
+
+~~~python
+summary_requested = Message.contains_type(messages, "tool_result_summary")
+~~~
+
+Avoid lambdas in production control flow and domain filtering. Use a named method or an explicit loop so the responsibility and stopping condition are visible.
+
+Simple comprehensions remain acceptable for straightforward data construction when they do not hide domain decisions.
+
 ## Type Hints
 
 Use existing Harness contracts.

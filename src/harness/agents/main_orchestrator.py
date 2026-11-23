@@ -169,7 +169,7 @@ class MainOrchestrator:
         requested_tool_result_ids: list[str],
         available_tools: list[ToolDefinition]
     ) -> str | None:
-        summary_requested = any(message.type == "tool_result_summary" for message in state.model_messages)
+        summary_requested = Message.contains_type(state.model_messages, "tool_result_summary")
         missing_summary_ids = session.get_missing_tool_result_summary_ids()
 
         if not summary_requested or not missing_summary_ids or state.response.tool_calls:

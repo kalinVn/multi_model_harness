@@ -1,6 +1,7 @@
 from uuid import uuid4
 
 from harness.agents.base_agent import BaseAgent
+from harness.agents.planner_agent import PlannerAgent
 from harness.config.agents import context_memory_instructions, planner_instructions
 from harness.domain.agent import Agent
 from harness.models.model_client import ModelClient
@@ -32,7 +33,7 @@ class AgentFactory:
             agent_id=str(uuid4())
         )
 
-    def create_planner(self) -> BaseAgent:
+    def create_planner(self) -> PlannerAgent:
         planner = Agent(
             name="planner",
             description="Create an execution plan for a specific task.",
@@ -41,7 +42,14 @@ class AgentFactory:
             max_steps=5
         )
 
-        return self.create(planner)
+        return PlannerAgent(
+            planner,
+            self._model_client,
+            self._tool_service,
+            self._tool_definitions,
+            self._skill_registry,
+            agent_id=str(uuid4())
+        )
 
     def create_context_memory(self) -> BaseAgent:
         context_memory = Agent(

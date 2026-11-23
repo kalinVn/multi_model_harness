@@ -34,4 +34,32 @@ class Message:
         self,
         request_ids: list[str],
     ) -> bool:
-        return any(tool_result.id in request_ids for tool_result in self.tool_results)
+        for tool_result in self.tool_results:
+            if tool_result.id in request_ids:
+                return True
+
+        return False
+
+    @staticmethod
+    def contains_type(messages: list["Message"], message_type: MessageType) -> bool:
+        for message in messages:
+            if message.type == message_type:
+                return True
+
+        return False
+
+    @staticmethod
+    def contains_non_system_message(messages: list["Message"]) -> bool:
+        for message in messages:
+            if message.role != "system":
+                return True
+
+        return False
+
+    @staticmethod
+    def get_last_available_tool_names(messages: list["Message"]) -> tuple[str, ...] | None:
+        for message in reversed(messages):
+            if message.available_tool_names is not None:
+                return message.available_tool_names
+
+        return None
