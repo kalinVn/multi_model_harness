@@ -43,9 +43,6 @@ class BaseAgent:
     def description(self) -> str:
         return self._agent.description
 
-    def observe(self, messages: list[Message]) -> list[Message]:
-        return messages
-
     def think(self, messages: list[Message], available_tools: list[ToolDefinition]) -> ModelResponse:
         return self._model_client.generate(messages, tools=available_tools)
 
@@ -89,7 +86,6 @@ class BaseAgent:
         available_tools = self._tool_service.get_available_tools_by_names(self._tool_definitions, self._agent.allowed_tools)
 
         for _ in range(self._agent.max_steps):
-            messages = self.observe(messages)
             response = self.think(messages, available_tools)
             tool_calls = self.decide(response)
 
