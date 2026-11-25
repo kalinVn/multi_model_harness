@@ -1,3 +1,22 @@
+## Available Agents
+
+None
+
+## Available Skills
+
+- .caisa/skills/workflow-manage-devops.md
+- .caisa/skills/workflow-testing-infrastructure.md
+- .caisa/skills/workflow-code-review-infrastructure.md
+- .caisa/skills/workflow-verification-infrastructure.md
+
+## Available Rules
+
+- .caisa/CAISA.md
+
+## Available Documents
+
+- docs/infrastucture/docker/docker.md
+
 # Name
 workflow-setup-infrastructure
 

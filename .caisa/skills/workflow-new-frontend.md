@@ -1,3 +1,21 @@
+## Available Agents
+
+None
+
+## Available Skills
+
+- .caisa/skills/rule-frontend-planning.md
+- .caisa/skills/plan-new-frontend.md
+- .caisa/skills/frontend-plan-validator.md
+
+## Available Rules
+
+- .caisa/CAISA.md
+
+## Available Documents
+
+- docs/frontend/frontend-project-structure.md
+
 # Name
 workflow-new-frontend
 

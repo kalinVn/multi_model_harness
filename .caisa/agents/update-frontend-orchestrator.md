@@ -1,3 +1,19 @@
+## Available Agents
+
+None
+
+## Available Skills
+
+- .caisa/skills/workflow-update-frontend.md
+
+## Available Rules
+
+None
+
+## Available Documents
+
+None
+
 # Name
 update-frontend-orchestrator
 

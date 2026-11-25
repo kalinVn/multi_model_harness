@@ -1,3 +1,19 @@
+## Available Agents
+
+None
+
+## Available Skills
+
+None
+
+## Available Rules
+
+- AGENTS.md
+
+## Available Documents
+
+- docs/frontend/frontend.md
+
 # CAISA.md
 
 # Tennis AI Coach
@@ -17,7 +33,7 @@ Detailed knowledge belongs in `docs/`, `.caisa/agents/`, `.caisa/rules/`, and `.
 
 ---
 
-## Architecture
+## Archityecture
 
 Core realtime pipeline:
 

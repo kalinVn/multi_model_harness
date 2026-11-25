@@ -1,3 +1,19 @@
+## Available Agents
+
+None
+
+## Available Skills
+
+None
+
+## Available Rules
+
+None
+
+## Available Documents
+
+- docs/frontend/example-apis/social-auth.md
+
 # Name
 google-auth-service-debug
 

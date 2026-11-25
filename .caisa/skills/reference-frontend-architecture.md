@@ -1,3 +1,20 @@
+## Available Agents
+
+None
+
+## Available Skills
+
+None
+
+## Available Rules
+
+None
+
+## Available Documents
+
+- docs/frontend/frontend.md
+- docs/code-improvements/home-page-video-slider.md
+
 # Name
 reference-frontend-architecture
 

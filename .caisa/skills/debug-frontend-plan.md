@@ -1,3 +1,20 @@
+## Available Agents
+
+None
+
+## Available Skills
+
+None
+
+## Available Rules
+
+None
+
+## Available Documents
+
+- .caisa/commands/debug_frontend_plan.md
+- docs/frontend/frontend.md
+
 # Name
 debug-frontend-plan
 

@@ -1,3 +1,22 @@
+## Available Agents
+
+None
+
+## Available Skills
+
+- .codex/skill-adapters/frontend-plan-validator/SKILL.md
+- .codex/skills/frontend-plan-validator.md
+- .caisa/skills/rule-frontend-planning.md
+- .caisa/skills/plan-new-frontend.md
+
+## Available Rules
+
+None
+
+## Available Documents
+
+- docs/frontend/frontend.md
+
 # Name
 frontend-plan-validator
 

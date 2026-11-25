@@ -1,3 +1,25 @@
+## Available Agents
+
+None
+
+## Available Skills
+
+- .codex/skill-adapters/frontend-project-structure/SKILL.md
+- .caisa/skills/reference-frontend-project-structure.md
+- .codex/skills/frontend-project-structure.md
+
+## Available Rules
+
+None
+
+## Available Documents
+
+- docs/frontend/frontend-project-structure.md
+- docs/frontend/frontend.md
+- docs/frontend/pages-and-routes.md
+- docs/frontend/shared-ui-components.md
+- docs/frontend/feature-components.md
+
 # Name
 frontend-project-structure
 

@@ -1,3 +1,26 @@
+## Available Agents
+
+None
+
+## Available Skills
+
+- .caisa/skills/rule-frontend-planning.md
+- .caisa/skills/plan-new-frontend.md
+- .caisa/skills/reference-frontend-architecture.md
+- .caisa/skills/frontend-plan-validator.md
+
+## Available Rules
+
+None
+
+## Available Documents
+
+- .caisa/commands/debug_frontend_plan.md
+- docs/frontend/frontend.md
+- docs/frontend/plan/new-frontend-plan.md
+- docs/debug_plan_outputs/new_frontend_plan_N.md
+- docs/debug_plan_outputs/new_frontend_plan_BG.md
+
 # Name
 workflow-frontend-planning
 

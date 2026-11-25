@@ -1,3 +1,19 @@
+## Available Agents
+
+None
+
+## Available Skills
+
+- .caisa/skills/workflow-update-frontend.md
+
+## Available Rules
+
+- .caisa/CAISA.md
+
+## Available Documents
+
+None
+
 # Name
 update_frontend
 

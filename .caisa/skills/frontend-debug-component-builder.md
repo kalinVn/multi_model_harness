@@ -1,3 +1,19 @@
+## Available Agents
+
+None
+
+## Available Skills
+
+None
+
+## Available Rules
+
+None
+
+## Available Documents
+
+- .caisa/commands/frontend_debug_component_builder.md
+
 # Name
 frontend-debug-component-builder
 

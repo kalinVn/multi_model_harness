@@ -1,3 +1,19 @@
+## Available Agents
+
+None
+
+## Available Skills
+
+- .caisa/skills/workflow-verification-infrastructure.md
+
+## Available Rules
+
+None
+
+## Available Documents
+
+None
+
 # Name
 verification-infrastructure-agent
 

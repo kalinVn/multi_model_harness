@@ -1,3 +1,20 @@
+## Available Agents
+
+None
+
+## Available Skills
+
+None
+
+## Available Rules
+
+None
+
+## Available Documents
+
+- docs/frontend/integration-contracts.md
+- docs/frontend/example-apis/social-auth.md
+
 # Name
 vite-dev-environment
 

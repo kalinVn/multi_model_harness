@@ -1,3 +1,19 @@
+## Available Agents
+
+None
+
+## Available Skills
+
+- .caisa/skills/workflow-setup-infrastructure.md
+
+## Available Rules
+
+None
+
+## Available Documents
+
+None
+
 # Name
 infrastructure-git-safety
 

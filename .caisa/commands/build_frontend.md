@@ -1,3 +1,21 @@
+## Available Agents
+
+- .caisa/agents/new-frontend-orchestrator.md
+
+## Available Skills
+
+- .caisa/skills/rule-frontend-planning.md
+- .caisa/skills/plan-new-frontend.md
+- .caisa/skills/frontend-plan-validator.md
+
+## Available Rules
+
+None
+
+## Available Documents
+
+- docs/frontend/frontend-project-structure.md
+
 # Name
 build_frontend
 
@@ -23,21 +41,15 @@ specification_path=<repository-relative path>
 
 The input is required. Resolve it from the repository root and stop if it is missing or unreadable.
 
-## Execution
-
-Read `.caisa/CAISA.md`, then execute `.caisa/skills/workflow-new-frontend.md`. The workflow owns planning, independent validation, bounded corrections, skill selection, implementation order, testing, review, and final verification.
-
-This command does not choose between new and existing frontend work, implement code directly, or invoke the scoped-update workflow.
-
 ## Embedded Workflow Contract
 
 ## New Frontend Workflow
 
-Use only when the user explicitly requests construction of a new frontend and supplies `specification_path`. This workflow is the Codex adaptation of `claude/agents/new-frontend-orchestrator.md`.
+Use only when the user explicitly requests construction of a new frontend and supplies `specification_path`. This workflow is the Codex adaptation of `.caisa/agents/new-frontend-orchestrator.md`.
 
 ## Gate
 
-1. Read `.caisa/CAISA.md`, `.caisa/skills/rule-frontend-planning.md`, and the supplied specification.
+1. Read  `.caisa/skills/rule-frontend-planning.md`, and the supplied specification.
 2. Run the planner contract in `.caisa/skills/plan-new-frontend.md`.
 3. Use a separate read-only agent with `.caisa/skills/frontend-plan-validator.md`.
 4. Require `status: valid`, no errors, and an exact unchanged `validated_plan`.
@@ -57,8 +69,6 @@ Build in dependency order:
 5. routing and guards
 6. responsive/accessibility behavior
 7. integration, tests, code-quality review, and final verification
-
-Reuse before extension, extension before new implementation. Keep one authoritative owner for persisted state and each resource lifecycle. Preserve the frontend/backend boundaries in `.caisa/CAISA.md` and the specification.
 
 ## Verification and Report
 

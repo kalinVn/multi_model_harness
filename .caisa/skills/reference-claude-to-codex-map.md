@@ -1,3 +1,31 @@
+## Available Agents
+
+None
+
+## Available Skills
+
+- .caisa/skills/workflow-new-frontend.md
+- .caisa/skills/workflow-update-frontend.md
+- .caisa/skills/workflow-frontend-planning.md
+- .caisa/skills/plan-new-frontend.md
+- .caisa/skills/frontend-plan-validator.md
+- .caisa/skills/rule-frontend-design-system.md
+- .caisa/skills/reference-frontend-architecture.md
+- .caisa/skills/reference-frontend-project-structure.md
+
+## Available Rules
+
+- AGENTS.md
+- .caisa/CAISA.md
+
+## Available Documents
+
+- .caisa/commands/build_frontend.md
+- .caisa/commands/frontend_debug_component_builder.md
+- .caisa/commands/update_frontend.md
+- .caisa/commands/setup_infrastructure.md
+- .caisa/commands/setup_production.md
+
 # Name
 reference-claude-to-codex-map
 

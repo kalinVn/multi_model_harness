@@ -1,3 +1,23 @@
+## Available Agents
+
+None
+
+## Available Skills
+
+- .codex/workflows/setup-production.md
+- .caisa/skills/workflow-setup-production.md
+- .caisa/skills/workflow-manage-devops.md
+- .caisa/skills/workflow-manage-kubernetes.md
+- .caisa/skills/workflow-setup-infrastructure.md
+
+## Available Rules
+
+- .caisa/CAISA.md
+
+## Available Documents
+
+None
+
 # Name
 setup_production
 

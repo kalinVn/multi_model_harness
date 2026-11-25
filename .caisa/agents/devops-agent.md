@@ -1,3 +1,19 @@
+## Available Agents
+
+None
+
+## Available Skills
+
+- .caisa/skills/workflow-manage-devops.md
+
+## Available Rules
+
+None
+
+## Available Documents
+
+None
+
 # Name
 devops-agent
 

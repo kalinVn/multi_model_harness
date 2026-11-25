@@ -1,3 +1,23 @@
+## Available Agents
+
+None
+
+## Available Skills
+
+- .codex/skill-adapters/plan-new-frontend/SKILL.md
+- .caisa/skills/rule-frontend-planning.md
+- .codex/skills/plan-new-frontend.md
+
+## Available Rules
+
+None
+
+## Available Documents
+
+- docs/frontend/shared-ui-components.md
+- docs/frontend/feature-components.md
+- docs/frontend/plan/new-frontend-plan.md
+
 # Name
 plan-new-frontend
 
