@@ -120,7 +120,11 @@ class MainOrchestratorToolServiceIntegrationTest(unittest.TestCase):
         with patch(
             "harness.service.command_service.get_command_message_obj",
             return_value=Message(role="system", content="Command instructions"),
-        ):
+        ), patch.object(
+            runner._command_service,
+            "get_dependency_roots",
+            return_value=[".caisa/commands/review.md"]
+        ), patch.object(runner._dependency_graph_builder, "build"):
             result = runner.handle(Request.create("execute command review"))
 
         self.assertEqual(result, "Done")
@@ -331,6 +335,12 @@ class MainOrchestratorToolServiceIntegrationTest(unittest.TestCase):
                 "harness.service.command_service.get_command_message_obj",
                 return_value=Message(role="system", content="Command instructions")
             ),
+            patch.object(
+                runner._command_service,
+                "get_dependency_roots",
+                return_value=[".caisa/commands/review.md"]
+            ),
+            patch.object(runner._dependency_graph_builder, "build"),
             self.assertRaisesRegex(ValueError, "Model returned an unavailable tool")
         ):
             runner.handle(Request.create("execute command review"))
@@ -354,7 +364,13 @@ class MainOrchestratorToolServiceIntegrationTest(unittest.TestCase):
             patch(
                 "harness.service.command_service.get_command_message_obj",
                 return_value=Message(role="system", content="Command instructions")
-            )
+            ),
+            patch.object(
+                runner._command_service,
+                "get_dependency_roots",
+                return_value=[".caisa/commands/review.md"]
+            ),
+            patch.object(runner._dependency_graph_builder, "build")
         ):
             result = runner.handle(Request.create("execute command review"))
 

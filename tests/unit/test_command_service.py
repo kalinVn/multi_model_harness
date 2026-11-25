@@ -1,4 +1,5 @@
 import json
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import Mock
@@ -59,6 +60,55 @@ class CommandServiceTest(unittest.TestCase):
         )
         self.assertEqual(message.role, "system")
         self.assertIn("Executing command: review", message.content)
+
+    def test_get_dependency_roots_validates_required_file_input(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project_root = Path(directory)
+            command_path = project_root / ".caisa" / "commands" / "build.md"
+            specification_path = project_root / "docs" / "spec.md"
+            specification_path.parent.mkdir(parents=True)
+            specification_path.write_text("Specification", encoding="utf-8")
+            command_resolver = Mock()
+            command_resolver.resolve.return_value = command_path
+            command_loader = Mock()
+            command_loader.get_command_object.return_value = Command(
+                name="build",
+                description="Build.",
+                sections={"Invocation": "execute command build specification_path=<repository-relative path>"}
+            )
+            tool_registry = Mock()
+            tool_registry.execute.return_value = json.dumps({
+                "results": [{"success": True, "content": "command"}]
+            })
+            service = self.create_service(command_resolver, command_loader, tool_registry)
+
+            roots = service.get_dependency_roots(
+                ParsedCommand(name="build", arguments=["specification_path=docs/spec.md"]),
+                project_root
+            )
+
+        self.assertEqual(roots, [".caisa/commands/build.md", "docs/spec.md"])
+
+    def test_get_dependency_roots_rejects_missing_required_input(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project_root = Path(directory)
+            command_path = project_root / ".caisa" / "commands" / "build.md"
+            command_resolver = Mock()
+            command_resolver.resolve.return_value = command_path
+            command_loader = Mock()
+            command_loader.get_command_object.return_value = Command(
+                name="build",
+                description="Build.",
+                sections={"Invocation": "execute command build specification_path=<repository-relative path>"}
+            )
+            tool_registry = Mock()
+            tool_registry.execute.return_value = json.dumps({
+                "results": [{"success": True, "content": "command"}]
+            })
+            service = self.create_service(command_resolver, command_loader, tool_registry)
+
+            with self.assertRaisesRegex(ValueError, "Required command input is missing: specification_path"):
+                service.get_dependency_roots(ParsedCommand(name="build", arguments=[]), project_root)
 
 
 if __name__ == "__main__":
