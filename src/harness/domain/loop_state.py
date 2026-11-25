@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 
+from harness.domain.dependency_graph import DependencyGraph
 from harness.domain.message import Message
 from harness.models.response import ModelResponse
 from harness.parser.command_parser import ParsedCommand
@@ -16,3 +17,4 @@ class LoopState:
     model_messages: list[Message] = field(default_factory=list)
     response: ModelResponse | None = None
     parsed_command: ParsedCommand | None = None
+    dependency_graph: DependencyGraph | None = None

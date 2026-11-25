@@ -4,6 +4,7 @@ from pathlib import Path
 from harness.builder.command_response_format_context_builder import (
     build_command_response_retry_context,
 )
+from harness.builder.dependency_graph_builder import DependencyGraphBuilder
 from harness.builder.model_message_builder import ModelMessageBuilder
 from harness.builder.tool_parameters_builder import build_tool_parameters
 from harness.domain.loop_state import LoopState
@@ -41,13 +42,15 @@ class MainOrchestrator:
         self,
         model_client: ModelClient,
         project_root: Path | None = None,
-        on_tool_result: Callable[[ToolResult], None] | None = None
+        on_tool_result: Callable[[ToolResult], None] | None = None,
+        dependency_graph_builder: DependencyGraphBuilder | None = None
     ) -> None:
         self._model_client = model_client
         self._context_manager = ContextManager()
         self._model_messages_builder = ModelMessageBuilder()
         self._on_tool_result = on_tool_result
         self._project_root = project_root or Path.cwd()
+        self._dependency_graph_builder = dependency_graph_builder or DependencyGraphBuilder(self._project_root)
         commands_directory = self._project_root / ".caisa" / "commands"
         agents_directory = self._project_root / ".caisa" / "agents"
         skills_directory = self._project_root / ".caisa" / "skills"
@@ -109,6 +112,9 @@ class MainOrchestrator:
                 state.parsed_command,
                 self._command_service
             )
+            if state.parsed_command is not None:
+                roots = self._command_service.get_dependency_roots(state.parsed_command, self._project_root)
+                state.dependency_graph = self._dependency_graph_builder.build(roots)
         except UnknownCommandError as error:
             message = str(error)
             session.add_message(Message(role="assistant", type="error", content=message))
