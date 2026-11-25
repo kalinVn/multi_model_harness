@@ -179,6 +179,7 @@ Then enter any of the following commands at the prompt:
 execute command hello
 execute command test_bash
 execute command test_write_file
+execute command build_frontend docs/frontend/frontend.md
 ```
 
 - `hello` verifies that a command can be loaded and executed.
