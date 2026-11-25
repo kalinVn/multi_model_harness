@@ -1,19 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/frontend/example-apis/login.md
-
 # Register Example API
 
 ## Example Request
@@ -140,7 +124,7 @@ The page may hold this response only in debug in-memory state and navigate to `/
 ## Deterministic Example Outcomes
 
 - `new.player@example.test` with valid fields and accepted Terms: HTTP `201`, the response above. Each accepted request creates one new in-memory, short-lived challenge; the example creates no account.
-- Any email already listed among the fictional users in [Login Example API](login.md#example-user-fixtures), including `maria.ivanova@example.test`: HTTP `409`, `EMAIL_ALREADY_REGISTERED`.
+- Any email already listed among the fictional users in Login Example API (`docs/frontend/example-apis/login.md#example-user-fixtures`), including `maria.ivanova@example.test`: HTTP `409`, `EMAIL_ALREADY_REGISTERED`.
 - `unavailable@example.test` with otherwise valid fields: HTTP `503`, `TEMPORARILY_UNAVAILABLE`.
 - Missing or malformed first name, surname, email, or password; password shorter than 12 characters; invalid nonempty phone; absent or false Terms acceptance; malformed JSON: HTTP `400`, `INVALID_REQUEST`. The response must not echo submitted secrets.
 - Unsupported method: HTTP `405`, `METHOD_NOT_ALLOWED`.

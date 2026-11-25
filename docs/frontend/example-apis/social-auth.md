@@ -1,20 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/frontend/example-apis/login.md
-- docs/frontend/example-apis/register.md
-
 # Social Auth Example API
 
 ## Google Example Handoff
@@ -30,7 +13,7 @@ Content-Type: application/json
 {"provider":"google","token":"debug-google-example-token"}
 ```
 
-The loopback-only Vite mock checks that `provider` is `google` and `token` exactly matches the documented fixture, then returns HTTP `200` with `success: true` and the same safe example account response shape as [Login](login.md#example-response). This check only selects a deterministic example response; it does not verify a Google identity or create an application session. A missing or different token returns a safe HTTP `401`; malformed JSON or an unsupported provider returns HTTP `400`. A documented `exampleScenario: "unavailable"` on this request returns HTTP `503` for failure testing without account data. Do not send a password, reCAPTCHA token, client secret, or the fixture list in this flow. Do not store or log the example token in the browser, URL, or persistent storage. Do not return a refresh cookie or application access token.
+The loopback-only Vite mock checks that `provider` is `google` and `token` exactly matches the documented fixture, then returns HTTP `200` with `success: true` and the same safe example account response shape as Login (`docs/frontend/example-apis/login.md#example-response`). This check only selects a deterministic example response; it does not verify a Google identity or create an application session. A missing or different token returns a safe HTTP `401`; malformed JSON or an unsupported provider returns HTTP `400`. A documented `exampleScenario: "unavailable"` on this request returns HTTP `503` for failure testing without account data. Do not send a password, reCAPTCHA token, client secret, or the fixture list in this flow. Do not store or log the example token in the browser, URL, or persistent storage. Do not return a refresh cookie or application access token.
 
 Do not create `/api/debug/google/start`, `/api/debug/google/complete`, or `/api/debug/auth/google` in a clean rebuild. The path `/api/auth/google` is an HTTP-shaped local example implemented by Vite, not a claim that this production endpoint exists. Production retains the backend-owned OAuth start/callback contract linked above; this fixture token must never be accepted by a production backend.
 
@@ -67,7 +50,7 @@ Content-Type: application/json
 }
 ```
 
-The loopback-only mock requires the exact fixture token, `intent: "register"`, and accepted Terms of Service. It returns the fictional confirmed user-data projection from the [Register Example API](register.md#registration-confirmation-fixture), without creating a challenge because the simulated provider identity represents an already provider-verified email. Register Page may hold that result in debug-only memory and navigate to `/history` to exercise the existing page. Missing Terms acceptance returns HTTP `400`; a missing or different fixture token returns HTTP `401`; the unavailable scenario returns HTTP `503` without account data.
+The loopback-only mock requires the exact fixture token, `intent: "register"`, and accepted Terms of Service. It returns the fictional confirmed user-data projection from the Register Example API (`docs/frontend/example-apis/register.md#registration-confirmation-fixture`), without creating a challenge because the simulated provider identity represents an already provider-verified email. Register Page may hold that result in debug-only memory and navigate to `/history` to exercise the existing page. Missing Terms acceptance returns HTTP `400`; a missing or different fixture token returns HTTP `401`; the unavailable scenario returns HTTP `503` without account data.
 
 This debug branch must not submit RegisterForm password fields, `recaptchaToken`, email, provider subject, or profile claims. The fixed token selects an example only; it is not decoded or persisted. Production registration continues to use `POST /api/v1/auth/oauth/{provider}/start` with `intent: "register"`, followed by the backend callback, verified provider claims, account creation or safe linking, and the normal application session.
 

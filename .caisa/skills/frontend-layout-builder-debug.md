@@ -1,19 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-- .caisa/CAISA.md
-
-## Available Documents
-
-None
-
 # Name
 frontend-layout-builder-debug
 

@@ -1,21 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-- .caisa/CAISA.md
-
-## Available Documents
-
-- docs/frontend/frontend-project-structure.md
-- docs/frontend/shared-ui-components.md
-- docs/frontend/feature-components.md
-
 # Name
 frontend-component-builder
 

@@ -1,25 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-- .caisa/skills/plan-new-frontend.md
-- .caisa/skills/frontend-plan-validator.md
-- .caisa/skills/frontend-component-builder-debug.md
-- .caisa/skills/frontend-layout-builder-debug.md
-- .caisa/skills/google-auth-service-debug.md
-- .caisa/skills/frontend-page-builder-debug.md
-- .caisa/skills/vite-dev-environment.md
-
-## Available Rules
-
-- .caisa/CAISA.md
-
-## Available Documents
-
-None
-
 # Name
 frontend_debug_page_builder
 

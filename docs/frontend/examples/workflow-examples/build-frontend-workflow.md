@@ -1,19 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/frontend/examples/workflow-examples/plan-new-frontend-example-result.md
-
 # Build Frontend Workflow
 
 ## Purpose
@@ -36,7 +20,7 @@ The `/build-frontend` command invokes the New Frontend Orchestrator and provides
 
 The New Frontend Orchestrator receives the complete structured plan returned by `plan-new-frontend`. It becomes the implementation map only after independent validation in Step 3.
 
-Example result: [Plan New Frontend — Example Result](./plan-new-frontend-example-result.md).
+Example result: Plan New Frontend — Example Result (`docs/frontend/examples/workflow-examples/plan-new-frontend-example-result.md`).
 
 ### Validate the Frontend Plan
 

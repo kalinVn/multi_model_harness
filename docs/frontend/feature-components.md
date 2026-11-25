@@ -1,19 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/frontend/pages-and-routes.md
-
 CSS in the prototype Vue components is for visual reference only; production styles may live outside components and use shared design tokens.
 
 # Feature Components
@@ -566,7 +550,7 @@ Name: CameraPreviewModal
 
 Description: CameraPreviewModal is the single Training camera feature component.
 
-The [Training page requirements](pages-and-routes.md#training) own session creation, reconnection, frame-preparation policy, feedback/audio sequencing, and completion or abandonment. This section describes only the component's UI, inputs and outputs, and resource ownership.
+The Training page requirements (`docs/frontend/pages-and-routes.md#training`) own session creation, reconnection, frame-preparation policy, feedback/audio sequencing, and completion or abandonment. This section describes only the component's UI, inputs and outputs, and resource ownership.
 
 ### Component Functionality
 CameraPreviewModal displays the Training camera experience as a viewport-sized modal without replacing or navigating away from the Training page.
@@ -717,7 +701,7 @@ Description: TopNav is the reusable public navigation for the application brand 
 
 ### Component Functionality
 
-It renders the existing AI logo and Tennis AI Coach title. The approved visible navigation follows the dedicated prototype and Navigation Requirements in frontend.md. The component owns the responsive menu toggle, Escape dismissal, and resize cleanup.
+It renders the existing AI logo and Tennis AI Coach title. The approved visible navigation follows the dedicated prototype and Navigation Requirements in `docs/frontend/frontend.md`. The component owns the responsive menu toggle, Escape dismissal, and resize cleanup.
 
 Login uses the shared Button with `variant="secondary"` and `size="small"`. Start Free uses the same Button with `variant="primary"` and `size="small"`.
 

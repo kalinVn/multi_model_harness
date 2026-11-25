@@ -1,19 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/frontend/feature-components.md
-
 # ConfirmLoginForm
 
 ## Additional Description and Functionality

@@ -1,20 +1,4 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-- AGENTS.md
-
-## Available Documents
-
-- docs/frontend/frontend.md
-
-# CAISA.md
+# `.caisa/CAISA.md`
 
 # Tennis AI Coach
 
@@ -559,7 +543,7 @@ Follow PEP 8 for:
 - Function and class separation
 - General readability
 
-Use the explicit formatting preferences in this AGENTS.md for:
+Use the explicit formatting preferences in this `AGENTS.md` for:
 
 - Single-line function signatures
 - Compact function calls

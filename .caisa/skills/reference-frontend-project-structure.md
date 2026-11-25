@@ -1,20 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/frontend/frontend-project-structure.md
-- docs/frontend/frontend.md
-
 # Name
 reference-frontend-project-structure
 

@@ -1,19 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-None
-
 # Frontend Integration Contract Examples
 
 ## Shared response and error shape
@@ -294,7 +278,7 @@ For Login and Register, `recaptchaToken` is a short-lived provider token, not th
 
 - Google, Facebook, and Apple sign-in use the backend-owned OAuth start/callback contracts above and issue the same application session used by password authentication. Provider client secrets and provider tokens are never exposed to frontend code.
 
-`401 Unauthorized` means that the access token is missing, invalid, or expired. `403 Forbidden` means that the authenticated principal lacks permission. These meanings are part of the HTTP contract; frontend recovery and navigation behavior are defined in `frontend.md`.
+`401 Unauthorized` means that the access token is missing, invalid, or expired. `403 Forbidden` means that the authenticated principal lacks permission. These meanings are part of the HTTP contract; frontend recovery and navigation behavior are defined in `docs/frontend/frontend.md`.
 
 After Login, Login MFA verification, registration verification, or OAuth establishes the authenticated application session, the frontend calls `GET /api/v1/user/data` once and stores the complete response in the global `UserStore`. For password Login, MFA verification, registration verification, and any page-owned provider flow that returns a confirmed session to the mounted application, the page then uses client-side router navigation to `/history` without a full-page reload; History consumes the populated store and does not repeat the initial request. A backend-owned OAuth redirect resolves its validated `returnTo` route through the authentication guard and must not trigger an additional frontend reload after that route is ready. Authentication responses remain focused on session establishment and do not duplicate the user-data response.
 

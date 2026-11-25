@@ -1,29 +1,10 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/frontend/feature-components.md
-- docs/frontend/frontend.md
-- docs/frontend/shared-ui-components.md
-- docs/frontend/integration-contracts.md
-
 ## Required Layouts
 
 ### Public Layout
 
-The Public Layout is the reusable shell for public pages. It composes the [TopNav Feature Component](feature-components.md#topnav), the [Footer Feature Component](feature-components.md#footer), and an empty responsive page-content area. Page-specific sections, cards, promotional content, and authentication forms belong to pages or components rather than the layout.
+The Public Layout is the reusable shell for public pages. It composes the TopNav Feature Component (`docs/frontend/feature-components.md#topnav`), the Footer Feature Component (`docs/frontend/feature-components.md#footer`), and an empty responsive page-content area. Page-specific sections, cards, promotional content, and authentication forms belong to pages or components rather than the layout.
 
-Public Layout owns the composition and population of its shell components. It supplies TopNav with the approved public navigation items from [Navigation Requirements](frontend.md#navigation-requirements), marks the active public destination, and handles TopNav's Login and Register actions through routing. It supplies Footer with the approved copyright and public footer actions and forwards legal/consent actions to the global consent feature. TopNav and Footer remain presentational and do not read route, authentication, or consent state directly.
+Public Layout owns the composition and population of its shell components. It supplies TopNav with the approved public navigation items from Navigation Requirements (`docs/frontend/frontend.md#navigation-requirements`), marks the active public destination, and handles TopNav's Login and Register actions through routing. It supplies Footer with the approved copyright and public footer actions and forwards legal/consent actions to the global consent feature. TopNav and Footer remain presentational and do not read route, authentication, or consent state directly.
 
 Authoritative prototype: `prototypes/design/layouts/public.html`.
 
@@ -35,16 +16,16 @@ The banner directly calls `useCookieConsent` and stays full-width at the viewpor
 
 ### Authentication Layout
 
-The Authentication Layout is the reusable shell for authenticated pages, including Training, Subscription, and Checkout. It composes the [SidebarNav Feature Component](feature-components.md#sidebarnav), the [LayoutHeader Shared Component](shared-ui-components.md#layoutheader), the [Footer Feature Component](feature-components.md#footer), and an empty responsive page-content area. In the main layout column, LayoutHeader remains at the top, the active page renders in the middle content area, and Footer remains at the bottom. Dashboard, Training, History, Session Review, Subscription, Profile, Settings, and Checkout render their page-specific UI inside that content area.
+The Authentication Layout is the reusable shell for authenticated pages, including Training, Subscription, and Checkout. It composes the SidebarNav Feature Component (`docs/frontend/feature-components.md#sidebarnav`), the LayoutHeader Shared Component (`docs/frontend/shared-ui-components.md#layoutheader`), the Footer Feature Component (`docs/frontend/feature-components.md#footer`), and an empty responsive page-content area. In the main layout column, LayoutHeader remains at the top, the active page renders in the middle content area, and Footer remains at the bottom. Dashboard, Training, History, Session Review, Subscription, Profile, Settings, and Checkout render their page-specific UI inside that content area.
 
 Authentication Layout owns the composition and population of its shell components. It supplies SidebarNav with Dashboard, Training, History, Subscription, Profile, Settings, and Checkout, including the active item derived from the current route. It supplies LayoutHeader with the current page name and authenticated user's display name. It handles LayoutHeader's `logout` event through the authoritative authentication flow; LayoutHeader never ends the session itself. It supplies Footer with the approved copyright and legal/support actions and forwards consent and policy actions to the global consent feature. Footer remains presentational and does not read route, authentication, or consent state directly. Session Review remains reachable from History and Dashboard session rows rather than becoming a persistent SidebarNav item.
 
 Authoritative prototype: `prototypes/design/layouts/authentication.html`.
 
-For navigation items, appearance, and responsive states, `prototypes/design/components/navigation/authenticated-navigation.html` remains authoritative over the embedded navigation in this layout, as specified in [Navigation Requirements](frontend.md#navigation-requirements).
+For navigation items, appearance, and responsive states, `prototypes/design/components/navigation/authenticated-navigation.html` remains authoritative over the embedded navigation in this layout, as specified in Navigation Requirements (`docs/frontend/frontend.md#navigation-requirements`).
 
 Training and every other authenticated page use this same shell; no page-specific layout is defined. Training-specific camera, coaching, status, controls, and session UI belong to the Training page and its components, not to a reusable layout.
 
-Authentication forms may still be presented through the public login/registration interaction. Their session behavior must preserve a validated internal return target, close only after a confirmed result or explicit cancellation, and expose pending, validation, error, second-factor, and expired-session states as described in [integration contract examples](integration-contracts.md#authentication-and-application-session).
+Authentication forms may still be presented through the public login/registration interaction. Their session behavior must preserve a validated internal return target, close only after a confirmed result or explicit cancellation, and expose pending, validation, error, second-factor, and expired-session states as described in integration contract examples (`docs/frontend/integration-contracts.md#authentication-and-application-session`).
 
 ---

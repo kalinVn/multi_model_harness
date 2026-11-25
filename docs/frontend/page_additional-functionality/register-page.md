@@ -1,19 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/frontend/example-apis/register.md
-
 # Register Page
 
 ## Additional Description and Functionality
@@ -57,7 +41,7 @@ The password-registration workflow is:
 
 `confirmPassword` is validated locally and is not transmitted. Do not add a user id, provider credential, reCAPTCHA secret, legal-document version, or server acceptance time to the frontend payload.
 
-Omit `phone` when the field is empty. The [Register Example API](../example-apis/register.md) is a non-authoritative request-and-response example. Production behavior follows the integration contract below.
+Omit `phone` when the field is empty. The Register Example API (`docs/frontend/example-apis/register.md`) is a non-authoritative request-and-response example. Production behavior follows the integration contract below.
 
 The backend normalizes and validates every submitted value, requires Terms of Service acceptance, accepts either Boolean Privacy Policy acknowledgment value, records the applicable legal-document versions and acceptance time, verifies the reCAPTCHA token, hashes the password, checks account conflicts, and creates the account transactionally. An absent phone or false Privacy Policy acknowledgment must not block registration.
 

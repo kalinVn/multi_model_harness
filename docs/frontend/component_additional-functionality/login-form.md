@@ -1,20 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/frontend/example-apis/login.md
-- docs/frontend/example-apis/social-auth.md
-
 # LoginForm
 
 ## Additional Description and Functionality
@@ -46,9 +29,9 @@ The production parent workflow owns SDK initialization, official-button renderin
 
 ### Example Behavior
 
-- For the standard email/password example flow, use the [Login Example API](../example-apis/login.md) only as a reference for the parent Login Page's request and response states. `LoginForm` emits the validated payload and presents parent-supplied feedback; it does not call the example endpoint.
+- For the standard email/password example flow, use the Login Example API (`docs/frontend/example-apis/login.md`) only as a reference for the parent Login Page's request and response states. `LoginForm` emits the validated payload and presents parent-supplied feedback; it does not call the example endpoint.
 - Use a debug-only parent service to observe `socialLogin({ provider: 'google' })` and start the local handoff on that click.
-- The parent Login Page's [Social Auth Example API](../example-apis/social-auth.md) defines the local HTTP simulation; `LoginForm` must not call it.
+- The parent Login Page's Social Auth Example API (`docs/frontend/example-apis/social-auth.md`) defines the local HTTP simulation; `LoginForm` must not call it.
 - Clearly identify the result as an example simulation; do not present it as a real Google sign-in.
 - Support an idle state, a Google-pending state, a recoverable provider-error state, and a successful mock handoff state.
 - While Google authentication is pending, prevent a duplicate Google request without disabling unrelated form controls unless required by the existing component contract.

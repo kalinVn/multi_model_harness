@@ -1,23 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-- .codex/skill-adapters/plan-new-frontend/SKILL.md
-- .caisa/skills/rule-frontend-planning.md
-- .codex/skills/plan-new-frontend.md
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/frontend/shared-ui-components.md
-- docs/frontend/feature-components.md
-- docs/frontend/plan/new-frontend-plan.md
-
 # Name
 plan-new-frontend
 
@@ -26,7 +6,7 @@ Produce a complete source-backed frontend plan for a genuinely new frontend befo
 
 # Instructions
 
-## Source: .codex/skill-adapters/plan-new-frontend/SKILL.md
+## Source: `.codex/skill-adapters/plan-new-frontend/SKILL.md`
 
 ## Plan New Frontend
 
@@ -34,7 +14,7 @@ Read repository-root `.caisa/skills/rule-frontend-planning.md`, then execute the
 
 Do not substitute a default specification, implement code, select builder skills, or proceed from unresolved blockers. Return the complete plan for independent validation.
 
-## Source: .codex/skills/plan-new-frontend.md
+## Source: `.codex/skills/plan-new-frontend.md`
 
 ## Plan New Frontend
 

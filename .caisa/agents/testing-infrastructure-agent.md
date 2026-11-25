@@ -1,19 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-- .caisa/skills/workflow-testing-infrastructure.md
-
-## Available Rules
-
-None
-
-## Available Documents
-
-None
-
 # Name
 testing-infrastructure-agent
 

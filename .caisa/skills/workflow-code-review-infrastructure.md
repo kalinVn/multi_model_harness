@@ -1,21 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-- .codex/workflows/setup-infrastructure.md
-- .caisa/skills/workflow-setup-infrastructure.md
-- .caisa/skills/workflow-testing-infrastructure.md
-
-## Available Rules
-
-- .caisa/CAISA.md
-
-## Available Documents
-
-None
-
 # Name
 workflow-code-review-infrastructure
 

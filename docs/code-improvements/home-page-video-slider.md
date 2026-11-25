@@ -1,20 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- README.md
-- docs/frontend/components.md
-
 # Home Page Video Slider — Code Improvements
 
 ## 1. Scope
@@ -306,7 +289,7 @@ Passing tests cover current segment endpoints/alpha/order, configured holds, ind
 
 Limits: tests use real GSAP with mocked Pixi/media/DOM. They cannot prove CSS alignment, WebGL destruction safety, actual media readiness, device-pixel rendering, or frame latency. No browser visual QA, build, unrelated full suite, historical-checkout test run, or performance benchmark was performed. A build would not establish these runtime contracts. No security-sensitive backend behavior is involved; text uses `textContent`/Pixi Text, the asset is local, and there is no microphone capture. Demo values remain authored examples, not inferred observations.
 
-The README currently asserts idempotent destruction including pending initialization, contradicted by tests. `components.md` also links to a nonexistent slider `index.html` and uses broader microphone/analysis wording than this demo implements. Record these discrepancies now; update those files only in a later authorized implementation/documentation task.
+The README currently asserts idempotent destruction including pending initialization, contradicted by tests. `docs/frontend/components.md` also links to a nonexistent slider `index.html` and uses broader microphone/analysis wording than this demo implements. Record these discrepancies now; update those files only in a later authorized implementation/documentation task.
 
 ## 17. Recommended Improvements
 

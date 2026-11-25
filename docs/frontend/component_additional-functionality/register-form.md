@@ -1,22 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/frontend/feature-components.md
-- docs/frontend/integration-contracts.md
-- docs/frontend/page_additional-functionality/register-page.md
-- docs/frontend/example-apis/social-auth.md
-
 # RegisterForm
 
 ## Additional Description and Functionality

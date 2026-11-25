@@ -1,19 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-- .caisa/skills/reference-frontend-architecture.md
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/frontend/frontend-project-structure.md
-
 # Name
 frontend-code-architect
 

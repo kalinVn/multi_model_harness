@@ -1,24 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/frontend/shared-ui-components.md
-- docs/frontend/feature-components.md
-- docs/frontend/pages-and-routes.md
-- docs/frontend/layouts.md
-- docs/frontend/integration-contracts.md
-- docs/frontend/frontend-project-structure.md
-
 # Tennis AI Coach — Frontend Specification
 
 ## Purpose
@@ -33,26 +12,26 @@ Application source belongs under `frontend/`.
 
 ## Source Priority
 
-`frontend.md` is the root frontend specification and defines the authoritative source ownership for the frontend.
+`docs/frontend/frontend.md` is the root frontend specification and defines the authoritative source ownership for the frontend.
 
 ### Authoritative Specifications
 
-#### `frontend.md`
+#### `docs/frontend/frontend.md`
 
 Root frontend specification and owner of the authoritative reference graph.
 
 Defines which project sources are authoritative for each frontend domain.
 
-#### `shared-ui-components.md` and `feature-components.md`
+#### `docs/frontend/shared-ui-components.md` and `docs/frontend/feature-components.md`
 
 Authoritative sources for:
 
-- shared UI components in [shared-ui-components.md](shared-ui-components.md);
-- feature components in [feature-components.md](feature-components.md);
+- shared UI components in `shared-ui-components.md` (`docs/frontend/shared-ui-components.md`);
+- feature components in `feature-components.md` (`docs/frontend/feature-components.md`);
 - component responsibilities;
 - component interfaces and ownership.
 
-#### `pages-and-routes.md`
+#### `docs/frontend/pages-and-routes.md`
 
 Authoritative source for:
 
@@ -63,7 +42,7 @@ Authoritative source for:
 - page-level requirements;
 - page-to-component relationships.
 
-#### `integration-contracts.md`
+#### `docs/frontend/integration-contracts.md`
 
 Authoritative source for:
 
@@ -78,7 +57,7 @@ Authoritative source for:
 
 #### Project Structure Specifications
 
-Project-structure specifications referenced by `frontend.md` are authoritative for:
+Project-structure specifications referenced by `docs/frontend/frontend.md` are authoritative for:
 
 - production folder structure;
 - file placement;
@@ -106,7 +85,7 @@ They apply across the frontend but do not override explicit requirements from an
 
 When sources conflict:
 
-1. Use `frontend.md` to determine source ownership.
+1. Use `docs/frontend/frontend.md` to determine source ownership.
 2. Follow the authoritative specification for the affected domain.
 3. Use explicitly referenced prototypes or examples only for the aspects assigned to them by that specification.
 4. Apply shared frontend rules for cross-cutting constraints and defaults.
@@ -129,7 +108,7 @@ A Component Builder may receive optional `Additional Descriptions` when building
 
 `Additional Descriptions` apply only to Shared UI Components.
 
-`Additional Component Requirements` apply only to Feature Components. They are optional and are not required during the initial frontend planning stage. They may be added later, after the frontend plan and persistent Feature Component specification already exist, and supplied separately to the Component Builder for a specific component build. Do not automatically write them into [feature-components.md](feature-components.md).
+`Additional Component Requirements` apply only to Feature Components. They are optional and are not required during the initial frontend planning stage. They may be added later, after the frontend plan and persistent Feature Component specification already exist, and supplied separately to the Component Builder for a specific component build. Do not automatically write them into `feature-components.md` (`docs/frontend/feature-components.md`).
 
 `Additional Component Requirements` may describe additional UI elements, component composition, layout adjustments, behavior, actions, state requirements, or other build-specific requirements. For example, a planned Feature Component may already define its base form structure while build-time requirements add an upload control above the form, use a different footer composition, add labels, or include other page-specific elements for that build.
 
@@ -172,11 +151,11 @@ A child component named only within its owning feature or page is documented thr
 
 ## Visual Prototype
 
-Visual design prototype references are specified with their owners: pages in [pages-and-routes.md](pages-and-routes.md), shared UI components in [shared-ui-components.md](shared-ui-components.md), and feature components in [feature-components.md](feature-components.md).
+Visual design prototype references are specified with their owners: pages in `pages-and-routes.md` (`docs/frontend/pages-and-routes.md`), shared UI components in `shared-ui-components.md` (`docs/frontend/shared-ui-components.md`), and feature components in `feature-components.md` (`docs/frontend/feature-components.md`).
 
 Shared visual elements used across pages and layouts are referenced here. The [application background design prototype](../../prototypes/design/background.html) shows only the approved background, sourced from the shared prototype stylesheet. Read it alongside the page, layout, and component references when planning or building the frontend; apply that background globally rather than substituting the flat `--bg` fallback or duplicating it in every page. Other shared visual prototypes can be listed here as they are added.
 
-Shared frontend design rules: [claude/rules/frontend/frontend-design-system.md](../../claude/rules/frontend/frontend-design-system.md).
+Shared frontend design rules: `claude/rules/frontend/frontend-design-system.md` (`../../claude/rules/frontend/frontend-design-system.md`).
 
 ---
 
@@ -200,7 +179,7 @@ May access features enabled by the active plan. The frontend displays plan state
 
 Defines the required frontend layouts and their existing structure.
 
-The authoritative layout specification is [docs/frontend/layouts.md](layouts.md).
+The authoritative layout specification is `docs/frontend/layouts.md` (`docs/frontend/layouts.md`).
 
 ---
 
@@ -208,9 +187,9 @@ The authoritative layout specification is [docs/frontend/layouts.md](layouts.md)
 
 Defines the required frontend pages, routes, and page-specific requirements.
 
-The authoritative pages and routes specification is [docs/frontend/pages-and-routes.md](pages-and-routes.md). Example frontend/backend request and event shapes are in [docs/frontend/integration-contracts.md](integration-contracts.md); these proposals require backend confirmation before live integration. Training, authentication, subscription, and checkout feature requirements are specified with the relevant pages and cross-page flows there.
+The authoritative pages and routes specification is `docs/frontend/pages-and-routes.md` (`docs/frontend/pages-and-routes.md`). Example frontend/backend request and event shapes are in `docs/frontend/integration-contracts.md` (`docs/frontend/integration-contracts.md`); these proposals require backend confirmation before live integration. Training, authentication, subscription, and checkout feature requirements are specified with the relevant pages and cross-page flows there.
 
-Its [Session Review](pages-and-routes.md#session-review) entry defines that route's access, parameters, navigation, and states. Proposed API examples are in [frontend integration contracts](integration-contracts.md); backend owners must confirm them before live integration.
+Its Session Review (`docs/frontend/pages-and-routes.md#session-review`) entry defines that route's access, parameters, navigation, and states. Proposed API examples are in frontend integration contracts (`docs/frontend/integration-contracts.md`); backend owners must confirm them before live integration.
 
 ---
 
@@ -249,7 +228,7 @@ The required shared components are:
 - StateLabel
 - TextButton
 
-Each shared visual pattern uses one reusable implementation across pages. Lightweight text actions are shared across features rather than reimplemented by individual pages. [shared-ui-components.md](shared-ui-components.md) is the authoritative source for generic shared component contracts, states, behavior, accessibility, styling, and prototype references.
+Each shared visual pattern uses one reusable implementation across pages. Lightweight text actions are shared across features rather than reimplemented by individual pages. `shared-ui-components.md` (`docs/frontend/shared-ui-components.md`) is the authoritative source for generic shared component contracts, states, behavior, accessibility, styling, and prototype references.
 
 ---
 
@@ -257,7 +236,7 @@ Each shared visual pattern uses one reusable implementation across pages. Lightw
 
 Feature components are project-, layout-, navigation-, page-, or feature-specific composed UI components, distinct from generic shared UI primitives.
 
-[feature-components.md](feature-components.md) is the authoritative source for their contracts, ownership, and prototype references. Read it together with [shared-ui-components.md](shared-ui-components.md) when a feature composes shared UI.
+`feature-components.md` (`docs/frontend/feature-components.md`) is the authoritative source for their contracts, ownership, and prototype references. Read it together with `shared-ui-components.md` (`docs/frontend/shared-ui-components.md`) when a feature composes shared UI.
 
 - `BaseModal` — reusable modal shell with parent-owned content and close behavior; it remains distinct from the specialized full-screen camera modal.
 - `Footer` — reusable footer shared by Public Layout and Authentication Layout, with parent-supplied copyright and legal/support actions.
@@ -299,7 +278,7 @@ Backend communication, API access, and external integration logic should be plac
 
 ## Authenticated Application Data and Global Store
 
-The cross-page initialization, store ownership, and page data-flow requirements are in [Authenticated Application Data and Global Store](pages-and-routes.md#authenticated-application-data-and-global-store). Request and response contracts remain in [Authenticated application data and persisted user updates](integration-contracts.md#authenticated-application-data-and-persisted-user-updates).
+The cross-page initialization, store ownership, and page data-flow requirements are in Authenticated Application Data and Global Store (`docs/frontend/pages-and-routes.md#authenticated-application-data-and-global-store`). Request and response contracts remain in Authenticated application data and persisted user updates (`docs/frontend/integration-contracts.md#authenticated-application-data-and-persisted-user-updates`).
 
 ---
 
@@ -337,7 +316,7 @@ The Training page may prioritize larger screens but must provide a safe and unde
 
 ## Required Application States
 
-Applicable pages and features must define initial, loading, empty, success, validation, recoverable error, unavailable, and disconnected states. The page-by-page matrix and recovery behavior are defined in [pages-and-routes.md](pages-and-routes.md#application-state-matrix); example data and transport distinctions are in [integration-contracts.md](integration-contracts.md). In particular, distinguish empty from unavailable, signed-out from session-check failure, and partial analysis from a complete result.
+Applicable pages and features must define initial, loading, empty, success, validation, recoverable error, unavailable, and disconnected states. The page-by-page matrix and recovery behavior are defined in `pages-and-routes.md` (`docs/frontend/pages-and-routes.md#application-state-matrix`); example data and transport distinctions are in `integration-contracts.md` (`docs/frontend/integration-contracts.md`). In particular, distinguish empty from unavailable, signed-out from session-check failure, and partial analysis from a complete result.
 
 Frontend recovery behavior follows these orchestration rules:
 
@@ -359,7 +338,7 @@ Do not present fabricated analysis, session, or subscription data as real.
 
 ## Project Structure
 
-Use [Frontend Project Structure](frontend-project-structure.md) as the authoritative source for physical frontend directories and global placement rules. This section is the navigation point for structural references; it does not redefine that structure.
+Use Frontend Project Structure (`docs/frontend/frontend-project-structure.md`) as the authoritative source for physical frontend directories and global placement rules. This section is the navigation point for structural references; it does not redefine that structure.
 
 Inspect the existing prototypes only as organization and ownership guidance:
 
@@ -371,7 +350,7 @@ Inspect the existing prototypes only as organization and ownership guidance:
 
 - [Prototype composables](../../prototypes/composables/), [stores](../../prototypes/stores/), and [services](../../prototypes/services/) show existing behavior, state, and communication boundaries where examples are present.
 
-- The [Home Page Video Slider](../../prototypes/components/sliders/home-page-video-slider/) is the reference for a complex component that owns substantial internal logic and several supporting files. Its current organization includes a Vue component, multiple supporting JavaScript classes/files, controller and lifecycle logic, rendering and animation logic, configuration, component-specific styles, a local [README](../../prototypes/components/sliders/home-page-video-slider/README.md), and related [tests](../../prototypes/tests/home-page-video-slider.test.js).
+- The [Home Page Video Slider](../../prototypes/components/sliders/home-page-video-slider/) is the reference for a complex component that owns substantial internal logic and several supporting files. Its current organization includes a Vue component, multiple supporting JavaScript classes/files, controller and lifecycle logic, rendering and animation logic, configuration, component-specific styles, a local README (`../../prototypes/components/sliders/home-page-video-slider/README.md`), and related [tests](../../prototypes/tests/home-page-video-slider.test.js).
 
 Use these references to understand practical grouping and ownership, not as files to copy blindly. A simple component may remain one `.vue` file when that is sufficient; only components with genuine internal complexity should group multiple supporting files with a clear owner. Component-specific logic and styles may stay grouped with that owner when allowed by the authoritative structure.
 
@@ -391,7 +370,7 @@ This validation corresponds to the first item in the `Acceptance Criteria` secti
 
 Validation must include:
 
-- Verify that all pages and routes defined in `pages-and-routes.md` are implemented.
+- Verify that all pages and routes defined in `docs/frontend/pages-and-routes.md` are implemented.
 - Verify that every required route is registered in Vue Router.
 - Use Vitest to validate the registered router configuration.
 - Use Playwright end-to-end tests to verify that each required route loads the expected page.

@@ -1,20 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/frontend/example-apis/register.md
-- docs/frontend/example-apis/social-auth.md
-
 # Register Page
 
 ## Additional Description and Functionality
@@ -58,7 +41,7 @@ The password-registration workflow is:
 
 `confirmPassword` is validated locally and is not transmitted. Do not add a user id, provider credential, reCAPTCHA secret, legal-document version, or server acceptance time to the frontend payload.
 
-Omit `phone` when the field is empty. The [Register Example API](../example-apis/register.md) defines only the isolated Vite preview behavior; production uses the integration contract below.
+Omit `phone` when the field is empty. The Register Example API (`docs/frontend/example-apis/register.md`) defines only the isolated Vite preview behavior; production uses the integration contract below.
 
 The backend normalizes and validates every submitted value, requires Terms of Service acceptance, accepts either Boolean Privacy Policy acknowledgment value, records the applicable legal-document versions and acceptance time, verifies the reCAPTCHA token, hashes the password, checks account conflicts, and creates the account transactionally. An absent phone or false Privacy Policy acknowledgment must not block registration.
 
@@ -103,13 +86,13 @@ Register Page must not send an OAuth provider token to `POST /api/v1/auth/regist
 
 ### Local Vite Example Behavior
 
-Only in the isolated debug preview, use the [Register Example API](../example-apis/register.md) instead of the production registration endpoints. A single validated RegisterForm submit sends one `POST /api/register` request. A confirmed local challenge replaces RegisterForm with ConfirmLoginForm and sends the entered code to `POST /api/auth/registration-challenges/{challengeId}/verify`.
+Only in the isolated debug preview, use the Register Example API (`docs/frontend/example-apis/register.md`) instead of the production registration endpoints. A single validated RegisterForm submit sends one `POST /api/register` request. A confirmed local challenge replaces RegisterForm with ConfirmLoginForm and sends the entered code to `POST /api/auth/registration-challenges/{challengeId}/verify`.
 
 The local server owns the in-memory challenge, expiry, attempt limit, fixed tester-only code, and single-use behavior. The browser must not receive the expected code in an API response. After a successful local confirmation, accept the returned fictional user-data projection into debug-only in-memory state and navigate to `/history` through the client-side router, without a full-page reload, so the History page can consume that state. This is preview navigation, not a real account, email delivery, production session, refresh cookie, authorization grant, or protected production access.
 
 Show pending and safe validation, conflict, invalid-code, expired-challenge, and service-error feedback only from actual local HTTP responses; do not use timers to imply success. The debug route may skip provider reCAPTCHA verification only locally. Do not add another registration field or control to support the example route.
 
-For the Google registration entry, use the [Social Auth Example API](../example-apis/social-auth.md#google-registration-example-handoff). The existing Google button starts one debug service handoff and one local HTTP request with explicit registration intent and accepted legal consent. Facebook and Apple remain accessible visual registration entries in debug until their own local example contracts are documented. Do not silently reuse Login intent for any Register action.
+For the Google registration entry, use the Social Auth Example API (`docs/frontend/example-apis/social-auth.md#google-registration-example-handoff`). The existing Google button starts one debug service handoff and one local HTTP request with explicit registration intent and accepted legal consent. Facebook and Apple remain accessible visual registration entries in debug until their own local example contracts are documented. Do not silently reuse Login intent for any Register action.
 
 ### Page States and Error Handling
 

@@ -1,20 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/frontend/integration-contracts.md
-- docs/frontend/frontend.md
-
 # Name
 frontend-analysis-client
 

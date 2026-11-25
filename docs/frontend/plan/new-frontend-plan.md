@@ -1,26 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/frontend/frontend.md
-- docs/frontend/shared-ui-components.md
-- docs/frontend/feature-components.md
-- docs/frontend/components.md
-- docs/frontend/pages-and-routes.md
-- docs/frontend/layouts.md
-- docs/frontend/integration-contracts.md
-- docs/frontend/frontend-project-structure.md
-
 # Frontend Implementation Plan
 
 ## 1. Frontend Type
@@ -565,7 +542,7 @@ Description: TopNav is the reusable public navigation for the application brand 
 
 ### Component Functionality
 
-It renders the existing AI logo and Tennis AI Coach title. The approved visible navigation follows the dedicated prototype and Navigation Requirements in frontend.md. The component owns the responsive menu toggle, Escape dismissal, and resize cleanup.
+It renders the existing AI logo and Tennis AI Coach title. The approved visible navigation follows the dedicated prototype and Navigation Requirements in `docs/frontend/frontend.md`. The component owns the responsive menu toggle, Escape dismissal, and resize cleanup.
 
 Login uses the shared Button with `variant="secondary"` and `size="small"`. Start Free uses the same Button with `variant="primary"` and `size="small"`.
 
@@ -1709,7 +1686,7 @@ Name: CameraPreviewModal
 
 Description: CameraPreviewModal is the single Training camera feature component.
 
-The [Training page requirements](../pages-and-routes.md#training) own session creation, reconnection, frame-preparation policy, feedback/audio sequencing, and completion or abandonment. This section describes only the component's UI, inputs and outputs, and resource ownership.
+The Training page requirements (`docs/frontend/pages-and-routes.md#training`) own session creation, reconnection, frame-preparation policy, feedback/audio sequencing, and completion or abandonment. This section describes only the component's UI, inputs and outputs, and resource ownership.
 
 ### Component Functionality
 CameraPreviewModal displays the Training camera experience as a viewport-sized modal without replacing or navigating away from the Training page.
@@ -1957,7 +1934,7 @@ Global consent placement: `frontend/src/App.vue` mounts PrivacyChoicesBanner and
 
 #### Feature Requirements
 
-Login owns credential entry, immediate form validation, OAuth entry, MFA challenge presentation, challenge verification, authenticated user-data initialization, client-side navigation, and user-facing authentication errors. It passes its pending provider, workflow state, and safe workflow message back into LoginForm through the documented parent-controlled props. `LoginForm` composes the feature-owned `RecaptchaField`; `ConfirmLoginForm` collects only the code for the selected backend-offered TOTP, email, or SMS method. The page does not reclassify either form as shared UI. After confirmed password, MFA, or page-owned Google authentication, Login loads the unified authenticated user data into `UserStore` and navigates to History through the client-side router without a full-page reload. Follow the [cross-page authentication and session requirements](../pages-and-routes.md#authentication-and-session) for token lifecycle, authenticated data initialization, refresh, logout, and backend authority.
+Login owns credential entry, immediate form validation, OAuth entry, MFA challenge presentation, challenge verification, authenticated user-data initialization, client-side navigation, and user-facing authentication errors. It passes its pending provider, workflow state, and safe workflow message back into LoginForm through the documented parent-controlled props. `LoginForm` composes the feature-owned `RecaptchaField`; `ConfirmLoginForm` collects only the code for the selected backend-offered TOTP, email, or SMS method. The page does not reclassify either form as shared UI. After confirmed password, MFA, or page-owned Google authentication, Login loads the unified authenticated user data into `UserStore` and navigates to History through the client-side router without a full-page reload. Follow the cross-page authentication and session requirements (`docs/frontend/pages-and-routes.md#authentication-and-session`) for token lifecycle, authenticated data initialization, refresh, logout, and backend authority.
 
 </details>
 
@@ -1996,13 +1973,13 @@ Login owns credential entry, immediate form validation, OAuth entry, MFA challen
 - description: `Dedicated public registration page. Render the RegisterForm with first name, surname, email, optional phone, password, confirm-password, required Terms of Service acceptance, and the RecaptchaField immediately before the primary Create Account action, plus SocialAuthButtons for Google, Facebook, and Apple and an existing-account link to Login. Do not add a separate Privacy Policy checkbox or any other field absent from the component specification and referenced prototype. Social registration requires Terms of Service acceptance before its backend OAuth start request; the optional Privacy Policy acknowledgment is false. When password registration returns its email-verification challenge, replace RegisterForm with ConfirmLoginForm configured for registration. The prototypes alone do not create an account, issue a real reCAPTCHA token, start OAuth, deliver a code, or establish a session.`
 - required shared components: None
 - required feature components: `RegisterForm`, `ConfirmLoginForm`
-- data contract: `POST /api/v1/auth/register` with the form's first name, surname, email, optional phone, password, legal consent, and provider reCAPTCHA token; confirm password is client-only. A successful `201 Created` response returns the created public user fields and an email-verification challenge. Confirm it through `POST /api/v1/auth/registration-challenges/{challengeId}/verify`. After the backend establishes the session, load `GET /api/v1/user/data` into `UserStore` and use client-side router navigation to the existing History route without a full-page reload; see [integration contract examples](../integration-contracts.md#authentication-and-application-session).
+- data contract: `POST /api/v1/auth/register` with the form's first name, surname, email, optional phone, password, legal consent, and provider reCAPTCHA token; confirm password is client-only. A successful `201 Created` response returns the created public user fields and an email-verification challenge. Confirm it through `POST /api/v1/auth/registration-challenges/{challengeId}/verify`. After the backend establishes the session, load `GET /api/v1/user/data` into `UserStore` and use client-side router navigation to the existing History route without a full-page reload; see integration contract examples (`docs/frontend/integration-contracts.md#authentication-and-application-session`).
 - states: idle, validation error, reCAPTCHA required, submit pending, verification required, verification pending, invalid code, expired challenge, conflict, recoverable error, unavailable.
 - dependencies: `AuthStore`, `UserStore`
 
 #### Feature Requirements
 
-Register owns its form validation, required Terms of Service acceptance, provider verification input, OAuth registration entry, registration-verification challenge state, confirmed session handling, authenticated user-data initialization, and navigation to the existing History route. It passes its pending provider, workflow state, and safe workflow message back into RegisterForm through the documented parent-controlled props. The optional backend Privacy Policy acknowledgment remains false because this page does not collect it separately. `RegisterForm` composes the feature-owned `RecaptchaField`; `ConfirmLoginForm` is reused only as the presentation and local-validation boundary for the registration code. The page does not reclassify either component as shared UI and does not reuse the Login MFA endpoint for registration verification. Follow the [cross-page authentication and session requirements](../pages-and-routes.md#authentication-and-session) for session establishment, token handling, and backend authority.
+Register owns its form validation, required Terms of Service acceptance, provider verification input, OAuth registration entry, registration-verification challenge state, confirmed session handling, authenticated user-data initialization, and navigation to the existing History route. It passes its pending provider, workflow state, and safe workflow message back into RegisterForm through the documented parent-controlled props. The optional backend Privacy Policy acknowledgment remains false because this page does not collect it separately. `RegisterForm` composes the feature-owned `RecaptchaField`; `ConfirmLoginForm` is reused only as the presentation and local-validation boundary for the registration code. The page does not reclassify either component as shared UI and does not reuse the Login MFA endpoint for registration verification. Follow the cross-page authentication and session requirements (`docs/frontend/pages-and-routes.md#authentication-and-session`) for session establishment, token handling, and backend authority.
 
 </details>
 
@@ -2042,7 +2019,7 @@ Register owns its form validation, required Terms of Service acceptance, provide
 - description: `Follow the referenced Training HTML prototype for the page title, secondary text, section titles, descriptions, fields, labels, buttons/actions, and all other page-level content. The current prototype contains the camera preview/entry area and Coaching Cue, Connection, and Session panels; it contains no collapsible form sections, so do not invent any. Where the referenced prototype contains collapsible form sections, use the existing CollapseForm Feature Component. The Training page component owns and creates each such form configuration, deriving its title, secondary description, fields, labels, relevant field configuration, buttons/actions, and other required content directly from that prototype. Supply the corresponding CollapseForm instances through their existing title/description props and page-rendered default/footer slots; Training-specific data, configuration, form handling, and actions belong to the page, while CollapseForm remains reusable. Implement all remaining elements directly as page-level DOM/layout matching the prototype; do not extract static sections into new components. Keep the shared Button for Start Training near the camera preview. Preserve the existing camera/full-screen training modal or camera training flow, reusing its implementation without duplicate camera logic or a second training flow. Do not invent fields, buttons, labels, descriptions, states, or components absent from the prototype or explicit project requirements.`
 - required shared components: `Button`
 - required feature components: `CameraPreviewModal`; `CollapseForm` only for collapsible form sections present in the referenced prototype (none in the current prototype).
-- data contract: Create the session with `POST /api/v1/training/sessions/create` before connecting to the backend-issued analysis WebSocket. Finish normally with `POST /api/v1/training/sessions/{sessionId}/complete`; use `POST /api/v1/training/sessions/{sessionId}/abandon` for cancellation or early exit. Bounded automatic reconnect keeps the same session id and stroke sequence, while the backend records the disconnected interval as a pause excluded from active training duration. See [integration contract examples](../integration-contracts.md#training-session-and-analysis-transport).
+- data contract: Create the session with `POST /api/v1/training/sessions/create` before connecting to the backend-issued analysis WebSocket. Finish normally with `POST /api/v1/training/sessions/{sessionId}/complete`; use `POST /api/v1/training/sessions/{sessionId}/abandon` for cancellation or early exit. Bounded automatic reconnect keeps the same session id and stroke sequence, while the backend records the disconnected interval as a pause excluded from active training duration. See integration contract examples (`docs/frontend/integration-contracts.md#training-session-and-analysis-transport`).
 - states: idle, creating session, ready, connecting, live, reconnecting, completing, complete, abandoning, incomplete, recoverable error, unavailable.
 - dependencies: `AuthStore`, `TrainingSessionStore`
 
@@ -2062,16 +2039,16 @@ The frontend may perform lightweight frame capture, resizing, throttling, or for
 
 The frontend orchestrates live training in this order without performing computer-vision inference, stroke recognition, coaching decisions, or Text-to-Speech itself:
 
-1. The user starts training and the frontend creates an authenticated session. See [Training session endpoints — `POST /api/v1/training/sessions/create`](../integration-contracts.md#training-session-endpoints).
+1. The user starts training and the frontend creates an authenticated session. See Training session endpoints — `POST /api/v1/training/sessions/create` (`docs/frontend/integration-contracts.md#training-session-endpoints`).
 2. The response supplies the authoritative `sessionId` and short-lived `analysisWebSocketUrl`; the frontend opens that backend-issued URL and never constructs an analysis host itself.
 3. Camera capture and frame sampling begin only when the training session and socket state permit them.
-4. For each selected frame, the frontend sends the JSON metadata message and then its matching binary JPEG without interleaving another frame pair. See [Live analysis WebSocket — Client-to-server frame message](../integration-contracts.md#client-to-server-frame-message).
+4. For each selected frame, the frontend sends the JSON metadata message and then its matching binary JPEG without interleaving another frame pair. See Live analysis WebSocket — Client-to-server frame message (`docs/frontend/integration-contracts.md#client-to-server-frame-message`).
 5. The backend receives frames over time, performs temporal analysis, and decides internally when enough evidence exists to identify and evaluate a completed stroke. The frontend does not impose a fixed frame count or infer stroke boundaries.
-6. The backend assigns the stroke's `strokeId` and `strokeNumber` and may return one or more `player_feedback` events. Each event provides canonical text feedback and may also include an optional temporary `audioUrl` for backend-generated audio of that text. See [Live analysis WebSocket — Server-to-client `player_feedback` message](../integration-contracts.md#server-to-client-player_feedback-message).
+6. The backend assigns the stroke's `strokeId` and `strokeNumber` and may return one or more `player_feedback` events. Each event provides canonical text feedback and may also include an optional temporary `audioUrl` for backend-generated audio of that text. See Live analysis WebSocket — Server-to-client `player_feedback` message (`docs/frontend/integration-contracts.md#server-to-client-player_feedback-message`).
 7. The frontend validates the event's active `sessionId`, displays the backend-supplied coaching text, and, when audio is enabled and the event includes `audioUrl`, plays the matching audio. It never fabricates missing observations or advice.
 8. When audio is enabled and `audioUrl` is present, the frontend plays that temporary backend-generated resource. It does not generate provider-side TTS, upload coaching audio, or treat temporary audio as persistent session history. Text remains the canonical feedback.
 9. If the socket disconnects, the frontend pauses frame sending and performs a bounded number of automatic reconnection attempts for the same `sessionId`. A successful reconnect resumes the same session and its stroke sequence. The backend records the disconnected interval as a session pause and excludes it from active training duration. The frontend shows an unavailable/disconnected state only after the automatic attempts fail; it never silently creates a new session.
-10. Normal stop ends capture immediately, prevents later frame sends, sends the documented `stop_analysis` message, and completes the session. Early exit abandons the session as incomplete. Permission loss or a transport failure that remains after the bounded reconnect attempts becomes an explicit unavailable/disconnected state rather than silently starting a new session. See [Training session endpoints](../integration-contracts.md#training-session-endpoints) and [Live analysis WebSocket](../integration-contracts.md#live-analysis-websocket).
+10. Normal stop ends capture immediately, prevents later frame sends, sends the documented `stop_analysis` message, and completes the session. Early exit abandons the session as incomplete. Permission loss or a transport failure that remains after the bounded reconnect attempts becomes an explicit unavailable/disconnected state rather than silently starting a new session. See Training session endpoints (`docs/frontend/integration-contracts.md#training-session-endpoints`) and Live analysis WebSocket (`docs/frontend/integration-contracts.md#live-analysis-websocket`).
 
 ##### Audio Output
 
@@ -2117,7 +2094,7 @@ The frontend orchestrates live training in this order without performing compute
 - description: `Follow the Dashboard prototype directly for all page content, sections, containers, text, and visual structure, implemented as page-level DOM/layout. Do not introduce page-specific shared components or extract static sections into reusable components. Keep Session History available as defined in the prototype. Each returned session row opens Session Review using its server-supplied session id. Sidebar, top header, and footer remain provided by the Authentication Layout and are not part of the page sections.`
 - required shared components: None
 - required feature components: None
-- data contract: initial Dashboard aggregates and History items come from `GET /api/v1/user/data`; see [authenticated application data](../integration-contracts.md#authenticated-application-data-and-persisted-user-updates). The page does not issue a separate initial Dashboard request.
+- data contract: initial Dashboard aggregates and History items come from `GET /api/v1/user/data`; see authenticated application data (`docs/frontend/integration-contracts.md#authenticated-application-data-and-persisted-user-updates`). The page does not issue a separate initial Dashboard request.
 - states: loading, empty, success, recoverable error, unavailable.
 - dependencies: `UserStore`
 
@@ -2157,7 +2134,7 @@ The frontend orchestrates live training in this order without performing compute
 - description: `Follow the History HTML/design prototype for all sections and page-level elements. Use the existing BaseTable Feature Component for the Training Sessions table, showing only Date, Duration, Status, and a Review Session action linked to /sessions/:sessionId. Render each Status value with the shared Badge component: Reviewed uses success; Sample and Incomplete use neutral. Keep pagination at the bottom of the section. All other headings, descriptions, containers, surrounding layout, and visual elements remain page-level DOM/layout matching the prototype; do not create additional shared components or extract static sections into reusable components. Do not add fields, filters, controls, actions, states, wrappers, or components absent from the prototype or explicit page-specific Additional Description and Functionality.`
 - required shared components: `Badge`
 - required feature components: `BaseTable`
-- data contract: the initial collection comes from `UserStore.sessionHistory`, populated by `GET /api/v1/user/data`. Items use canonical `durationSeconds`, formatted by the page for display, and explicit `historyStatus` values `reviewed`, `sample`, or `incomplete` for the visible Badge label. `GET /api/v1/training/sessions` returns the same item shape for pagination or explicit refresh and writes its result back to that store section; see [integration contract examples](../integration-contracts.md#session-history-and-session-review).
+- data contract: the initial collection comes from `UserStore.sessionHistory`, populated by `GET /api/v1/user/data`. Items use canonical `durationSeconds`, formatted by the page for display, and explicit `historyStatus` values `reviewed`, `sample`, or `incomplete` for the visible Badge label. `GET /api/v1/training/sessions` returns the same item shape for pagination or explicit refresh and writes its result back to that store section; see integration contract examples (`docs/frontend/integration-contracts.md#session-history-and-session-review`).
 - states: loading, empty, success, recoverable error, unavailable.
 - dependencies: `UserStore`
 
@@ -2199,7 +2176,7 @@ The frontend orchestrates live training in this order without performing compute
 - access: Authenticated; the backend authorizes access to the requested session.
 - route parameters: required `sessionId` opaque identifier. Reject malformed identifiers and show not-found/unauthorized states without leaking whether another user's session exists.
 - navigation destination: Session rows on History and Dashboard link to this route using their returned session ids. Session Review is not a top-level sidebar item; History remains the active navigation section.
-- data contract: `GET /api/v1/training/sessions/{sessionId}/review`; see [frontend integration contract examples](../integration-contracts.md#session-history-and-session-review).
+- data contract: `GET /api/v1/training/sessions/{sessionId}/review`; see frontend integration contract examples (`docs/frontend/integration-contracts.md#session-history-and-session-review`).
 - visual references: [History](../../../prototypes/design/pages/history.html) and [Training Session Card](../../../prototypes/design/components/training-session-card.html). These provide visual cues only; they do not establish data or behavior beyond this entry.
 - state owner: `frontend/src/stores/UserStore.ts`; data access: `frontend/src/services/sessionService.ts`. Route-specific review loading must not create another authoritative history store.
 - states: loading, not found/unauthorized, success, partial/insufficient data, recoverable error, unavailable.
@@ -2240,13 +2217,13 @@ The frontend orchestrates live training in this order without performing compute
 - description: `Required section is the Subscription section, which includes a page heading, a short description, and two main cards: the Subscription Plan Card and the Billing or Plan Management Card. Before a plan is selected, render the larger PaymentCardPlan Feature Component with No selected plan, no price, no status label, no selected styling, and a clear explanation that training services require selecting a plan. Use BillingDetailsCard for the existing billing panel. Change plan reveals the Starter, Performance, and Pro PaymentCardPlan options, with Performance marked Most popular. Manage billing remains page-owned. Do not add a separate comparison-page button or payment-status prototype controls to this page.`
 - required shared components: None
 - required feature components: `PaymentCardPlan`, `BillingDetailsCard`
-- data contract: initial subscription data come from `GET /api/v1/user/data`. Checkout verification, plan changes, and the provider-hosted customer portal remain dedicated operations; see [integration contract examples](../integration-contracts.md#checkout-and-billing).
+- data contract: initial subscription data come from `GET /api/v1/user/data`. Checkout verification, plan changes, and the provider-hosted customer portal remain dedicated operations; see integration contract examples (`docs/frontend/integration-contracts.md#checkout-and-billing`).
 - states: loading, no active subscription, active, pending change, recoverable error, unavailable.
 - dependencies: `UserStore`
 
 #### Feature Requirements
 
-Subscription reads its initial plan and billing presentation from `UserStore.subscription`, with no separate initial status request. It owns plan selection and the page-owned Manage billing action. The provider-hosted payment flow and shared backend boundaries are defined in the [Subscription and Checkout requirements](../pages-and-routes.md#subscription-and-checkout).
+Subscription reads its initial plan and billing presentation from `UserStore.subscription`, with no separate initial status request. It owns plan selection and the page-owned Manage billing action. The provider-hosted payment flow and shared backend boundaries are defined in the Subscription and Checkout requirements (`docs/frontend/pages-and-routes.md#subscription-and-checkout`).
 
 </details>
 
@@ -2285,7 +2262,7 @@ Subscription reads its initial plan and billing presentation from `UserStore.sub
 - description: `Follow the referenced Profile HTML prototype for the page title, secondary text, and the remaining Personal Information section, which uses the existing CollapseForm Feature Component. The Profile page component owns and creates the section's data/configuration, deriving its title, secondary description, fields, labels, relevant configuration, buttons/actions, and any additional content directly from the prototype. Supply the CollapseForm instance through its existing title/description props and page-rendered default/footer slots. Profile-specific values, configuration, form handling, and actions remain in the Profile page; CollapseForm stays reusable. Do not create additional Profile section components unless explicitly required elsewhere. Implement all remaining page-level elements directly as DOM/layout matching the prototype. Do not invent fields, buttons, labels, descriptions, states, or components absent from the prototype or explicit project requirements.`
 - required shared components: None
 - required feature components: `CollapseForm`
-- data contract: initial Personal Information data come from `GET /api/v1/user/data`. The dedicated Personal Information `PATCH` endpoint replaces the normalized `UserStore.personalInformation` section. See [authenticated application data and persisted user updates](../integration-contracts.md#authenticated-application-data-and-persisted-user-updates).
+- data contract: initial Personal Information data come from `GET /api/v1/user/data`. The dedicated Personal Information `PATCH` endpoint replaces the normalized `UserStore.personalInformation` section. See authenticated application data and persisted user updates (`docs/frontend/integration-contracts.md#authenticated-application-data-and-persisted-user-updates`).
 - states: loading, loaded, validation error, save pending, recoverable error, unavailable.
 - dependencies: `UserStore`
 
@@ -2326,7 +2303,7 @@ Subscription reads its initial plan and billing presentation from `UserStore.sub
 - description: `Follow the referenced Settings HTML prototype as the source of truth for the page title, secondary text, and the remaining Account Security · Change Password, Notifications, and Privacy & Data sections. Each collapsible section uses the existing CollapseForm Feature Component. The Settings page owns and creates each section's data/configuration directly from the prototype. Pass only the section title/header and secondary title/description through the existing title and description props. Define and render all section-specific fields, labels, selects, controls, buttons, actions, and other body content in the Settings page, supplying that content through CollapseForm's default slot and its footer slot where appropriate. Field configuration, values, validation, form handling, and action behavior remain owned by the Settings page; do not pass a field schema to CollapseForm or move Settings-specific content or behavior into it. Keep CollapseForm reusable. Do not create separate components for individual Settings sections unless explicitly required elsewhere. Implement all remaining page-level elements directly as DOM/layout matching the prototype. Do not invent fields, controls, buttons, labels, descriptions, states, or components absent from the prototype or explicit project requirements.`
 - required shared components: None
 - required feature components: `CollapseForm`
-- data contract: initial Notifications and Privacy & Data settings come from `GET /api/v1/user/data`. Each independently saved persisted group uses its dedicated `PATCH` endpoint; Change Password, data export, and account deletion remain separate actions. See [authenticated application data and persisted user updates](../integration-contracts.md#authenticated-application-data-and-persisted-user-updates).
+- data contract: initial Notifications and Privacy & Data settings come from `GET /api/v1/user/data`. Each independently saved persisted group uses its dedicated `PATCH` endpoint; Change Password, data export, and account deletion remain separate actions. See authenticated application data and persisted user updates (`docs/frontend/integration-contracts.md#authenticated-application-data-and-persisted-user-updates`).
 - states: loading, loaded, validation error, save pending, recoverable error, unavailable.
 - dependencies: `UserStore`
 
@@ -2406,13 +2383,13 @@ Subscription reads its initial plan and billing presentation from `UserStore.sub
 - description: `The Checkout page renders the Checkout feature component and owns the page-level billing workflow. Checkout composes a selected-plan ChoosePlanCard with Pay with Stripe and Pay with PayPal actions underneath. Its right-hand area renders backend-verified pending/cancelled/failed/expired states through PaymentStatusCard; after verified success it replaces the status card with OrderSummaryCard showing the chosen plan, price, and Paid status. It contains no Payment Information section and never collects raw card details.`
 - required shared components: None
 - required feature components: `Checkout`
-- data contract: provider-hosted checkout start and server-verified return; see [integration contract examples](../integration-contracts.md#checkout-and-billing).
+- data contract: provider-hosted checkout start and server-verified return; see integration contract examples (`docs/frontend/integration-contracts.md#checkout-and-billing`).
 - states: pending, succeeded only after backend verification, cancelled, failed, expired, recoverable error, unavailable.
 - dependencies: `CheckoutStore`
 
 #### Feature Requirements
 
-The Checkout page owns provider selection, redirect to the backend-returned hosted URL, and the page-level handling of return, pending, final, failure, and retry states. The `Checkout` feature adapts that state and composes its focused child cards without taking over requests, redirects, verification, or persisted subscription ownership. The page must obtain backend-verified subscription status rather than infer success from a redirect. Follow the [Subscription and Checkout requirements](../pages-and-routes.md#subscription-and-checkout) and the [billing integration contract](../integration-contracts.md#checkout-and-billing).
+The Checkout page owns provider selection, redirect to the backend-returned hosted URL, and the page-level handling of return, pending, final, failure, and retry states. The `Checkout` feature adapts that state and composes its focused child cards without taking over requests, redirects, verification, or persisted subscription ownership. The page must obtain backend-verified subscription status rather than infer success from a redirect. Follow the Subscription and Checkout requirements (`docs/frontend/pages-and-routes.md#subscription-and-checkout`) and the billing integration contract (`docs/frontend/integration-contracts.md#checkout-and-billing`).
 
 ## Cross-Page Feature Requirements
 

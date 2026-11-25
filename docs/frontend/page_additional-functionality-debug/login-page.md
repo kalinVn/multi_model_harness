@@ -1,24 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/frontend/example-apis/login.md
-- docs/frontend/example-apis/social-auth.md
-- docs/frontend/frontend-project-structure.md
-- docs/frontend/pages-and-routes.md
-- docs/frontend/integration-contracts.md
-- docs/frontend/component_additional-functionality/login-form.md
-
 # Login Page
 
 ## Additional Description and Functionality
@@ -58,7 +37,7 @@ The page must not inspect or reach into the form's local field state. The Login 
 
 ### Scenario 1: Standard Login
 
-The [Login Example API](../example-apis/login.md) documents the isolated Vite debug request and response examples for this scenario. It is not the production authentication contract.
+The Login Example API (`docs/frontend/example-apis/login.md`) documents the isolated Vite debug request and response examples for this scenario. It is not the production authentication contract.
 
 1. Receive the validated `submit` payload from `LoginForm`.
 2. Ignore a duplicate submission while the standard login request is pending.
@@ -71,7 +50,7 @@ The debug implementation must not call a production authentication endpoint or c
 
 ### Scenario 2: Confirm Login Code
 
-The [Login Example API](../example-apis/login.md) defines the loopback-only challenge and verification endpoints. The Vite server retains the short-lived challenge and its local confirmation code in memory; neither value is stored in browser storage or treated as a production credential.
+The Login Example API (`docs/frontend/example-apis/login.md`) defines the loopback-only challenge and verification endpoints. The Vite server retains the short-lived challenge and its local confirmation code in memory; neither value is stored in browser storage or treated as a production credential.
 
 1. Accept only an email or SMS method returned for the active challenge; the primary debug fixture offers email.
 2. Render `ConfirmLoginForm` with the offered method and masked destination hint, while retaining `challengeId` only in page memory.
@@ -84,7 +63,7 @@ The debug page must never display, log, persist, or derive the expected code. Th
 
 ### Scenario 3: Google Authentication Handoff
 
-The [Social Auth Example API](../example-apis/social-auth.md) defines the local HTTP simulation for this page-owned handoff; it is not the production provider flow. This debug-only one-click flow takes precedence over the production SDK render sequence described later in this document.
+The Social Auth Example API (`docs/frontend/example-apis/social-auth.md`) defines the local HTTP simulation for this page-owned handoff; it is not the production provider flow. This debug-only one-click flow takes precedence over the production SDK render sequence described later in this document.
 
 1. Receive exactly one `socialLogin({ provider: 'google' })` event from `LoginForm`.
 2. On that same click, set the page's Google workflow to pending and call the separate `GoogleAuthServiceDebug`. Do not add a second button or alter the component's design-prototype appearance.

@@ -1,19 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/frontend/integration-contracts.md
-
 # Login Example API
 
 ## Example Request
@@ -64,7 +48,7 @@ The method must be one of those offered by Login. A missing or malformed payload
 
 ## Confirm Login Success Response
 
-Successful verification returns HTTP `200` with `success: true` and data for **only the matched user**. The top-level sections mirror the documented [user-data response](../integration-contracts.md#get-user-data); there is no redundant outer `user` object. `bio` is the Profile page's “About me” field. `dashboard.statistics` supplies performance figures, and `sessionHistory.items` supplies dated history without duplicating it in `dashboard`. The response creates no production session or authorization. The example below corresponds to the first fixture:
+Successful verification returns HTTP `200` with `success: true` and data for **only the matched user**. The top-level sections mirror the documented user-data response (`docs/frontend/integration-contracts.md#get-user-data`); there is no redundant outer `user` object. `bio` is the Profile page's “About me” field. `dashboard.statistics` supplies performance figures, and `sessionHistory.items` supplies dated history without duplicating it in `dashboard`. The response creates no production session or authorization. The example below corresponds to the first fixture:
 
 ```json
 {

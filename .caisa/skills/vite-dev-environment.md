@@ -1,20 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/frontend/integration-contracts.md
-- docs/frontend/example-apis/social-auth.md
-
 # Name
 vite-dev-environment
 
@@ -80,11 +63,11 @@ The Vite configuration must:
 
 ## Local Example APIs
 
-When the selected Login preview calls for an example API, implement only the documented mock endpoints in the isolated Vite dev server. The [Login example](../../../docs/frontend/example-apis/login.md) defines `POST /api/login`, example users, responses, and deterministic failure cases; the [social-auth example](../../../docs/frontend/example-apis/social-auth.md) defines its separate mock route. Treat these documents as examples for the debug workspace, never as replacements for `docs/frontend/integration-contracts.md`.
+When the selected Login preview calls for an example API, implement only the documented mock endpoints in the isolated Vite dev server. The Login example (`../../../docs/frontend/example-apis/login.md`) defines `POST /api/login`, example users, responses, and deterministic failure cases; the social-auth example (`../../../docs/frontend/example-apis/social-auth.md`) defines its separate mock route. Treat these documents as examples for the debug workspace, never as replacements for `docs/frontend/integration-contracts.md`.
 
 When the Login example requires confirmation, also implement its documented `POST /api/auth/challenges/{challengeId}/verify` route. Keep each challenge only in server memory, bind it to its matched fictional fixture and offered method, enforce expiry, bounded attempts, and single use, and return no user data before a correct confirmation. The fixed manual-test code remains a local debug fixture: never include it in browser bundles, page props, responses, logs, URLs, or storage. Verify challenge creation, invalid-code retry, successful confirmation, and rejected reuse before reporting the preview ready.
 
-When the selected Register preview calls for an example API, the [Register example](../../../docs/frontend/example-apis/register.md) defines its loopback `POST /api/register` request, response, and deterministic outcomes. Keep it separate from production registration; a successful example result is not a stored account or session.
+When the selected Register preview calls for an example API, the Register example (`../../../docs/frontend/example-apis/register.md`) defines its loopback `POST /api/register` request, response, and deterministic outcomes. Keep it separate from production registration; a successful example result is not a stored account or session.
 
 - Keep routes loopback-only and unavailable from production builds. Do not modify production Vite configuration, authentication services, or application source.
 - Derive multiple fictional users from the example fixtures, but keep their credentials and salted password hashes in server-only local data. Never send the fixture list, hashes, or raw credentials to the browser. A single matched user's projected data may be returned in a documented success case.

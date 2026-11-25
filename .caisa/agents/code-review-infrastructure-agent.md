@@ -1,19 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-- .caisa/skills/workflow-code-review-infrastructure.md
-
-## Available Rules
-
-None
-
-## Available Documents
-
-None
-
 # Name
 code-review-infrastructure-agent
 

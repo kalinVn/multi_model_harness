@@ -1,22 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-- .codex/skill-adapters/frontend-plan-validator/SKILL.md
-- .codex/skills/frontend-plan-validator.md
-- .caisa/skills/rule-frontend-planning.md
-- .caisa/skills/plan-new-frontend.md
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/frontend/frontend.md
-
 # Name
 frontend-plan-validator
 
@@ -25,7 +6,7 @@ Independently validate a proposed new-frontend plan against its original specifi
 
 # Instructions
 
-## Source: .codex/skill-adapters/frontend-plan-validator/SKILL.md
+## Source: `.codex/skill-adapters/frontend-plan-validator/SKILL.md`
 
 ## Frontend Plan Validator
 
@@ -33,7 +14,7 @@ Use the read-only validator contract at repository-root `.caisa/skills/frontend-
 
 Read raw sources independently. Return the structured result without correcting the plan or editing files. A valid result must contain the exact unchanged submitted plan.
 
-## Source: .codex/skills/frontend-plan-validator.md
+## Source: `.codex/skills/frontend-plan-validator.md`
 
 ## Frontend Plan Validator
 
@@ -57,8 +38,8 @@ Read the supplied specification and its required referenced specifications and p
 Read and apply:
 
 - `../../claude/rules/frontend/frontend-design-system.md` — applicable design constraints and source precedence.
-- `./plan-new-frontend.md` — Output Contract, not its self-validation verdict.
-- `../../docs/frontend/frontend.md`, especially its `Project Structure` section, and every authoritative structure document referenced from that section; read only.
+- `.caisa/skills/plan-new-frontend.md` — Output Contract, not its self-validation verdict.
+- `docs/frontend/frontend.md`, especially its `Project Structure` section, and every authoritative structure document referenced from that section; read only.
 
 Respect active project instructions and explicit task requirements. For product and design decisions, the supplied specification takes priority over its prototype and shared design defaults, as documented in the planning skill and design rules. Do not promote example token values or optional patterns into mandatory requirements. If applicable sources contradict one another and no explicit precedence or override resolves the conflict, report an error citing both sources.
 
@@ -77,7 +58,7 @@ Map each applicable specification requirement to its plan section or item. Check
 - **Pages and layouts:** all required screens, sections, states, layouts, shared navigation, and content structure are represented; each page's layout exists and its consumers agree.
 - **Routes and access:** paths, parameters, page/layout targets, public/protected access, redirects, unknown-route behavior, and navigation visibility match the specification. Visibility is not authorization. Detect duplicate or conflicting routes and dangling targets.
 - **Components:** required shared patterns and feature components are covered, consumers resolve, responsibilities do not overlap unnecessarily, and variants, states, and data requirements are adequate. Do not demand components merely listed as examples in skills.
-- **Ownership and project structure:** the plan resolves structure authority through `frontend.md` without copying it, and its concrete page/component ownership, support files, service boundaries, and state boundaries comply with every referenced structure source. Check relevant prototype organization examples only when `frontend.md` names them as structural guidance. Reject a frontend `modules/` feature-root layer, but do not apply that restriction to backend organization. Do not require placeholder folders or an alternative directory tree.
+- **Ownership and project structure:** the plan resolves structure authority through `docs/frontend/frontend.md` without copying it, and its concrete page/component ownership, support files, service boundaries, and state boundaries comply with every referenced structure source. Check relevant prototype organization examples only when `docs/frontend/frontend.md` names them as structural guidance. Reject a frontend `modules/` feature-root layer, but do not apply that restriction to backend organization. Do not require placeholder folders or an alternative directory tree.
 - **Design and prototypes:** the plan carries the applicable visual direction, reusable tokens, interaction states, responsive behavior and accessibility requirements from authoritative specifications and records the required prototype mappings. Do not require detailed prototype UI implementation analysis at planning time. Structural prototype inspection supports ownership and grouping only and is not rendered or pixel-level verification.
 - **Dependencies and build order:** references resolve to planned work, existing verified resources, or explicitly identified external dependencies; prerequisites precede consumers and there are no cycles or contradictory ownership. Required integration, tests, and acceptance checks are scheduled. Missing implementation files are expected before building and are not themselves errors.
 - **Missing requirements and boundaries:** cover all applicable functional and nonfunctional requirements, including frontend/backend responsibilities. Flag invented APIs or data, omitted acceptance criteria, unresolved mandatory decisions, and blockers that prevent safe execution.

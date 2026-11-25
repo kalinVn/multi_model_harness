@@ -1,23 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/frontend/pages-and-routes.md
-- docs/frontend/integration-contracts.md
-- docs/frontend/component_additional-functionality/login-form.md
-- docs/frontend/example-apis/login.md
-- docs/frontend/example-apis/social-auth.md
-
 # Login Page
 
 ## Additional Description and Functionality

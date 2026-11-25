@@ -1,24 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-- .caisa/skills/workflow-setup-infrastructure.md
-- .caisa/skills/workflow-setup-production.md
-- .caisa/skills/workflow-manage-kubernetes.md
-- .caisa/skills/workflow-testing-infrastructure.md
-- .caisa/skills/workflow-code-review-infrastructure.md
-- .caisa/skills/workflow-verification-infrastructure.md
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/infrastucture/docker/docker.md
-
 # Name
 workflow-manage-devops
 

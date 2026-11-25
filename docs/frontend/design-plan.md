@@ -1,22 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-- AGENTS.md
-
-## Available Documents
-
-- docs/frontend/frontend.md
-- docs/frontend/shared-ui-components.md
-- docs/frontend/feature-components.md
-- docs/frontend/frontend-project-structure.md
-
 # Tennis AI Coach — Frontend Design Plan
 
 ## Frontend Type
@@ -31,7 +12,7 @@ None
 - Shared rules: `claude/rules/frontend/frontend-design-system.md`.
 - Existing application: `frontend/index.html` contains only `test 2`. No Vue source, package manifest, application tests, or backend application files were found in the inspected repository. Existing uncommitted content must be preserved when implementation begins.
 - The available `codex/workflows/` files concern infrastructure; none is needed for this design-only task. Any later infrastructure change must load its relevant workflow first.
-- Use Vue 3, JavaScript, Vue Router, and Vite. The frontend specification explicitly overrides the general AGENTS.md TypeScript default. Retain Pinia under the repository stack agreement; do not add another state library. `UserStore` is the single authoritative frontend store for persisted authenticated application data, while unsaved drafts and transient UI/device state stay local.
+- Use Vue 3, JavaScript, Vue Router, and Vite. The frontend specification explicitly overrides the general `AGENTS.md` TypeScript default. Retain Pinia under the repository stack agreement; do not add another state library. `UserStore` is the single authoritative frontend store for persisted authenticated application data, while unsaved drafts and transient UI/device state stay local.
 - Affected domains: public UI, authentication UI/session navigation, dashboard, training/media/analysis transport, session review/history, subscription and checkout UI, and account preferences. Backend inference, coaching decisions, identity authority, persistence, and billing authority remain external dependencies.
 
 ## Design Foundation
@@ -121,11 +102,11 @@ Only patterns required by the specification and reused across pages/layouts are 
 
 ### Current Button and Plan-Card Ownership
 
-Follow [Button](shared-ui-components.md#button) and [PaymentCardPlan](feature-components.md#paymentcardplan) as the single contract source. Start Training and Save are Button labels/usages, not components. Button emits `click` with the DOM event; no callback/onAction prop, business logic, store/API access or navigation policy belongs inside it. `type` supports button/submit/reset, and disabled/loading both prevent activation. There is no existing `to`/RouterLink mode; navigation stays with the owning handler or existing link component.
+Follow Button (`docs/frontend/shared-ui-components.md#button`) and PaymentCardPlan (`docs/frontend/feature-components.md#paymentcardplan`) as the single contract source. Start Training and Save are Button labels/usages, not components. Button emits `click` with the DOM event; no callback/onAction prop, business logic, store/API access or navigation policy belongs inside it. `type` supports button/submit/reset, and disabled/loading both prevent activation. There is no existing `to`/RouterLink mode; navigation stays with the owning handler or existing link component.
 
 Plan `frontend/src/components/buttons/Button.vue` with `frontend/src/composables/ButtonController.ts`, adapting the inspected `useButtonController` UI behavior. Reuse the existing PaymentCardPlan contract for Subscription; `selected` defaults to false and only changes presentation. BillingDetailsCard owns the separate existing billing panel, with page-handled actions. Checkout retains its distinct ChoosePlanCard summary; no display-prop consolidation with that summary is required. Prototype implementations and entries are linked from the shared and feature component specifications.
 
-For E8, map CameraPreviewModal's external UI behavior and media ownership exactly as documented in [CameraPreviewModal](feature-components.md#camerapreviewmodal): `src/composables/useCameraPreviewModal.ts` owns modal UI/attachment/mute/feedback/closure; `useCameraSession.ts` owns tracks; `useVideoAnalysis.ts` owns capture and cancellation; `src/services/trainingTransport.ts` owns transport. These are future implementation placements, not completed code changes.
+For E8, map CameraPreviewModal's external UI behavior and media ownership exactly as documented in CameraPreviewModal (`docs/frontend/feature-components.md#camerapreviewmodal`): `src/composables/useCameraPreviewModal.ts` owns modal UI/attachment/mute/feedback/closure; `useCameraSession.ts` owns tracks; `useVideoAnalysis.ts` owns capture and cancellation; `src/services/trainingTransport.ts` owns transport. These are future implementation placements, not completed code changes.
 
 ## Required Feature Components
 
@@ -178,7 +159,7 @@ Use a safe redirect to `/` for unknown routes; a separate not-found page is not 
 
 ## Build Order
 
-1. Establish only the structure defined by [Frontend Project Structure](frontend-project-structure.md). Preserve the existing placeholder and unrelated changes; create directories only when implementation requires them.
+1. Establish only the structure defined by Frontend Project Structure (`docs/frontend/frontend-project-structure.md`). Preserve the existing placeholder and unrelated changes; create directories only when implementation requires them.
 2. Implement tokens, typography, base accessibility, shared UI, and the two layouts. This is the first visual review milestone.
 3. Compose Landing, Login and Registration with the proposed dedicated routes. Add the full route map and session-aware shell before linking protected flows. Represent missing services explicitly; never fake login success.
 4. Compose Dashboard and Training initial/empty/unavailable states. Implement real browser camera lifecycle and control transitions. This is the first usable camera milestone, independent of live analysis availability.
@@ -204,7 +185,7 @@ Backend contracts may be prepared in parallel with UI implementation, but functi
 
 ### Inputs needed for integration, not for initial design work
 
-- Authentication/session and password policies. AGENTS.md requires Google, Apple and 2FA support at the system level, while the frontend specification only details email/password forms. Confirm their frontend entry points and challenge/callback behavior through a specification update before claiming complete authentication coverage; do not fabricate provider actions.
+- Authentication/session and password policies. `AGENTS.md` requires Google, Apple and 2FA support at the system level, while the frontend specification only details email/password forms. Confirm their frontend entry points and challenge/callback behavior through a specification update before claiming complete authentication coverage; do not fabricate provider actions.
 - Analysis/session transport schemas, accepted frame format/rate/size, timestamps, confidence/expiry rules, coordinate system, reconnection and session completion semantics.
 - Session/history result schemas and optional analyzed-moment media access.
 - Supported profile/settings fields and privacy/data-handling behavior.
@@ -215,7 +196,7 @@ The only immediate optional user choice is authentication presentation. The defa
 
 ## Planning Validation
 
-- All required pages and routes, both layouts, and the documented feature areas are represented using the canonical [Frontend Project Structure](frontend-project-structure.md).
+- All required pages and routes, both layouts, and the documented feature areas are represented using the canonical Frontend Project Structure (`docs/frontend/frontend-project-structure.md`).
 - All specified feature components are accounted for, without inventing a payment modal or extra feature component families.
 - Shared patterns have multiple consumers; loading/error/confirmation patterns share one component family.
 - Prototype palette, typography, hierarchy, media prominence, form styling and subscription-plan composition are represented; omissions and simulated data are explicitly corrected by specification requirements.

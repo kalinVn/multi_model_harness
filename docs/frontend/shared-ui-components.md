@@ -1,19 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-None
-
 CSS in the prototype Vue components is for visual reference only; production styles may live outside components and use shared design tokens.
 
 # Shared UI Components

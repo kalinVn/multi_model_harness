@@ -1,21 +1,3 @@
-## Available Agents
-
-- .caisa/agents/new-frontend-orchestrator.md
-
-## Available Skills
-
-- .caisa/skills/rule-frontend-planning.md
-- .caisa/skills/plan-new-frontend.md
-- .caisa/skills/frontend-plan-validator.md
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/frontend/frontend-project-structure.md
-
 # Name
 build_frontend
 

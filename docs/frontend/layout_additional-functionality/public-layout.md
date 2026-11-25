@@ -1,21 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/frontend/layouts.md
-- docs/frontend/frontend.md
-- docs/frontend/feature-components.md
-
 # Public Layout
 
 ## Additional Description and Functionality

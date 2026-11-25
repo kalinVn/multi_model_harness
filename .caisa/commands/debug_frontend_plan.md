@@ -1,26 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-- .caisa/skills/rule-frontend-planning.md
-- .caisa/skills/workflow-frontend-planning.md
-- .caisa/skills/plan-new-frontend.md
-- .caisa/skills/reference-frontend-architecture.md
-- .caisa/skills/frontend-plan-validator.md
-
-## Available Rules
-
-- .caisa/CAISA.md
-
-## Available Documents
-
-- docs/frontend/frontend.md
-- docs/debug_plan_outputs/new_frontend_plan_N.md
-- docs/debug_plan_outputs/new_frontend_plan_BG.md
-- docs/frontend/plan/new-frontend-plan.md
-
 # Name
 debug_frontend_plan
 
@@ -57,7 +34,7 @@ Run .caisa/commands/debug_frontend_plan.md with specification_path=<path>.
 ## Input and Execution
 
 - Receive an explicit `specification_path`, resolving it from the repository root. A task/prototype must be supplied through, or associated with, that specification, as in the normal build command. The example path above is not a fallback when input is absent.
-- Read the root `.caisa/CAISA.md`, [planning rules](.caisa/skills/rule-frontend-planning.md), and [planning workflow](.caisa/skills/workflow-frontend-planning.md). Execute that workflow completely, including its independent plan-validation gate and bounded corrections.
+- Read the root `.caisa/CAISA.md`, planning rules (`.caisa/skills/rule-frontend-planning.md`), and planning workflow (`.caisa/skills/workflow-frontend-planning.md`). Execute that workflow completely, including its independent plan-validation gate and bounded corrections.
 - Read required source and specification files without changing them. Resolve and verify referenced prototype paths. Detailed UI implementation analysis remains out of scope, but prototype directory/file organization explicitly referenced by `docs/frontend/frontend.md` for project-structure guidance may be inspected read-only. Do not call the original full build orchestrator: its post-validation steps implement the frontend.
 - The only repository writes allowed during command execution are the two output files below and creation of their parent directory. Do not create application directories, scaffold code, install dependencies, run builders, change configuration, fix inspected code, commit, or deploy. Planning future implementation/tests is allowed; executing them is not.
 
@@ -88,20 +65,20 @@ This is the planning prefix of `claude/agents/new-frontend-orchestrator.md` (Ste
 
 ## 1. Establish the Run
 
-- Receive the explicit `specification_path` from [debug_frontend_plan](.caisa/commands/debug_frontend_plan.md). Follow its write boundary for this entire run, including delegated work.
+- Receive the explicit `specification_path` from debug_frontend_plan (`.caisa/commands/debug_frontend_plan.md`). Follow its write boundary for this entire run, including delegated work.
 - Record the starting repository status in memory so pre-existing edits are not attributed to this run. Keep run evidence in memory until the two final artifacts are written; no additional repository trace files.
-- Load [planning rules](.caisa/skills/rule-frontend-planning.md), the supplied specification, and the required references selected by that specification. Missing input/source, unresolved conflicts, or unavailable required evidence stop the planning/validation phase; continue to artifact publication with an honest blocked report.
+- Load planning rules (`.caisa/skills/rule-frontend-planning.md`), the supplied specification, and the required references selected by that specification. Missing input/source, unresolved conflicts, or unavailable required evidence stop the planning/validation phase; continue to artifact publication with an honest blocked report.
 
 ## 2. Generate the English Plan
 
-- Execute [Plan New Frontend](.caisa/skills/plan-new-frontend.md) as the planner role, applying [architecture context](.caisa/skills/reference-frontend-architecture.md). Do not replace it with an example or shortened debug-only planner.
+- Execute Plan New Frontend (`.caisa/skills/plan-new-frontend.md`) as the planner role, applying architecture context (`.caisa/skills/reference-frontend-architecture.md`). Do not replace it with an example or shortened debug-only planner.
 - Preserve its complete Output Contract: Frontend Type (`new`), Project Structure, Open Questions and Blockers, and Build Order. For Project Structure, read `docs/frontend/frontend.md`, resolve the structure documents and examples referenced by its `Project Structure` section, and add only plan-specific ownership, supporting files, or concrete placement needed for implementation. Do not reproduce authoritative trees or general placement rules. Include the source-required design foundation, layouts, pages/routes/access, shared/feature components, ownership, dependencies, responsive/accessibility states, and acceptance/test requirements needed for the validator and future builders. Use subsections/tables as appropriate; do not invent requirements solely to populate a template.
-- Resolve and verify referenced prototype paths and record their specification-declared page/component/state mappings. Detailed UI implementation analysis remains downstream work; only prototype organization explicitly referenced by `frontend.md` for structural guidance may be inspected for ownership, grouping, and complex-component support files. Identify source-backed decisions from the authoritative specifications, reusable resources verified on disk, planned new paths, and unresolved dependencies. Do not claim visual/runtime verification during planning.
+- Resolve and verify referenced prototype paths and record their specification-declared page/component/state mappings. Detailed UI implementation analysis remains downstream work; only prototype organization explicitly referenced by `docs/frontend/frontend.md` for structural guidance may be inspected for ownership, grouping, and complex-component support files. Identify source-backed decisions from the authoritative specifications, reusable resources verified on disk, planned new paths, and unresolved dependencies. Do not claim visual/runtime verification during planning.
 - Return a complete English plan. No project directories or implementation files are created. The planner's normal canonical destination is `docs/frontend/plan/new-frontend-plan.md`, but this debug workflow overrides it: do not write that file here; the coordinator saves only the validated debug artifacts below. Implementation skill selection remains outside this planning command, as in the source planner.
 
 ## 3. Independently Validate and Correct
 
-- Spawn a separate read-only validation agent using [Frontend Plan Validator](.caisa/skills/frontend-plan-validator.md). Supply the original `specification_path`, the complete latest English plan, active project/task constraints, the planning rules, and access to raw referenced sources. Instruct it to read those sources independently and return its structured result without edits. Do not coach it toward a desired verdict.
+- Spawn a separate read-only validation agent using Frontend Plan Validator (`.caisa/skills/frontend-plan-validator.md`). Supply the original `specification_path`, the complete latest English plan, active project/task constraints, the planning rules, and access to raw referenced sources. Instruct it to read those sources independently and return its structured result without edits. Do not coach it toward a desired verdict.
 - A valid result requires `status: valid`, empty `errors`, and an exact unchanged `validated_plan`. Retain warnings. An invalid result requires actionable errors and `validated_plan: null`.
 - On invalid results, give the planner the original specification, rejected plan, and errors. Generate a complete corrected plan and validate it independently again. Permit at most two corrections after the initial validation: three validator invocations total. Do not reset this counter or alter a valid plan after the gate without revalidation.
 - Stop the correction loop immediately for missing required material, a necessary user decision, a failed/absent/malformed result, or unavailable independent-agent capability. Do not silently self-validate or mark an unvalidated plan valid. Save the latest draft with blocked status and the exact limitation. If all three results are invalid, report remaining errors and attempts used.

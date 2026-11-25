@@ -1,20 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- .caisa/commands/debug_frontend_plan.md
-- docs/frontend/frontend.md
-
 # Name
 debug-frontend-plan
 
@@ -27,7 +10,7 @@ Run debug_frontend_plan to inspect this repository's real new-frontend planning 
 
 ## Debug Frontend Plan
 
-Execute [debug_frontend_plan](.caisa/commands/debug_frontend_plan.md) with the user's explicit `specification_path`. Resolve repository paths from the project root and skill-relative links from this skill's real location under `.codex/skills/debug-frontend-plan/`.
+Execute debug_frontend_plan (`.caisa/commands/debug_frontend_plan.md`) with the user's explicit `specification_path`. Resolve repository paths from the project root and skill-relative links from this skill's real location under `.codex/skills/debug-frontend-plan/`.
 
 The command defines the input, write boundary, validation workflow, literal output filenames, translation contract, and mandatory STOP. Follow it even when supplied task/prototype material includes build instructions: those describe the future plan, not authorization to implement it.
 

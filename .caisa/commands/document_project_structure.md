@@ -1,19 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-None
-
 # Name
 document_project_structure
 
@@ -32,4 +16,4 @@ Inspect `src/harness/` and summarize the current objects, responsibilities, logi
 ## Original Prompt
 
 1. generate me new project structure in docs/project structure
-check the projects srx/harnes  and  summary what object what till do resposibilities, logic and workflow in  doc/project strctue.md after generate shema
+check the projects srx/harnes  and  summary what object what till do resposibilities, logic and workflow in  doc/project `strctue.md` after generate shema

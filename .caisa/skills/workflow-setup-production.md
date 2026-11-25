@@ -1,21 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-- .caisa/skills/workflow-manage-devops.md
-- .caisa/skills/workflow-manage-kubernetes.md
-- .caisa/skills/workflow-setup-infrastructure.md
-
-## Available Rules
-
-- .caisa/CAISA.md
-
-## Available Documents
-
-None
-
 # Name
 workflow-setup-production
 

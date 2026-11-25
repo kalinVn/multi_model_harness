@@ -1,19 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-- .caisa/skills/workflow-manage-kubernetes.md
-
-## Available Rules
-
-None
-
-## Available Documents
-
-None
-
 # Name
 kubernetes-agent
 

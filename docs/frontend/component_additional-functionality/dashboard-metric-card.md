@@ -1,20 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/frontend/feature-components.md
-- docs/frontend/shared-ui-components.md
-
 # DashboardMetricCard
 
 ## Additional Description and Functionality

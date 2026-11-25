@@ -1,20 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/frontend/pages-and-routes.md
-- docs/frontend/frontend.md
-
 # Name
 frontend-routing
 

@@ -1,19 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-- .caisa/skills/workflow-setup-infrastructure.md
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- docs/infrastucture/docker/docker.md
-
 # Name
 configure-docker-mounts
 

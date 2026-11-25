@@ -1,19 +1,3 @@
-## Available Agents
-
-None
-
-## Available Skills
-
-None
-
-## Available Rules
-
-None
-
-## Available Documents
-
-- .caisa/commands/frontend_debug_component_builder.md
-
 # Name
 frontend-debug-component-builder
 
@@ -26,7 +10,7 @@ Plan and independently validate a new frontend, then build only components selec
 
 ## Frontend Debug Component Builder
 
-Execute [frontend_debug_component_builder](.caisa/commands/frontend_debug_component_builder.md) with the user's explicit `specification_path`.
+Execute frontend_debug_component_builder (`.caisa/commands/frontend_debug_component_builder.md`) with the user's explicit `specification_path`.
 
 The command owns planning and validation coordination. Frontend Component Builder Debug owns component selection and implementation. Vite Dev Environment owns dependency, test, build, preview, health, and URL verification.
 
